@@ -1,0 +1,1274 @@
+// Schema Prisma per CRM Immobiliare
+// Generatore client Prisma
+generator client {
+  provider = "prisma-client-js"
+}
+
+// Configurazione database PostgreSQL
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// Enum per tipologie
+enum UserRole {
+  SUPER_ADMIN
+  AGENCY_ADMIN
+  AGENT
+  COLLABORATOR
+}
+
+enum InternalUserRole {
+  OWNER
+  OPS_ADMIN
+  SUPPORT
+  BILLING
+}
+
+enum PropertyType {
+  APARTMENT
+  HOUSE
+  VILLA
+  OFFICE
+  SHOP
+  WAREHOUSE
+  LAND
+  GARAGE
+  OTHER
+}
+
+enum PropertyStatus {
+  AVAILABLE
+  RESERVED
+  SOLD
+  RENTED
+  WITHDRAWN
+}
+
+enum ContractType {
+  SALE
+  RENT
+  BOTH
+}
+
+enum ContactType {
+  BUYER
+  SELLER
+  TENANT
+  LANDLORD
+  LEAD
+}
+
+enum RequestStatus {
+  ACTIVE
+  PAUSED
+  CLOSED
+  EXPIRED
+}
+
+enum AppointmentStatus {
+  SCHEDULED
+  CONFIRMED
+  COMPLETED
+  CANCELLED
+  NO_SHOW
+}
+
+enum ActivityType {
+  CALL
+  EMAIL
+  MEETING
+  VIEWING
+  NOTE
+  TASK
+}
+
+enum CampaignType {
+  EMAIL
+  SMS
+  WHATSAPP
+  MIXED
+}
+
+enum CampaignStatus {
+  DRAFT
+  SCHEDULED
+  RUNNING
+  COMPLETED
+  CANCELLED
+}
+
+enum PortalConfigType {
+  CENTRALIZZATO
+  PER_AGENZIA
+}
+
+enum PortalConfigStatus {
+  INACTIVE
+  ACTIVE
+}
+
+enum AgencyStatus {
+  PENDING_PROVISIONING
+  ACTIVE
+  SUSPENDED
+  CANCELED
+}
+
+enum OnboardingStatus {
+  PENDING
+  IN_PROGRESS
+  COMPLETED
+}
+
+enum InstanceStatus {
+  NONE
+  PROVISIONING
+  READY
+  ERROR
+  DECOMMISSIONED
+}
+
+enum SubscriptionStatus {
+  ACTIVE
+  PAST_DUE
+  TRIALING
+  CANCELED
+}
+
+enum TicketStatus {
+  OPEN
+  IN_PROGRESS
+  DONE
+  BLOCKED
+}
+
+enum TicketSenderType {
+  AGENCY
+  STAFF
+}
+
+enum PortalActivationStatus {
+  OPEN
+  IN_PROGRESS
+  COMPLETED
+  BLOCKED
+}
+
+enum ImmoSyncStatus {
+  NOT_SYNCED
+  SYNCED
+  ERROR
+}
+
+enum ApimoPushStatus {
+  NOT_SYNCED
+  SYNCED
+  ERROR
+}
+
+enum ApimoEntityType {
+  AGENCY
+  USER
+  CONTACT
+  PROPERTY
+  REQUEST
+  RESIDENCE
+  LEAD
+  CATALOG
+  ACTION
+}
+
+enum ZoneImportStatus {
+  PENDING
+  RUNNING
+  SUCCESS
+  FAILED
+}
+
+enum ZoneAssignmentType {
+  GROUP
+  STREET
+}
+
+enum ZoneWorkEntryType {
+  NOTE
+  STATUS
+  STATISTICS
+  HANDOVER
+}
+
+enum ListingSnapshotStatus {
+  SUCCESS
+  PARTIAL
+  FAILED
+}
+
+enum ListingActionType {
+  CALL
+  VISIT_SET
+  RECALL
+  NOTE
+  STATUS
+  HANDOVER
+}
+
+enum ZoneStreetListingStatus {
+  NEW
+  IN_PROGRESS
+  CONTACTED
+  VISIT_BOOKED
+  CLOSED
+  DISMISSED
+}
+
+// Modello Agenzia
+model Agency {
+  id          String   @id @default(cuid())
+  slug        String?  @unique
+  name        String
+  email       String   @unique
+  phone       String?
+  address     String?
+  city        String?
+  province    String?
+  zipCode     String?
+  vatNumber   String?  @unique
+  website     String?
+  logo        String?
+  publicBaseUrl String?
+  giAgencyId  Int?     @unique
+  immoUsername String?
+  immoPassword String?
+  immoSource   String?
+  immoEndpoint String?
+  apimoProvider String?
+  apimoToken    String?
+  apimoAgencyId String?
+  apimoLastPullTimestamp Int?
+  isActive    Boolean  @default(true)
+  status      AgencyStatus @default(ACTIVE)
+  onboardingStatus OnboardingStatus @default(PENDING)
+  onboardingStep    Int?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relazioni
+  users         User[]
+  properties    Property[]
+  contacts      Contact[]
+  requests      Request[]
+  appointments  Appointment[]
+  activities    Activity[]
+  campaigns     Campaign[]
+  apimoRecords  ApimoRecord[]
+  notifications Notification[]
+  matchFeedbacks MatchFeedback[]
+  portalConfigs PortalConfig[]
+
+  instances     Instance[]
+  subscriptions Subscription[]
+
+  agentZones AgentZone[]
+  zoneImportJobs ZoneImportJob[]
+  zoneAssignments ZoneAssignment[]
+  zoneStreets ZoneStreet[]
+  zoneStreetGroups ZoneStreetGroup[]
+  zoneWorkLogs ZoneGroupWorkLog[]
+  zoneStreetWorkLogs ZoneStreetWorkLog[]
+  zoneStreetMarketSnapshots ZoneStreetMarketSnapshot[]
+  zoneStreetListingSnapshots ZoneStreetListingSnapshot[]
+  zoneStreetListings ZoneStreetListing[]
+  zoneStreetListingActions ZoneStreetListingAction[]
+  zoneStreetListingAssignmentHistory ZoneStreetListingAssignmentHistory[]
+
+  tickets                 Ticket[]
+  portalActivationRequests PortalActivationRequest[]
+
+  @@index([status])
+  @@map("agencies")
+}
+
+model Ticket {
+  id          String       @id @default(cuid())
+  agencyId    String
+  type        String
+  status      TicketStatus @default(OPEN)
+  subject     String
+  createdById String?
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+
+  agency    Agency         @relation(fields: [agencyId], references: [id], onDelete: Cascade)
+  createdBy User?          @relation("TicketCreatedBy", fields: [createdById], references: [id])
+  messages  TicketMessage[]
+
+  @@index([agencyId, status])
+  @@map("tickets")
+}
+
+model TicketMessage {
+  id         String           @id @default(cuid())
+  ticketId   String
+  senderType TicketSenderType
+  message    String
+  createdAt  DateTime         @default(now())
+
+  ticket Ticket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+
+  @@index([ticketId, createdAt])
+  @@map("ticket_messages")
+}
+
+model PortalActivationRequest {
+  id           String                 @id @default(cuid())
+  agencyId     String
+  portalId     String
+  status       PortalActivationStatus @default(OPEN)
+  assignedToId String?
+  notes        String?
+  createdAt    DateTime               @default(now())
+  updatedAt    DateTime               @updatedAt
+
+  agency     Agency @relation(fields: [agencyId], references: [id], onDelete: Cascade)
+  assignedTo User?  @relation("PortalActivationAssignedTo", fields: [assignedToId], references: [id])
+
+  @@index([agencyId, portalId, status])
+  @@map("portal_activation_requests")
+}
+
+model Instance {
+  id                     String          @id @default(cuid())
+  agencyId               String
+  slug                   String          @unique
+  baseUrl                String?
+  status                 InstanceStatus  @default(NONE)
+  orchestratorReference  String?
+  createdAt              DateTime        @default(now())
+  updatedAt              DateTime        @updatedAt
+
+  agency Agency @relation(fields: [agencyId], references: [id], onDelete: Cascade)
+
+  @@index([agencyId])
+  @@index([status])
+  @@map("instances")
+}
+
+model Subscription {
+  id                   String              @id @default(cuid())
+  agencyId             String
+  stripeCustomerId     String?
+  stripeSubscriptionId String?
+  planCode             String
+  status               SubscriptionStatus  @default(ACTIVE)
+  currentPeriodEnd     DateTime?
+  createdAt            DateTime            @default(now())
+  updatedAt            DateTime            @updatedAt
+
+  agency Agency @relation(fields: [agencyId], references: [id], onDelete: Cascade)
+
+  @@index([agencyId])
+  @@index([status])
+  @@map("subscriptions")
+}
+
+model PortalConfig {
+  portalId  String
+  agencyId  String
+  type      PortalConfigType   @default(PER_AGENZIA)
+  status    PortalConfigStatus @default(INACTIVE)
+  active    Boolean            @default(false)
+  settings  Json?
+  createdAt DateTime           @default(now())
+  updatedAt DateTime           @updatedAt
+
+  agency Agency @relation(fields: [agencyId], references: [id], onDelete: Cascade)
+
+  @@id([portalId, agencyId])
+  @@index([agencyId, active])
+  @@map("portal_configs")
+}
+
+model PortalSyncLog {
+  id             String   @id @default(cuid())
+  portalId       String
+  propertyId     String?
+  operation      String
+  status         String
+  message        String?
+  payloadSnippet String?
+  createdAt      DateTime @default(now())
+
+  property Property? @relation(fields: [propertyId], references: [id], onDelete: SetNull)
+
+  @@index([portalId, status, createdAt])
+  @@index([propertyId, createdAt])
+  @@map("portal_sync_logs")
+}
+
+model PortalLog {
+  id        String   @id @default(cuid())
+  portalId  String
+  operation String
+  status    String
+  message   String?
+  createdAt DateTime @default(now())
+
+  @@index([portalId, createdAt])
+  @@map("portal_logs")
+}
+
+model GlobalPortalSecret {
+  portalId  String   @id
+  data      String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("global_portal_secrets")
+}
+
+// Modello Utente
+model User {
+  id          String   @id @default(cuid())
+  email       String   @unique
+  password    String
+  firstName   String
+  lastName    String
+  phone       String?
+  avatar      String?
+  role        UserRole @default(AGENT)
+  isActive    Boolean  @default(true)
+  mustChangePassword Boolean @default(false)
+  lastLoginAt DateTime?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relazioni
+  agencyId    String
+  agency      Agency   @relation(fields: [agencyId], references: [id], onDelete: Cascade)
+  
+  properties  Property[]
+  contacts    Contact[]
+  requests    Request[]
+  appointments Appointment[]
+  activities  Activity[]
+  campaigns   Campaign[]
+  matchFeedbacks MatchFeedback[]
+
+  notifications Notification[]
+
+  ticketsCreated Ticket[] @relation("TicketCreatedBy")
+  portalActivationRequestsAssigned PortalActivationRequest[] @relation("PortalActivationAssignedTo")
+
+  zones AgentZone[]
+  zoneAssignments ZoneAssignment[]
+  zoneWorkLogs ZoneGroupWorkLog[]
+  zoneStreetWorkLogs ZoneStreetWorkLog[]
+  zoneStreetListingActions ZoneStreetListingAction[]
+  zoneStreetListingAssignmentHistoryFrom ZoneStreetListingAssignmentHistory[] @relation("ZoneStreetListingAssignmentFrom")
+  zoneStreetListingAssignmentHistoryTo ZoneStreetListingAssignmentHistory[] @relation("ZoneStreetListingAssignmentTo")
+
+  @@map("users")
+}
+
+// Modello Immobile
+model Property {
+  id            String        @id @default(cuid())
+  giListingId    Int          @unique @default(autoincrement())
+  immoTypologyId Int?
+  immoListingId  Int?
+  immoSyncStatus ImmoSyncStatus @default(NOT_SYNCED)
+  immoLastSyncAt DateTime?
+  immoLastError  String?
+  immoLastRequestId String?
+  apimoPropertyId String?
+  apimoPushStatus ApimoPushStatus @default(NOT_SYNCED)
+  apimoLastPushAt DateTime?
+  apimoLastPushError String?
+  title         String
+  description   String?
+  type          PropertyType
+  contractType  ContractType
+  status        PropertyStatus @default(AVAILABLE)
+  
+  // Dati ubicazione
+  address       String
+  city          String
+  province      String
+  zipCode       String
+  giComuneIstat String?
+  latitude      Float?
+  longitude     Float?
+  
+  // Caratteristiche
+  rooms         Int?
+  bedrooms      Int?
+  bathrooms     Int?
+  surface       Float?        // mq
+  garden        Float?        // mq giardino
+  terrace       Float?        // mq terrazzo
+  balcony       Float?        // mq balcone
+  parking       Int?          // posti auto
+  floor         Int?
+  totalFloors   Int?
+  elevator      Boolean       @default(false)
+  furnished     Boolean       @default(false)
+  
+  // Prezzi
+  salePrice     Float?
+  rentPrice     Float?
+  expenses      Float?        // spese condominiali
+  
+  // Efficienza energetica
+  energyClass   String?
+  
+  // Dati Proprietario (Estensione)
+  ownerFirstName  String?
+  ownerLastName   String?
+  ownerBirthDate  String?
+  ownerBirthPlace String?
+  ownerFiscalCode String?
+  ownerAddress    String?
+  ownerCity       String?
+  ownerZipCode    String?
+  ownerEmail      String?
+  ownerPhone      String?
+
+  // Dati Edificio (Estensione)
+  buildingConstructionYear Int?
+  buildingRenovationYear   Int?
+  buildingFloorsTotal      Int?
+  buildingElevator         Boolean? @default(false)
+  buildingConcierge        Boolean? @default(false)
+  buildingGardenShared     Boolean? @default(false)
+  buildingHeatingType      String?
+  buildingCondition        String?
+
+  // Media
+  images        String[]      // Array di URL immagini
+  virtualTour   String?       // URL virtual tour
+  floorPlan     String?       // URL planimetria
+  
+  // Portali
+  portalTargets String[]      @default([])
+  oneClickData Json?
+  
+  // Metadati
+  reference     String?       @unique // Codice di riferimento
+  notes         String?
+  isPublished   Boolean       @default(false)
+  publishedAt   DateTime?
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+
+  // Relazioni
+  agencyId      String
+  agency        Agency        @relation(fields: [agencyId], references: [id], onDelete: Cascade)
+  
+  ownerId       String
+  owner         User          @relation(fields: [ownerId], references: [id])
+  
+  // Relazioni con altre entità
+  appointments  Appointment[]
+  activities    Activity[]
+  matches       PropertyMatch[]
+  matchFeedbacks MatchFeedback[]
+  portalSyncLogs PortalSyncLog[]
+
+  @@index([agencyId, createdAt])
+  @@index([ownerId])
+  @@index([portalTargets], type: Gin)
+  @@map("properties")
+}
+
+// Modello Contatto
+model Contact {
+  id          String      @id @default(cuid())
+  firstName   String
+  lastName    String
+  email       String?
+  phone       String?
+  type        ContactType
+  legacyCustomerId String?
+  
+  // Dati aggiuntivi
+  address     String?
+  city        String?
+  province    String?
+  zipCode     String?
+  birthDate   DateTime?
+  birthPlace  String?
+  fiscalCode  String?
+  notes       String?
+  
+  // Privacy e consensi GDPR
+  privacyConsent      Boolean   @default(false)
+  marketingConsent    Boolean   @default(false)
+  consentDate         DateTime?
+  
+  // Metadati
+  source      String?     // Da dove arriva il contatto
+  tags        String[]    // Tag personalizzabili
+  isActive    Boolean     @default(true)
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+
+  // Relazioni
+  agencyId    String
+  agency      Agency      @relation(fields: [agencyId], references: [id], onDelete: Cascade)
+  
+  assignedToId String?
+  assignedTo  User?       @relation(fields: [assignedToId], references: [id])
+  
+  requests    Request[]
+  appointments Appointment[]
+  activities  Activity[]
+  documents   OwnerDocument[]
+
+  @@unique([agencyId, legacyCustomerId])
+  @@index([agencyId, legacyCustomerId])
+  @@map("contacts")
+}
+
+model OwnerDocument {
+  id         String   @id @default(cuid())
+  contactId  String
+  contact    Contact  @relation(fields: [contactId], references: [id], onDelete: Cascade)
+  type       String
+  side       String?
+  fileKey    String
+  uploadedAt DateTime @default(now())
+
+  @@index([contactId])
+  @@map("owner_documents")
+}
+
+// Modello Richiesta
+model Request {
+  id            String        @id @default(cuid())
+  legacyRequestId String?
+  title         String
+  description   String?
+  type          PropertyType
+  contractType  ContractType
+  status        RequestStatus @default(ACTIVE)
+  
+  // Criteri di ricerca
+  minPrice      Float?
+  maxPrice      Float?
+  minSurface    Float?
+  maxSurface    Float?
+  minRooms      Int?
+  maxRooms      Int?
+  minBathrooms  Int?
+  maxBathrooms  Int?
+  minFloor      Int?
+  maxFloor      Int?
+  cities        String[]      // Città di interesse
+  provinces     String[]      // Province di interesse
+  
+  // Caratteristiche desiderate
+  elevator      Boolean?
+  parking       Boolean?
+  garden        Boolean?
+  terrace       Boolean?
+  furnished     Boolean?
+  apartmentSubtype String?
+  
+  // Metadati
+  priority      Int           @default(1) // 1-5
+  notes         String?
+  expiresAt     DateTime?
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+
+  // Relazioni
+  agencyId      String
+  agency        Agency        @relation(fields: [agencyId], references: [id], onDelete: Cascade)
+  
+  contactId     String
+  contact       Contact       @relation(fields: [contactId], references: [id], onDelete: Cascade)
+  
+  assignedToId  String?
+  assignedTo    User?         @relation(fields: [assignedToId], references: [id])
+  
+  activities    Activity[]
+  matches       PropertyMatch[]
+  matchFeedbacks MatchFeedback[]
+
+  @@unique([agencyId, legacyRequestId])
+  @@index([agencyId, legacyRequestId])
+  @@map("requests")
+}
+
+// Modello Appuntamento
+model Appointment {
+  id          String            @id @default(cuid())
+  title       String
+  description String?
+  startTime   DateTime
+  endTime     DateTime
+  location    String?
+  status      AppointmentStatus @default(SCHEDULED)
+  
+  // Metadati
+  notes       String?
+  reminder    Boolean           @default(true)
+  reminderSent Boolean          @default(false)
+  createdAt   DateTime          @default(now())
+  updatedAt   DateTime          @updatedAt
+
+  // Relazioni
+  agencyId    String
+  agency      Agency            @relation(fields: [agencyId], references: [id], onDelete: Cascade)
+  
+  assignedToId String
+  assignedTo  User              @relation(fields: [assignedToId], references: [id])
+  
+  contactId   String?
+  contact     Contact?          @relation(fields: [contactId], references: [id])
+  
+  propertyId  String?
+  property    Property?         @relation(fields: [propertyId], references: [id])
+
+  @@map("appointments")
+}
+
+// Modello Attività
+model Activity {
+  id          String      @id @default(cuid())
+  type        ActivityType
+  title       String
+  description String?
+  completed   Boolean     @default(false)
+  dueDate     DateTime?
+  completedAt DateTime?
+  report      String?
+  
+  // Metadati
+  priority    Int         @default(1) // 1-5
+  tags        String[]
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+
+  // Relazioni
+  agencyId    String
+  agency      Agency      @relation(fields: [agencyId], references: [id], onDelete: Cascade)
+  
+  assignedToId String
+  assignedTo  User        @relation(fields: [assignedToId], references: [id])
+  
+  contactId   String?
+  contact     Contact?    @relation(fields: [contactId], references: [id])
+  
+  propertyId  String?
+  property    Property?   @relation(fields: [propertyId], references: [id])
+  
+  requestId   String?
+  request     Request?    @relation(fields: [requestId], references: [id])
+
+  @@map("activities")
+}
+
+model Notification {
+  id          String   @id @default(cuid())
+  type        String
+  title       String
+  message     String
+  data        Json?
+  isRead      Boolean  @default(false)
+  createdAt   DateTime @default(now())
+
+  agencyId    String
+  agency      Agency   @relation(fields: [agencyId], references: [id], onDelete: Cascade)
+
+  recipientId String
+  recipient   User     @relation(fields: [recipientId], references: [id])
+
+  @@map("notifications")
+}
+
+// Modello Campagna Marketing
+model Campaign {
+  id          String        @id @default(cuid())
+  name        String
+  type        CampaignType
+  status      CampaignStatus @default(DRAFT)
+  
+  // Contenuto
+  subject     String?
+  content     String
+  
+  // Programmazione
+  scheduledAt DateTime?
+  sentAt      DateTime?
+  
+  // Statistiche
+  totalSent   Int           @default(0)
+  totalOpened Int           @default(0)
+  totalClicked Int          @default(0)
+  
+  // Metadati
+  tags        String[]
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+
+  // Relazioni
+  agencyId    String
+  agency      Agency        @relation(fields: [agencyId], references: [id], onDelete: Cascade)
+  
+  createdById String
+  createdBy   User          @relation(fields: [createdById], references: [id])
+
+  @@map("campaigns")
+}
+
+// Modello Match Immobile-Richiesta
+model PropertyMatch {
+  id          String   @id @default(cuid())
+  score       Float    // Punteggio di matching 0-100
+  status      String   @default("NEW")
+  reasonsJson Json?
+  gapsJson    Json?
+  
+  // Metadati
+  viewed      Boolean  @default(false)
+  contacted   Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relazioni
+  propertyId  String
+  property    Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  
+  requestId   String
+  request     Request  @relation(fields: [requestId], references: [id], onDelete: Cascade)
+  feedbacks   MatchFeedback[]
+
+  @@unique([propertyId, requestId])
+  @@index([requestId, score])
+  @@index([propertyId, score])
+  @@map("property_matches")
+}
+
+model MatchFeedback {
+  id              String   @id @default(cuid())
+  value           String
+  note            String?
+  createdAt       DateTime @default(now())
+  matchResultId   String
+  createdById     String?
+  agencyId        String
+  propertyId      String?
+  requestId       String?
+
+  matchResult PropertyMatch @relation(fields: [matchResultId], references: [id], onDelete: Cascade)
+  createdBy   User?         @relation(fields: [createdById], references: [id], onDelete: SetNull)
+  agency      Agency        @relation(fields: [agencyId], references: [id], onDelete: Cascade)
+  property    Property?     @relation(fields: [propertyId], references: [id], onDelete: SetNull)
+  request     Request?      @relation(fields: [requestId], references: [id], onDelete: SetNull)
+
+  @@index([matchResultId, createdAt])
+  @@index([agencyId, createdAt])
+  @@map("match_feedbacks")
+}
+
+// Modello Log Audit (per GDPR compliance)
+model AuditLog {
+  id          String   @id @default(cuid())
+  action      String   // CREATE, UPDATE, DELETE, VIEW
+  entity      String   // Tipo di entità
+  entityId    String   // ID dell'entità
+  userId      String?  // Utente che ha fatto l'azione
+  userEmail   String?
+  ipAddress   String?
+  userAgent   String?
+  changes     Json?    // Dettagli delle modifiche
+  createdAt   DateTime @default(now())
+
+  @@map("audit_logs")
+}
+
+model AgentZone {
+  id        String   @id @default(cuid())
+  agencyId  String
+  agentId   String
+  region    String
+  province  String
+  city      String
+  zone      String?
+  groupSize Int      @default(20)
+  sourceUrl String?
+  lastImportedAt DateTime?
+  importStatus ZoneImportStatus @default(PENDING)
+  notes     String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  agency Agency @relation(fields: [agencyId], references: [id], onDelete: Cascade)
+  agent  User   @relation(fields: [agentId], references: [id], onDelete: Cascade)
+  streets ZoneStreet[]
+  groups ZoneStreetGroup[]
+  assignments ZoneAssignment[]
+  importJobs ZoneImportJob[]
+  workLogs ZoneGroupWorkLog[]
+  marketSnapshots ZoneStreetMarketSnapshot[]
+  streetWorkLogs ZoneStreetWorkLog[]
+  listingSnapshots ZoneStreetListingSnapshot[]
+  listings ZoneStreetListing[]
+  listingActions ZoneStreetListingAction[]
+  listingAssignmentHistory ZoneStreetListingAssignmentHistory[]
+
+  @@index([agencyId, agentId, region, province, city])
+  @@map("agent_zones")
+}
+
+model ZoneStreet {
+  id             String   @id @default(cuid())
+  agencyId       String
+  zoneId         String
+  name           String
+  normalizedName String
+  orderIndex     Int
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  agency Agency @relation(fields: [agencyId], references: [id], onDelete: Cascade)
+  zone   AgentZone @relation(fields: [zoneId], references: [id], onDelete: Cascade)
+  groupMembers ZoneStreetGroupMember[]
+  assignments ZoneAssignment[]
+  workLogs ZoneStreetWorkLog[]
+  marketSnapshot ZoneStreetMarketSnapshot?
+  listingSnapshots ZoneStreetListingSnapshot[]
+  listings ZoneStreetListing[]
+  listingActions ZoneStreetListingAction[]
+  listingAssignmentHistory ZoneStreetListingAssignmentHistory[]
+
+  @@unique([zoneId, normalizedName])
+  @@index([zoneId, orderIndex])
+  @@map("zone_streets")
+}
+
+model ZoneStreetGroup {
+  id         String   @id @default(cuid())
+  agencyId   String
+  zoneId     String
+  groupIndex Int
+  name       String
+  groupSize  Int
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  agency Agency @relation(fields: [agencyId], references: [id], onDelete: Cascade)
+  zone   AgentZone @relation(fields: [zoneId], references: [id], onDelete: Cascade)
+  members ZoneStreetGroupMember[]
+  assignments ZoneAssignment[]
+  workLogs ZoneGroupWorkLog[]
+  streetWorkLogs ZoneStreetWorkLog[]
+  listingSnapshots ZoneStreetListingSnapshot[]
+  listings ZoneStreetListing[]
+  listingActions ZoneStreetListingAction[]
+  listingAssignmentHistory ZoneStreetListingAssignmentHistory[]
+
+  @@unique([zoneId, groupIndex])
+  @@index([zoneId])
+  @@map("zone_street_groups")
+}
+
+model ZoneStreetGroupMember {
+  id       String @id @default(cuid())
+  groupId  String
+  streetId String
+  position Int
+
+  group  ZoneStreetGroup @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  street ZoneStreet      @relation(fields: [streetId], references: [id], onDelete: Cascade)
+
+  @@unique([groupId, streetId])
+  @@index([streetId])
+  @@map("zone_street_group_members")
+}
+
+model ZoneAssignment {
+  id             String   @id @default(cuid())
+  agencyId       String
+  zoneId         String
+  agentId        String
+  assignmentType ZoneAssignmentType
+  groupId        String?
+  streetId       String?
+  isActive       Boolean  @default(true)
+  note           String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  agency Agency @relation(fields: [agencyId], references: [id], onDelete: Cascade)
+  zone   AgentZone @relation(fields: [zoneId], references: [id], onDelete: Cascade)
+  agent  User   @relation(fields: [agentId], references: [id], onDelete: Cascade)
+  group  ZoneStreetGroup? @relation(fields: [groupId], references: [id], onDelete: SetNull)
+  street ZoneStreet?      @relation(fields: [streetId], references: [id], onDelete: SetNull)
+
+  @@index([zoneId, isActive])
+  @@index([agentId, isActive])
+  @@unique([zoneId, groupId, isActive])
+  @@unique([zoneId, streetId, isActive])
+  @@map("zone_assignments")
+}
+
+model ZoneImportJob {
+  id            String   @id @default(cuid())
+  agencyId      String
+  zoneId        String
+  sourceUrl     String
+  status        ZoneImportStatus @default(PENDING)
+  importedCount Int      @default(0)
+  errorMessage  String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  completedAt   DateTime?
+
+  agency Agency @relation(fields: [agencyId], references: [id], onDelete: Cascade)
+  zone   AgentZone @relation(fields: [zoneId], references: [id], onDelete: Cascade)
+
+  @@index([zoneId, createdAt])
+  @@map("zone_import_jobs")
+}
+
+model ZoneGroupWorkLog {
+  id             String            @id @default(cuid())
+  agencyId       String
+  zoneId         String
+  groupId        String
+  createdById    String
+  entryType      ZoneWorkEntryType @default(NOTE)
+  title          String?
+  content        String
+  statusLabel    String?
+  leadsCount     Int?
+  appointmentsCount Int?
+  contractsCount Int?
+  metadata       Json?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  agency    Agency          @relation(fields: [agencyId], references: [id], onDelete: Cascade)
+  zone      AgentZone       @relation(fields: [zoneId], references: [id], onDelete: Cascade)
+  group     ZoneStreetGroup @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  createdBy User            @relation(fields: [createdById], references: [id], onDelete: Cascade)
+
+  @@index([zoneId, groupId, createdAt])
+  @@index([createdById, createdAt])
+  @@map("zone_group_work_logs")
+}
+
+model ZoneStreetWorkLog {
+  id             String            @id @default(cuid())
+  agencyId       String
+  zoneId         String
+  groupId        String
+  streetId       String
+  createdById    String
+  entryType      ZoneWorkEntryType @default(NOTE)
+  title          String?
+  content        String
+  metadata       Json?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  agency    Agency          @relation(fields: [agencyId], references: [id], onDelete: Cascade)
+  zone      AgentZone       @relation(fields: [zoneId], references: [id], onDelete: Cascade)
+  group     ZoneStreetGroup @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  street    ZoneStreet      @relation(fields: [streetId], references: [id], onDelete: Cascade)
+  createdBy User            @relation(fields: [createdById], references: [id], onDelete: Cascade)
+
+  @@index([zoneId, groupId, streetId, createdAt])
+  @@index([createdById, createdAt])
+  @@map("zone_street_work_logs")
+}
+
+model ZoneStreetMarketSnapshot {
+  id                String   @id @default(cuid())
+  agencyId          String
+  zoneId            String
+  streetId          String   @unique
+  sourceUrl         String
+  marketTitle       String?
+  avgPricePerSqm    String?
+  avgRangeText      String?
+  trendSummary      String?
+  trendLongTerm     String?
+  houseSummary      String?
+  apartmentSummary  String?
+  cityAverageTitle  String?
+  lat               Float?
+  lng               Float?
+  rawPayload        Json?
+  fetchedAt         DateTime @default(now())
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  agency Agency     @relation(fields: [agencyId], references: [id], onDelete: Cascade)
+  zone   AgentZone  @relation(fields: [zoneId], references: [id], onDelete: Cascade)
+  street ZoneStreet @relation(fields: [streetId], references: [id], onDelete: Cascade)
+
+  @@index([zoneId, fetchedAt])
+  @@map("zone_street_market_snapshots")
+}
+
+model ZoneStreetListingSnapshot {
+  id         String               @id @default(cuid())
+  agencyId   String
+  zoneId     String
+  groupId    String
+  streetId   String
+  sourceUrl  String
+  status     ListingSnapshotStatus @default(SUCCESS)
+  warning    String?
+  fetchedAt  DateTime             @default(now())
+  expiresAt  DateTime
+  rawPayload Json?
+  createdAt  DateTime             @default(now())
+  updatedAt  DateTime             @updatedAt
+
+  agency   Agency          @relation(fields: [agencyId], references: [id], onDelete: Cascade)
+  zone     AgentZone       @relation(fields: [zoneId], references: [id], onDelete: Cascade)
+  group    ZoneStreetGroup @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  street   ZoneStreet      @relation(fields: [streetId], references: [id], onDelete: Cascade)
+  listings ZoneStreetListing[]
+
+  @@index([streetId, fetchedAt])
+  @@index([zoneId, groupId, fetchedAt])
+  @@map("zone_street_listing_snapshots")
+}
+
+model ZoneStreetListing {
+  id              String                @id @default(cuid())
+  agencyId        String
+  zoneId          String
+  groupId         String?
+  streetId        String
+  snapshotId      String?
+  sourceListingId String
+  sourceUrl       String
+  listingUrl      String
+  title           String?
+  priceText       String?
+  surfaceText     String?
+  roomsText       String?
+  floorText       String?
+  description     String?
+  energyClass     String?
+  addressText     String?
+  agencyName      String?
+  phoneVisible    String?
+  mainImageUrl    String?
+  listingStatus   ZoneStreetListingStatus @default(NEW)
+  isActive        Boolean               @default(true)
+  firstSeenAt     DateTime              @default(now())
+  lastSeenAt      DateTime              @default(now())
+  metadata        Json?
+  createdAt       DateTime              @default(now())
+  updatedAt       DateTime              @updatedAt
+
+  agency    Agency                    @relation(fields: [agencyId], references: [id], onDelete: Cascade)
+  zone      AgentZone                 @relation(fields: [zoneId], references: [id], onDelete: Cascade)
+  group     ZoneStreetGroup?          @relation(fields: [groupId], references: [id], onDelete: SetNull)
+  street    ZoneStreet                @relation(fields: [streetId], references: [id], onDelete: Cascade)
+  snapshot  ZoneStreetListingSnapshot? @relation(fields: [snapshotId], references: [id], onDelete: SetNull)
+  actions   ZoneStreetListingAction[]
+  assignmentHistory ZoneStreetListingAssignmentHistory[]
+
+  @@unique([streetId, sourceListingId])
+  @@index([zoneId, groupId, streetId])
+  @@index([streetId, isActive, lastSeenAt])
+  @@map("zone_street_listings")
+}
+
+model ZoneStreetListingAction {
+  id           String            @id @default(cuid())
+  agencyId     String
+  zoneId       String
+  groupId      String?
+  streetId     String
+  listingId    String
+  createdById  String
+  actionType   ListingActionType @default(NOTE)
+  title        String?
+  content      String
+  outcome      String?
+  nextActionAt DateTime?
+  metadata     Json?
+  createdAt    DateTime          @default(now())
+  updatedAt    DateTime          @updatedAt
+
+  agency    Agency            @relation(fields: [agencyId], references: [id], onDelete: Cascade)
+  zone      AgentZone         @relation(fields: [zoneId], references: [id], onDelete: Cascade)
+  group     ZoneStreetGroup?  @relation(fields: [groupId], references: [id], onDelete: SetNull)
+  street    ZoneStreet        @relation(fields: [streetId], references: [id], onDelete: Cascade)
+  listing   ZoneStreetListing @relation(fields: [listingId], references: [id], onDelete: Cascade)
+  createdBy User              @relation(fields: [createdById], references: [id], onDelete: Cascade)
+
+  @@index([listingId, createdAt])
+  @@index([streetId, createdAt])
+  @@map("zone_street_listing_actions")
+}
+
+model ZoneStreetListingAssignmentHistory {
+  id          String   @id @default(cuid())
+  agencyId    String
+  zoneId      String
+  groupId     String?
+  streetId    String
+  listingId   String
+  fromAgentId String?
+  toAgentId   String
+  assignedAt  DateTime @default(now())
+  note        String?
+  metadata    Json?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  agency    Agency            @relation(fields: [agencyId], references: [id], onDelete: Cascade)
+  zone      AgentZone         @relation(fields: [zoneId], references: [id], onDelete: Cascade)
+  group     ZoneStreetGroup?  @relation(fields: [groupId], references: [id], onDelete: SetNull)
+  street    ZoneStreet        @relation(fields: [streetId], references: [id], onDelete: Cascade)
+  listing   ZoneStreetListing @relation(fields: [listingId], references: [id], onDelete: Cascade)
+  fromAgent User?             @relation("ZoneStreetListingAssignmentFrom", fields: [fromAgentId], references: [id], onDelete: SetNull)
+  toAgent   User              @relation("ZoneStreetListingAssignmentTo", fields: [toAgentId], references: [id], onDelete: Cascade)
+
+  @@index([listingId, assignedAt])
+  @@index([zoneId, groupId, streetId, assignedAt])
+  @@map("zone_street_listing_assignment_history")
+}
+
+model ApimoRecord {
+  id            String         @id @default(cuid())
+  entityType    ApimoEntityType
+  apimoId       String
+  payload       Json
+  localEntityId String?
+  lastPulledAt  DateTime?
+  lastPushedAt  DateTime?
+  lastError     String?
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+
+  agencyId      String
+  agency        Agency         @relation(fields: [agencyId], references: [id], onDelete: Cascade)
+
+  @@unique([agencyId, entityType, apimoId])
+  @@index([agencyId, entityType])
+  @@map("apimo_records")
+}
+
+model InternalUser {
+  id           String           @id @default(cuid())
+  email        String           @unique
+  passwordHash String
+  role         InternalUserRole
+  mfaSecret    String
+  createdAt    DateTime         @default(now())
+  updatedAt    DateTime         @updatedAt
+
+  @@map("internal_users")
+}

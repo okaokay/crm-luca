@@ -1,0 +1,186 @@
+          .map((row: any) => ({
+            id: String(row.street?.id || ''),
+            name: String(row.street?.name || '')
+          }))
+          .filter((s: any) => s.id && s.name),
+        streets: streetsRows.map((row: any) => row.street?.name).filter(Boolean),
+        assignmentHistory: assignmentHistory.map((a: any) => ({
+          id: a.id,
+          isActive: Boolean(a.isActive),
+          note: a.note || null,
+          assignedAt: a.createdAt,
+          endedAt: a.isActive ? null : a.updatedAt,
+          agent: a.agent
+        })),
+        logs: logs.map((log: any) => ({
+          id: log.id,
+          entryType: log.entryType,
+          title: log.title || null,
+          content: log.content,
+          statusLabel: log.statusLabel || null,
+          leadsCount: log.leadsCount,
+          appointmentsCount: log.appointmentsCount,
+          contractsCount: log.contractsCount,
+          metadata: log.metadata || null,
+          createdAt: log.createdAt,
+          createdBy: log.createdBy
+        }))
+      }
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, message: 'Error loading group workspace' });
+  }
+});
+
+app.post('/api/visit-bookings', async (req, res) => {
+  try {
+    const {
+      propertyId,
+      name,
+      email,
+      phone,
+      message,
+      availability,
+      timeSlot
+    } = req.body || {};
+
+    const safePropertyId = typeof propertyId === 'string' ? propertyId.trim() : '';
+    const safeName = typeof name === 'string' ? name.trim() : '';
+    const safeEmail = typeof email === 'string' ? email.trim() : '';
+    const safePhone = typeof phone === 'string' ? phone.trim() : '';
+    const safeMessage = typeof message === 'string' ? message.trim() : '';
+    const safeAvailability = typeof availability === 'string' ? availability.trim() : '';
+    const safeTimeSlot = typeof timeSlot === 'string' ? timeSlot.trim() : '';
+
+    if (!safePropertyId || !safeName || (!safeEmail && !safePhone)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Compila almeno nome e un recapito (email o telefono).'
+      });
+    }
+
+    const property = await prisma.property.findFirst({
+      where: {
+        id: safePropertyId,
+        isPublished: true
+      },
+      select: {
+        id: true,
+        title: true,
+        reference: true,
+        city: true,
+        address: true,
+        agencyId: true,
+        ownerId: true
+      }
+    });
+
+    if (!property) {
+      return res.status(404).json({
+        success: false,
+        message: 'Immobile non trovato o non pubblicato.'
+      });
+    }
+
+    const [admins, assignedAgent] = await Promise.all([
+      prisma.user.findMany({
+        where: {
+          agencyId: property.agencyId,
+          isActive: true,
+          role: { in: ['SUPER_ADMIN', 'AGENCY_ADMIN'] }
+        },
+        select: { id: true }
+      }),
+      prisma.user.findFirst({
+        where: {
+          id: property.ownerId,
+          agencyId: property.agencyId,
+          isActive: true
+        },
+        select: { id: true, role: true }
+      })
+    ]);
+
+    const recipientIds = new Set<string>();
+    admins.forEach((admin) => recipientIds.add(admin.id));
+    if (assignedAgent) {
+      recipientIds.add(assignedAgent.id);
+    }
+
+    const requestLabel = `${safeName}${safePhone ? ` · ${safePhone}` : ''}${safeEmail ? ` · ${safeEmail}` : ''}`;
+    const notificationTitle = 'Nuova richiesta visita immobile';
+    const notificationMessage = `${requestLabel} ha richiesto una visita per ${property.title}`;
+    const notificationData = {
+      propertyId: property.id,
+      propertyReference: property.reference,
+      propertyTitle: property.title,
+      contactName: safeName,
+      contactEmail: safeEmail || null,
+      contactPhone: safePhone || null,
+      availability: safeAvailability || null,
+      timeSlot: safeTimeSlot || null,
+      message: safeMessage || null,
+      source: 'PUBLIC_VISIT_FORM'
+    };
+
+    if (recipientIds.size > 0) {
+      await prisma.notification.createMany({
+        data: Array.from(recipientIds).map((recipientId) => ({
+          agencyId: property.agencyId,
+          recipientId,
+          type: 'VISIT_REQUEST',
+          title: notificationTitle,
+          message: notificationMessage,
+          data: notificationData
+        }))
+      });
+    }
+
+    const activityAssigneeId =
+      (assignedAgent && assignedAgent.role === 'AGENT' ? assignedAgent.id : null) ||
+      admins[0]?.id ||
+      assignedAgent?.id ||
+      null;
+
+    if (activityAssigneeId) {
+      await prisma.activity.create({
+        data: {
+          type: 'TASK',
+          title: `Richiesta visita · ${property.reference || property.id}`,
+          description: [
+            `Contatto: ${safeName}`,
+            safePhone ? `Telefono: ${safePhone}` : null,
+            safeEmail ? `Email: ${safeEmail}` : null,
+            safeAvailability ? `Disponibilità: ${safeAvailability}` : null,
+            safeTimeSlot ? `Fascia oraria: ${safeTimeSlot}` : null,
+            safeMessage ? `Messaggio: ${safeMessage}` : null,
+            `Immobile: ${property.title}`
+          ]
+            .filter(Boolean)
+            .join('\n'),
+          priority: 2,
+          agencyId: property.agencyId,
+          assignedToId: activityAssigneeId,
+          propertyId: property.id
+        }
+      });
+    }
+
+    return res.status(201).json({
+      success: true,
+      message: 'Richiesta visita inviata con successo'
+    });
+  } catch (error) {
+    console.error('Error creating visit booking:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Errore durante l\'invio della richiesta visita'
+    });
+  }
+});
+
+app.get('/api/agent-zones/group-workspace/overview', async (req, res) => {
+  try {
+    const auth = getAuth(req);
+    if (!auth) return res.status(401).json({ success: false, message: 'Unauthorized' });
+

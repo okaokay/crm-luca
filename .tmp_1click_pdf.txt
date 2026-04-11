@@ -1,0 +1,520 @@
+Digit Italy srls
+1ClickAnnunci
+Specifiche tecniche per l’integrazione con gestionali/siti 
+Versione 6.2
+21 Marzo 2023
+Indice generale
+   1. Log aggiornamenti:                                                                                                      ...............................................................................  2  
+   2. Introduzione                                                                                                                .......................................................................................  3  
+   3. Schema scambio annunci                                                                                             ........................................................................  3  
+   3.1. Procedura                                                                                                         ..................................................................................  3  
+   3.2. Specifiche File xml                                                                                            .......................................................................  4  
+   a)  File xml annunci Agenzie                                                                             ...........................................................  4  
+   b)  Photogallery Metodo 1: foto non annidate (è consentito un max di 40 foto)  7  
+   c)  Photogallery Metodo 2: foto annidate (è consentito un max di 40 foto)         ....  7  
+   4.  (**) Tipologia Immobili e Tipologia annunci                                                                 .................................................  10  
+   4.1. Tabella valori Tipologia Immobili:                                                                    ....................................................  10  
+   4.2. Tabella valori Tipologia Annunci:                                                                      .....................................................  12  
+   4.3.  (****) Tabella codici portali:                                                                            ...........................................................  12  
+DIGIT ITALY SRLS - Corso Diaz 25 - 58024 Massa Marittima (GR)
+C.F ./P .Iva 01567780539 Reg. imprese GR-135744 tel. 0566264324 fax 0566653115
+email: info@digititaly.net
+Pag. 1
+
+Digit Italy srls
+ 1.Log aggiornamenti: 
+versione 6.  2  : inseri  mento   tag: nr_balconi, nr_terrazzi.
+versione 6.  1  :   inserimento tag: codice_rge, lotto_asta, valutazione_asta.
+versione 6.0: inserita regola campo lunghezza titolo annuncio.
+  Inserito tag data_scadenza_asta.
+versione 5.8:     i link di foto e video non possono essere ripetuti dentro il solito annuncio
+versione 5.7:     inserito nuovo tag “tipo_video” dentro il tag “video”
+versione 5.6: settato come obbligatorio il campo “comune_istat”
+versione  5.5: inserito  nuovo  tag  agente_wp  che  permette  di  specificare  l’agente 
+associato all’uncio su wordpress
+versione 5.4:  inserito nuovo tag categoria_annuncio che permette di specificare se  
+l’annuncio  è  relativo  ad  un  immobile  commerciale  o  residenziale.  Viene  utilizzato 
+nell’esportazione verso immobiliare.it per distinguere la tipologia Stabile/palazzo in  
+residenziale o commerciale. 
+versione 5.3  :   aumentato il numero massimo di foto importabili per singolo annuncio a  
+40. Inserito nuovo campo prezzo_settimanale per gli affitti di tipo turistico.
+versione  5.2  :   inserito  nuovo  campo  nr_altre_stanze  questo  campo  viene  utilizzato 
+solamente per la pubblicazione su immobiliare.it. Per gli annunci che verranno inviati ad  
+immobiliare.it il nr. locali sarà uguale a nr. camere + nr. altre stanze.
+versione  5.1  :   inseriti  nuovi  campi  titolo_annuncio  (per  la  pubblicazione  su portale 
+Subito.it), tipo_riscaldamento, asta, piscina, caminetto e link_esterno.
+versione  5.0  :   rimossi  (non  verranno  più  letti)  i  tag  superflui  id_agenzia,  
+id_annuncio_immobile,  username,  password,  id_user ,  telefono,  tipologia,  contratto, 
+comune, provincia. Inserite limitazioni sulle foto: una foto per essere importata dovrà  
+avere risoluzione massima di 1280x960 pixel ed essere in formato jpeg. Inseriti tag per la 
+gestione della classe energetica successiva al 1° ottobre 2015 
+versione 4.5  :   aggiunti tag minori 
+versione 4.4  :   aggiunti i tag per gestire le zone di immobiliare.it 
+DIGIT ITALY SRLS - Corso Diaz 25 - 58024 Massa Marittima (GR)
+C.F ./P .Iva 01567780539 Reg. imprese GR-135744 tel. 0566264324 fax 0566653115
+email: info@digititaly.net
+Pag. 2
+
+Digit Italy srls
+versione 4.3  :   inserito tag classe_energetica e IPE (indice di prestazione 
+energetica espressa in Kwh/mq o Kwh/mc Annui) 
+versione 4.2  :   inserita la tipologia immobile: BUNGALOW (codice 80) 
+versione 4.1  :   inserito il valore “libero al rogito” per il tag disponibilità 
+versione 4.0: inserito il tag esclusione_portali 
+ 2.Introduzione 
+1ClickAnnunci è un servizio per  la multi-pubblicazione di annunci immobiliari verso  
+portali immobiliari. 
+Il presente documento riporta le specifiche tecniche per i soggetti (gestionali, siti web)  
+che desiderano inviare e/o ricevere in automatico, giornalmente, gli annunci immobiliari 
+delle Agenzie Immobiliari attive con 1ClickAnnunci.
+ 3.Schema scambio annunci 
+ 3.1.Procedura
+Lo scambio di dati tra 1ClickAnnunci e il soggetto interessato si basa sullo scambio  
+giornaliero di un file xml che i server di 1ClickAnnunci (nel caso di esportazione) o che i  
+server del cliente (nel caso di importazione) provvedono a generare una o più volte al  
+giorno. Il file xml contiene tutti gli annunci attivi della agenzia.
+1ClickAnnunci (esportazione) o il soggetto (importazione) metterà a disposizione questo  
+file in area privata dedicata tramite protocollo FTP , oppure su di un indirizzo pubblico  
+tramite protocollo http. 
+Giornalmente  (entro  comunque  le  24/48  ore)  1ClickAnnunci  o  il  soggetto  devono 
+aggiornare i propri annunci con quelli dei file xml.
+Per aggiornare si intende: inserire nuovi annunci, aggiornare quelli esistenti, cancellare  
+per differenza quelli che non ci sono più sul file xml in esame.
+DIGIT ITALY SRLS - Corso Diaz 25 - 58024 Massa Marittima (GR)
+C.F ./P .Iva 01567780539 Reg. imprese GR-135744 tel. 0566264324 fax 0566653115
+email: info@digititaly.net
+Pag. 3
+
+Digit Italy srls
+E’ stata inserita anche la possibilità di escludere dalla pubblicazione alcuni portali,  
+questo per rispondere all’esigenza di chi ha ad esempio 250 annunci da pubblicare sui  
+portali  ma ha,  nello  stesso  tempo,  un  contratto  di  esempio  50  annunci  su  di  uno 
+specifico portale (casa.it); in tal caso sui restanti 200 annunci dovrà essere inserito il tag 
+apposito (vedi più avanti) con indicato il codice di casa.it (3)
+(….<esclusione_portali><a>3</a></esclusione_portali…..) 
+ 3.2.Specifiche File xml 
+ a) File xml annunci Agenzie 
+→  (*) in rosso i campi obbligatori , la chiave univoca è il <riferimento> ←
+<annunci> 
+<annuncio>
+(*) <idtipologiaimmobile> codice tipologia immobile </idtipologiaimmobile> ( intero) 
+(*) <idtipologiaannuncio>codice tipologia annuncio</idtipologiaannuncio> 
+(  intero,vedi tabella valori (**) )
+(*) <comune_istat>codice istat comune annuncio </comune_istat> ( testo ) 
+<zona>zona comune annuncio </zona> (testo) 
+<localita>nome località annuncio </localita> (testo) 
+<nazione>nome nazione annuncio </nazione>(testo)
+(*) <riferimento>riferimento annuncio</riferimento> (testo)
+<prezzo>prezzo annuncio</prezzo> (numerico)
+<note_prezzo>note prezzo annuncio </note_prezzo> (testo) (***) 
+<mq>mq annuncio </mq> (num.) 
+<nr_locali>numero locali annuncio</nr_locali> (num.) 
+<note_locali>note locali annuncio</note_locali> (testo) 
+<priorita>valore  priorità  pubblicazione  annuncio</priorita>(valori  ammessi:  1,2,3,4,5:  1  minimo,  5 
+massima priorità)
+<nr_servizi>numero servizi annuncio</nr_servizi> (num.)
+<nr_camere> numero camere annuncio </nr_camere> (num.)
+<ncostruzionesn>è nuova costruzione?</ncostruzionesn> (flag S/N)
+<indirizzo>indirizzo annuncio</indirizzo> (testo)
+DIGIT ITALY SRLS - Corso Diaz 25 - 58024 Massa Marittima (GR)
+C.F ./P .Iva 01567780539 Reg. imprese GR-135744 tel. 0566264324 fax 0566653115
+email: info@digititaly.net
+Pag. 4
+
+Digit Italy srls
+<mappa>mappa visibile?</mappa> (flag S/N)
+<latitudine>coordinata latitudine google map</latitudine> (num.)
+<longitudine> coordinata logitudine google map </longitudine>(num.) 
+<cap>cap annuncio </cap> (num.) 
+<box_auto></box_auto>(nessuno, singolo, doppio, posto auto) 
+<mq_box></mq_box> 
+<vetrina>è in vetrina (x export siti web etc.) ?</vetrina>(flag S/N) 
+<balcone>ha balcone?</balcone>(flag S/N)
+<nr_balconi>numero balconi</nr_balconi>(num.)
+<terrazzo>ha terrazzo?</terrazzo>(flag S/N) 
+<nr_terrazzi>numero terrazzi</nr_terrazzi>(num.)
+<mansarda>ha mansarda?</mansarda>(flag S/N) 
+<cantina>ha cantina?</cantina>(flag S/N) 
+<arredato>è arredato?</arredato>(flag S/N) 
+<giardino></giardino>(nessuno,privato,comune) 
+<mq_giardino></mq_giardino>
+<unita_immobiliare>num. untià immobiliari</unita_immobiliare> (num.)
+<piano></piano>(seminterrato,pianoterra,1,2,3,4,5,6,7,>7,ultimo,piano rialzato,su più livelli)
+<totale_piani></totale_piani>(num.)
+<spese_cond_mensili></spese_cond_mensili>(num.)
+<condizioni></condizioni>(abitabile, buono,nuovo,ottimo,ristrutturato,da ristrutturare)
+<ascensore>ha ascensore?</ascensore>(flag S/N)
+<cucina></cucina>(abitabile,angolo cottura, cucinotto,semiabitabile) 
+<riscaldamento></riscaldamento>(autonomo,centralizzato,assente) 
+<condizionatore>ha condizionatore?</condizionatore>(flag S/N) 
+<indirizzo_visibile>indirizzo è visibile?</indirizzo_visibile>(flag S/N) 
+<disponibilita></disponibilita>(libero,occupato,nuda proprietà, affittato,libero al rogito) 
+<tipo_classe_energetica></tipo_classe_energetica>(flag che può assumere i valori V oppure N. 
+V indica che  la classe energetica  è antecedente al 1°  ottobre  2015 mentre  N indica  che  la  classe  
+energetica è successiva al 1° ottobre 2015).
+<classe_energetica>classe energetica dell’immobile</ classe_energetica> 
+(2  caratteri,  valori  possibili:  A,A+,  B,C,D,E,F ,G,NC=immobile  non  soggetto  a  classificazione,ND=non 
+dichiarata  se  il  tag  tipo_classe_energetica=V  altrimenti  se  il  tag  tipo_classe_energetica=N  i  valori  sono:  
+A4,A3,A2,A1,B,C,D,E,F ,G,NC=immobile non soggetto a classificazione,ND=non dichiarata) 
+<ipe>indice  di prestazione  energetica EPgl</ipe>(valore  numerico con due  cifre  decimali espresso  in 
+kWh/mq annui se offerta residenziale, kWh/mc annui se offerta commerciale e sempre se tipo_classe_energetica=V .  
+Invece se il tag tipo_classe_energetica=N questo campo indica ipe/EPgl da fonti non rinnovabili con unità di misura  
+sempre kWh/mq annui) vedi tabella valori (**) 
+<ipe_rinnovabili>indice  di  prestazione  energetica  EPgl  da  fonti  rinnovabili</ipe_rinnovabili>(valore 
+numerico con due cifre decimali espresso in kWh/mq annui. Campo importato solo se tag tipo_classe_energetica=N)
+DIGIT ITALY SRLS - Corso Diaz 25 - 58024 Massa Marittima (GR)
+C.F ./P .Iva 01567780539 Reg. imprese GR-135744 tel. 0566264324 fax 0566653115
+email: info@digititaly.net
+Pag. 5
+
+Digit Italy srls
+<efficienza_estiva>indice  efficienza  energetica  durante  la  stagione  estiva</efficienza_estiva>(valori 
+possibili: scarsa, sufficiente, buona. Campo importato solo se tag tipo_classe_energetica=N) 
+<efficienza_invernale>indice  efficienza  energetica  durante  la  stagione  
+invernale</efficienza_invernale>(valori  possibili:  scarsa,  sufficiente,  buona.  Campo  importato  solo  se  tag  
+tipo_classe_energetica=N)
+<efficienza_zero>indica se l’energia consumata dall’edificio è ridotta al punto da potersi definire ‘quasi  
+zero’</efficienza_zero>(flag S/N. Campo importato solo se tag tipo_classe_energetica=N) 
+<ipe_certificato>definisce se l’indice è certificato o no</ipe_certificato>(flag S/N. Campo importato solo  
+se tag tipo_classe_energetica=N)
+(*) <descrizione>descrizione dell’immobile</descrizione>(testo)
+<descrizione_breve>descrizione breve dell’immobile (max 255 char)</descrizione_breve> (testo) 
+<descrizione_ted> descrizione dell’immobile in tedesco</descrizione_ted> 
+<descrizione_ing> descrizione dell’immobile in inglese</descrizione_ing> 
+<descrizione_fra> descrizione dell’immobile in francese</descrizione_fra>
+<descrizione_spa> descrizione dell’immobile in spagnolo</descrizione_spa> 
+(*) <data_inserimento>data ora inserimento</data_inserimento>(dd/mm/yyyy hh:mm:ss) 
+(*) <data_aggiornamento>data  ora  ultimo  aggiornamento </data_aggiornamento>(dd/mm/yyyy 
+hh:mm:ss)
+<data_scadenza_asta>  data scadenza asta </data_scadenza_asta> (dd/mm/yyyy)
+<codice_rge>  codice RGE dell’asta  </codice_rge> (testo) 
+<lotto_asta>  lotto dell’asta  </lotto_asta> (testo) 
+<valutazione_asta>  valore numerico intero che indica la valutazione dell’asta  </valutazione_asta> (int) 
+<esclusione_portali> 
+ <nometag Cancella=operazione (****) >codiceportale*****</nometag>
+....
+<nometagn Cancella=operazione (****) > codiceportale***”*</nometagn> 
+</esclusione_portali> 
+NOTA: <nometag>possono assumerne nomi quali ad esempio <casait><pinco_pallino>, l’importante è indicare nei tag il 
+codiceportale indicato in tabella (****) 
+<id_localita_immobiliareit>località immobiliareit (vedi allegato tabella relativa) 
+<id_zona_immobiliareit>zona immobiliareit (vedi allegato tabella relativa) 
+Nota: i tag località e zona sono mutuamente esclusivi ovvero devono essere indicati o l’uno o l’altro.
+<classe_immobile>(signorile,medio,economico) 
+<contratto_affitto>(3+2,4+4,6+6,9+9,Transitorio,Concordato,Libero,Studenti) 
+DIGIT ITALY SRLS - Corso Diaz 25 - 58024 Massa Marittima (GR)
+C.F ./P .Iva 01567780539 Reg. imprese GR-135744 tel. 0566264324 fax 0566653115
+email: info@digititaly.net
+Pag. 6
+
+Digit Italy srls
+<allarme_antifurto>(flag S/N) 
+<portineria>(flag S/N) 
+<internet>(flag S/N) 
+<mq_esterno>(numerico) 
+<anno_costruzione>(numerico)
+<titolo_annuncio>(campo  testuale  libero  che  verrà  troncato  a  50  caratteri,  viene  inviato  al  portale 
+Subito.it come titolo dell’annuncio per le agenzie che pubblicano su questo portale)
+<tipo_riscaldamento>(valori  possibili:  stufa,  caldaia,  termoconvettore,  pompa  di  calore,  a  pannelli 
+radianti, pannelli solari, termosifone, term. con contabilizzatore)
+<asta>(indica se è un immobile all’asta flag S/N)
+<piscina>(flag S/N)
+<caminetto>(flag S/N)
+<link_esterno>(URL dell’annuncio su sito web dell’agenzia. Max: 255 caratteri)
+<nr_altre_stanze>(numerico – solo per immobiliare.it nr. Locali = nr. Camere + nr. Altre stanze)
+<prezzo_settimanale>prezzo settimanale per affitti turistici</prezzo_settimanale> (numerico)
+<categoria_annuncio>(valori possibili: residenziale, commerciale. Utilizzato per distinguere se l’annuncio  
+è di tipo commerciale o residenziale)</categoria_annuncio>
+ b) Photogallery Metodo 1: foto non annidate (è consentito un max di 40 foto)
+<foto1>percorso web foto 1 ( univoco per ogni annuncio ) </foto1> (testo) 
+<dida1>didascalia foto 1</dida1> (testo)
+<planimetria1>foto 1 è planimetria?</planimetria1>(flag S/N) 
+<principale1>foto 1 è la principale?</principale1>(flag S/N) 
+<foto2</foto2> 
+<dida2></dida2> 
+<planimetria2> </planimetria2> 
+<principale2> </principale2> 
+…..
+<foto20>percorso web foto 20</foto20> (testo) 
+<dida20>didascalia foto20</dida20> (testo) 
+<planimetria20>foto20 è planimetria?</planimetria20>(flag S/N) 
+<principale20>foto 20 è la principale?</principale20>(flag S/N)
+ c) Photogallery Metodo 2: foto annidate (è consentito un max di 40 foto)
+<immagini>
+<immagine>
+ <link> percorso web foto ( univoco per ogni annuncio )</link> (percorso web) 
+<descrizione>didascalia foto1</ descrizione > (testo) 
+DIGIT ITALY SRLS - Corso Diaz 25 - 58024 Massa Marittima (GR)
+C.F ./P .Iva 01567780539 Reg. imprese GR-135744 tel. 0566264324 fax 0566653115
+email: info@digititaly.net
+Pag. 7
+
+Digit Italy srls
+<planimetria>foto è planimetria?</planimetria>(flag S/N) 
+<principale>foto è la principale?</principale>(flag S/N) 
+</immagine>
+<immagine>
+<link> percorso web foto </link> (percorso web) 
+<descrizione>didascalia foto1</ descrizione > (testo) 
+<planimetria>foto è planimetria?</planimetria>(flag S/N) 
+<principale>foto è la principale?</principale>(flag S/N) 
+</immagine>
+…
+</immagini> 
+ Videogallery (è consentito un max di 4 video)
+<videos>
+<video>
+<titolo>titolo del video</titolo> (testo)
+<tipo_video>il tipo del video</tipo_video> (‘T’= tour virtuale, “V”= video normale)
+<link_video>link al video( univoco per ogni annuncio )</link_video>(testo)
+<codice_embedded>codice embedded video</ codice_embedded>(testo) 
+</video> 
+<video>
+ <titolo>titolo del video</titolo> (testo) 
+<link_video>link al video( univoco per ogni annuncio )</link_video>(testo)
+<codice_embedded>codice embedded video</codice_embedded>(testo) 
+</video> 
+… 
+</videos>
+</annuncio> 
+DIGIT ITALY SRLS - Corso Diaz 25 - 58024 Massa Marittima (GR)
+C.F ./P .Iva 01567780539 Reg. imprese GR-135744 tel. 0566264324 fax 0566653115
+email: info@digititaly.net
+Pag. 8
+
+Digit Italy srls
+NOTE:
+(*) = campi obbligatori  
+(***)   = se non si desidera riportare il prezzo occorre non mettere nessun valore sul campo prezzo, su note_prezzo  
+si può però riportare anche il valore “(“<min_prezzo><spazio>”–“<spazio><max_prezzo>”)” ad esempio: 
+…. 
+<note_prezzo> (100000 – 300000 )</note_prezzo> 
+… 
+ affinché l’immobile possa comparire sui portali (dove consentito) anche su ricerche basate su intervalli di prezzo  
+(vedi il caso di casa.it) 
+ESEMPIO XML VALIDO:   https://feed.1clickannunci.it/specifiche_portali/feed_1click.xml
+DIGIT ITALY SRLS - Corso Diaz 25 - 58024 Massa Marittima (GR)
+C.F ./P .Iva 01567780539 Reg. imprese GR-135744 tel. 0566264324 fax 0566653115
+email: info@digititaly.net
+Pag. 9
+
+Digit Italy srls
+ 4. (**) Tipologia Immobili e Tipologia annunci 
+ 4.1.Tabella valori Tipologia Immobili: 
+ID_TIPOLOGIA_IMMOBILE | DESCRIZIONE | CLASSIFICAZIONE 
+(Commerciale (C) / Residenziale (R) ) 
+24 AGRITURISMO C
+26 ALBERGO C
+5 APPARTAMENTO R
+57 APPARTAMENTO INDIPENDENTE R
+65 AREA EDIFICABILE R
+66 AREA INDUSTRIALE C
+32 ATTICO R
+25 ATTIVITA'/LIC.COMMERCIALE C
+23 AZIENDA AGRICOLA C
+21 BAITA/CHALET/TRULLO R
+34 BAR C
+55 BIFAMILIARE R
+9 BOX AUTO R
+80 BUNGALOW R
+67 CANTINA R
+16 CAPANNONE C
+12 CASA AFFIANCATA R
+36 CASA INDIPENDENTE R
+56 CASA SEMI INDIPENDENTE R
+68 CASA VACANZE R
+37 CASALE R
+38 CASCINA R
+22 CASTELLO R
+58 COLONICA R
+39 DISCOTECA C
+DIGIT ITALY SRLS - Corso Diaz 25 - 58024 Massa Marittima (GR)
+C.F ./P .Iva 01567780539 Reg. imprese GR-135744 tel. 0566264324 fax 0566653115
+email: info@digititaly.net
+Pag. 10
+
+Digit Italy srls
+41 FONDO ARTIGIANALE C
+42 FONDO COMMERCIALE C
+59 FORNO C
+77 GARAGE R
+75 IMMOBILE COMMERCIALE C
+69 IMMOBILE DI PRESTIGIO R
+28 LABORATORIO C
+44 LICENZA C
+27 LOCALE COMMERCIALE C
+14 LOFT R
+29 MAGAZZINO C
+13 MANSARDA R
+60 MASSERIA R
+70 MONOLOCALE R
+18 NEGOZIO C
+45 PALAZZO R
+78 PALESTRA C
+62 PIZZERIA / PUB C
+72 POSTO AUTO R
+47 RESIDENCE R
+30 RISTORANTE C
+8 RUSTICO R
+73 SALA CONVEGNI C
+76 SEMINTERRATO R
+50 SHOW ROOM C
+20 STABILE/PALAZZO R
+51 STANZA R
+52 TERRATETTO R
+19 TERRENO AGRICOLO C
+15 UFFICIO C
+DIGIT ITALY SRLS - Corso Diaz 25 - 58024 Massa Marittima (GR)
+C.F ./P .Iva 01567780539 Reg. imprese GR-135744 tel. 0566264324 fax 0566653115
+email: info@digititaly.net
+Pag. 11
+
+Digit Italy srls
+54 VIAREGGINA R
+7 VILLA R
+63 VILLA A SCHIERA R
+74 VILLAGGIO TURISTICO C
+64 VILLINO R
+ 4.2.Tabella valori Tipologia Annunci: 
+1 Vendita 
+2 Affitto 
+3 Vacanze (locazione vacanza, affitto per vacanze) 
+ 
+ 4.3. (****) Tabella codici portali:
+metodo per selezionare/deselezionare selettivamente la pubblicazione di un annuncio su 
+di un portale 
+Il valore Operazione dell’attributo “Cancella” può assumere valore 0 o 1 
+ Codiceportale: 
+3 Casa.it
+10 Risorse Immobiliari
+12 Trova-Casa
+307 Ghiglo.it
+14 Affitto
+20 Immobiliare.it
+49 Secondamano.it
+44 Bakeca
+70 CercasiCasa
+77 Cercaimmobili.it (Commerciali.it)
+81 Webimmobiliare.com
+88 TrovoCasa
+144 Case24
+148 LifeinItaly
+DIGIT ITALY SRLS - Corso Diaz 25 - 58024 Massa Marittima (GR)
+C.F ./P .Iva 01567780539 Reg. imprese GR-135744 tel. 0566264324 fax 0566653115
+email: info@digititaly.net
+Pag. 12
+
+Digit Italy srls
+132 Manzoni/Repubblica
+308 AbitarePiacenza
+104 Tuttoannunci.org
+114 CambioCasa.it
+121 Sito internet agenzia
+131 Idealista.it
+129 Trovit
+161 Casando.it
+170 CercaCasa
+175 ItaliaImmobiliare.net - marcheimmobiliare.it
+309 ImmobiliOvunque
+192 Immobiliweb.it
+271 ChiamaCasa
+195 MondoCasa.Net
+268 Venditaeaffitto
+199 Subito.it Pro
+202 Vendesicasa
+205 Gate-Away
+231 Pcase
+207 Gazzetta Immobiliare & immobilimpresa
+213 Facebook
+215 EbayAnnunci.it
+269 Domusbay
+218 OfficeCasa
+220 ChangeHome
+221 Annunci-casa.com
+223 Cheannunci.it
+229 EsaJob
+232 CasaForlì
+233 Twitter
+DIGIT ITALY SRLS - Corso Diaz 25 - 58024 Massa Marittima (GR)
+C.F ./P .Iva 01567780539 Reg. imprese GR-135744 tel. 0566264324 fax 0566653115
+email: info@digititaly.net
+Pag. 13
+
+Digit Italy srls
+234 Rete Toscana Casa
+239 Bilocali.it
+304 GlobImmo.net
+240 Mycase.it
+243 CaseCasa
+249 Sistema Case
+247 MaremmaCase.it
+248 Golden-opportunities.it
+251 DiamoCasa
+305 Luximmo
+254 Italiapervoi-casa.it (ITA)
+265 Portobello
+275 SubitoeCasa.it
+281 La gazzetta immobiliare
+258 La Pulce
+272 CercoCasaWeb
+278 CaseAffittoEVendita
+282 Easyavvisi.it
+284 Case Casali & Ville
+286 Cipensoio
+288 ImmobilGreen
+289 iCase
+291 Bancadellecase
+290 Soloterreni.it
+294 Chicercacasa.it
+296 Trovocasa.net
+297 Mer et Demeures
+298 WikiCasa
+306 Yogulp.com
+310 Portaleagenzieimmobiliari.it
+DIGIT ITALY SRLS - Corso Diaz 25 - 58024 Massa Marittima (GR)
+C.F ./P .Iva 01567780539 Reg. imprese GR-135744 tel. 0566264324 fax 0566653115
+email: info@digititaly.net
+Pag. 14
+
+Digit Italy srls
+311 Vivoqui.it
+312 Habiqui
+315 Quice.it
+314 Trovimap
+316 Cliccasa.it
+317 Affitto Certificato
+318 TuttoCasa.it
+Il Cancella=1 ha effetto subito e serve per forzare la cancellatura dell'annuncio da quel  
+portale.
+Il Cancella=0 serve per ripristinare la pubblicazione (anche in assenza di altre modifiche  
+ai campi dell'annuncio).
+Dopo  che  un  annuncio  ha  avuto  il  Cancella=1,  occorre  sempre  un  Cancella=0  per 
+ripristinare l'annuncio su quel portale.
+Dopo che un portale  ha avuto il Cancella=0, nel caso in  cui non  ci  siano ulteriori  
+modifiche alle esclusioni, può essere rimosso dalle esclusioni di un annuncio e non essere 
+inviato 
+Esempio: 
+<esclusione_portali> 
+<Subito Cancella="1">199</Subito> 
+<Cazar Cancella="0">55</Cazar> 
+<Idealista Cancella="1">131</Idealista> 
+</esclusione_portali> 
+Il nome <esclusione_portali> è obbligatorio, mentre il nome dei singoli tag dei portali è 
+libero, quello che conta è il valore, che deve essere coerente con i nostri codici portale. 
+Nel senso che potrebbe essere fatto anche così: 
+<esclusione_portali> 
+<A Cancella="1">199</A> 
+DIGIT ITALY SRLS - Corso Diaz 25 - 58024 Massa Marittima (GR)
+C.F ./P .Iva 01567780539 Reg. imprese GR-135744 tel. 0566264324 fax 0566653115
+email: info@digititaly.net
+Pag. 15
+
+Digit Italy srls
+<B Cancella="1">55</B> 
+<C Cancella="0">70</C> 
+<D Cancella="1">131</D> 
+</esclusione_portali> 
+DIGIT ITALY SRLS - Corso Diaz 25 - 58024 Massa Marittima (GR)
+C.F ./P .Iva 01567780539 Reg. imprese GR-135744 tel. 0566264324 fax 0566653115
+email: info@digititaly.net
+Pag. 16

@@ -1,0 +1,1091 @@
+
+// Pagina dettagliata per singolo immobile
+
+const getPropertyDisplayPrice = (property: Partial<Property>) => {
+  const sale = typeof property.salePrice === 'number' ? property.salePrice : Number(property.salePrice || 0)
+  const rent = typeof property.rentPrice === 'number' ? property.rentPrice : Number(property.rentPrice || 0)
+  if ((property.contractType || '').toUpperCase() === 'RENT') return rent || sale || 0
+  return sale || rent || 0
+}
+
+const formatPriceCompact = (value: number, contractType?: string) => {
+  const amount = Number(value || 0)
+  if (!Number.isFinite(amount)) return '-'
+  const euro = new Intl.NumberFormat('it-IT', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 }).format(amount)
+  return (contractType || '').toUpperCase() === 'RENT' ? `${euro}/mese` : euro
+}
+
+function PropertyDetailPage({
+
+  propertyId,
+
+  onBack,
+
+  onRefreshData,
+
+  navigateToPublicProperty
+
+}: {
+
+  propertyId: string
+
+  onBack: () => void
+
+  onRefreshData: () => void
+
+  navigateToPublicProperty: (propertyId: string) => void
+
+}) {
+
+  const [property, setProperty] = useState<Property | null>(null)
+
+  const [loading, setLoading] = useState(true)
+
+  const [isEditing, setIsEditing] = useState(false)
+
+  const [activeTab, setActiveTab] = useState('overview')
+
+  const [uploadingImages, setUploadingImages] = useState(false)
+
+  const [isCompactLayout, setIsCompactLayout] = useState(
+    typeof window !== 'undefined' ? window.innerWidth <= 1180 : false
+  )
+
+  const { token, user } = useAuthStore()
+  const [availableAgents, setAvailableAgents] = useState<Array<{ id: string; name: string; email?: string }>>([])
+  const [availableContacts, setAvailableContacts] = useState<Array<{ id: string; firstName: string; lastName: string; phone?: string; email?: string }>>([])
+  const [linkedRequests, setLinkedRequests] = useState<Array<{
+    id: string
+    contactId: string
+    contactName: string
+    contactPhone?: string
+    contactEmail?: string
+    agentId: string
+    agentName: string
+    notePreset?: string
+    noteText?: string
+    createdAt: string
+    createdByName?: string
+  }>>([])
+  const [showRequestComposer, setShowRequestComposer] = useState(false)
+  const [showContactPicker, setShowContactPicker] = useState(false)
+  const [contactSearch, setContactSearch] = useState('')
+  const [showQuickClientModal, setShowQuickClientModal] = useState(false)
+  const [publicBaseUrl, setPublicBaseUrl] = useState('')
+  const [requestDraft, setRequestDraft] = useState({
+    contactId: '',
+    agentId: '',
+    notePreset: '',
+    noteText: ''
+  })
+  const requestPresetOptions = [
+    'Richiesta di informazioni',
+    'Da chiamare',
+    'Contatto urgente',
+    'Inviare documentazione',
+    'Proporre visita'
+  ]
+  const isAdminUser = user?.role === 'SUPER_ADMIN' || user?.role === 'AGENCY_ADMIN'
+
+  const selectedRequestContact = availableContacts.find((contact) => contact.id === requestDraft.contactId)
+  const filteredContacts = availableContacts.filter((contact) => {
+    const needle = contactSearch.trim().toLowerCase()
+    if (!needle) return true
+    const fullName = `${contact.firstName || ''} ${contact.lastName || ''}`.trim().toLowerCase()
+    const email = (contact.email || '').toLowerCase()
+    const phone = (contact.phone || '').toLowerCase()
+    return fullName.includes(needle) || email.includes(needle) || phone.includes(needle)
+  })
+
+
+
+  const loadProperty = async () => {
+
+    try {
+
+      const headers: HeadersInit = token ? { Authorization: `Bearer ${token}` } : {}
+
+      const response = await fetch(`/api/properties/${propertyId}`, { headers })
+
+      const data = await response.json()
+
+      if (data.success) {
+
+        setProperty(data.data)
+
+      }
+
+    } catch (error) {
+
+      console.error('Errore caricamento immobile:', error)
+
+    } finally {
+
+      setLoading(false)
+
+    }
+
+  }
+
+
+
+  useEffect(() => {
+
+    loadProperty()
+
+  }, [propertyId, token])
+
+  useEffect(() => {
+    const handleResize = () => {
+      setIsCompactLayout(window.innerWidth <= 1180)
+    }
+
+    handleResize()
+    window.addEventListener('resize', handleResize)
+    return () => window.removeEventListener('resize', handleResize)
+  }, [])
+
+  useEffect(() => {
+    const headers: HeadersInit = token ? { Authorization: `Bearer ${token}` } : {}
+    const loadMeta = async () => {
+      try {
+        const [agentsResult, contactsResult] = await Promise.allSettled([
+          fetch('/api/agents', { headers }),
+          fetch('/api/contacts', { headers })
+        ])
+        const agentsData =
+          agentsResult.status === 'fulfilled'
+            ? await agentsResult.value.json().catch(() => null)
+            : null
+        const contactsData =
+          contactsResult.status === 'fulfilled'
+            ? await contactsResult.value.json().catch(() => null)
+            : null
+
+        const rawAgents = Array.isArray(agentsData)
+          ? agentsData
+          : (agentsData?.success && Array.isArray(agentsData.data) ? agentsData.data : [])
+        setAvailableAgents(
+          rawAgents
+            .filter((agent: any) => agent && agent.isActive !== false)
+            .map((agent: any) => ({
+              id: String(agent.id),
+              name: String(agent.name || [agent.firstName, agent.lastName].filter(Boolean).join(' ') || agent.email || 'Agente'),
+              email: agent.email ? String(agent.email) : undefined
+            }))
+        )
+
+        if (contactsData?.success && Array.isArray(contactsData.data)) {
+          setAvailableContacts(
+            contactsData.data.map((contact: any) => ({
+              id: String(contact.id),
+              firstName: String(contact.firstName || ''),
+              lastName: String(contact.lastName || ''),
+              phone: contact.phone ? String(contact.phone) : undefined,
+              email: contact.email ? String(contact.email) : undefined
+            }))
+          )
+        }
+      } catch (error) {
+        console.error('Errore caricamento metadati richieste immobile:', error)
+      }
+    }
+
+    loadMeta()
+
+    fetch(`/api/properties/${propertyId}/linked-requests`, { headers })
+      .then((response) => response.json())
+      .then((payload) => {
+        if (payload?.success && Array.isArray(payload.data)) {
+          setLinkedRequests(payload.data)
+        } else {
+          setLinkedRequests([])
+        }
+      })
+      .catch((error) => {
+        console.error('Errore caricamento richieste immobile:', error)
+        setLinkedRequests([])
+      })
+  }, [token, propertyId])
+
+  useEffect(() => {
+    const headers: HeadersInit = token ? { Authorization: `Bearer ${token}` } : {}
+    fetch('/api/config/public-base-url', { headers })
+      .then((response) => response.json())
+      .then((payload) => {
+        const base = payload?.data?.publicBaseUrl
+        if (payload?.success && typeof base === 'string' && base.trim().length > 0) {
+          setPublicBaseUrl(base.trim().replace(/\/$/, ''))
+        }
+      })
+      .catch(() => {})
+  }, [token])
+
+  useEffect(() => {
+    if (selectedRequestContact) {
+      setContactSearch(`${selectedRequestContact.firstName || ''} ${selectedRequestContact.lastName || ''}`.trim())
+    } else if (!requestDraft.contactId) {
+      setContactSearch('')
+    }
+  }, [requestDraft.contactId, selectedRequestContact])
+
+  const saveLinkedRequest = async () => {
+    if (!requestDraft.contactId || !requestDraft.agentId) {
+      alert('Seleziona cliente e agente.')
+      return
+    }
+    const selectedContact = availableContacts.find((contact) => contact.id === requestDraft.contactId)
+    const selectedAgent = availableAgents.find((agent) => agent.id === requestDraft.agentId)
+    if (!selectedContact || !selectedAgent) {
+      alert('Cliente o agente non validi.')
+      return
+    }
+
+    try {
+      const headers: HeadersInit = {
+        'Content-Type': 'application/json',
+        ...(token ? { Authorization: `Bearer ${token}` } : {})
+      }
+
+      const response = await fetch(`/api/properties/${propertyId}/linked-requests`, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({
+          contactId: selectedContact.id,
+          agentId: selectedAgent.id,
+          notePreset: requestDraft.notePreset || undefined,
+          noteText: requestDraft.noteText || undefined
+        })
+      })
+      const payload = await response.json().catch(() => null)
+      if (!response.ok || !payload?.success) {
+        alert(payload?.message || 'Errore creazione richiesta')
+        return
+      }
+
+      const refreshResponse = await fetch(`/api/properties/${propertyId}/linked-requests`, { headers: token ? { Authorization: `Bearer ${token}` } : {} })
+      const refreshPayload = await refreshResponse.json().catch(() => null)
+      if (refreshPayload?.success && Array.isArray(refreshPayload.data)) {
+        setLinkedRequests(refreshPayload.data)
+      }
+
+      setRequestDraft({ contactId: '', agentId: '', notePreset: '', noteText: '' })
+      setContactSearch('')
+      setShowContactPicker(false)
+      setShowRequestComposer(false)
+    } catch (error) {
+      console.error('Errore salvataggio richiesta collegata:', error)
+      alert('Errore di connessione')
+    }
+  }
+
+  const createQuickClient = async (contactData: Omit<Contact, 'id' | 'createdAt'>) => {
+    try {
+      const headers: HeadersInit = {
+        'Content-Type': 'application/json',
+        ...(token ? { Authorization: `Bearer ${token}` } : {})
+      }
+      const response = await fetch('/api/contacts', {
+        method: 'POST',
+        headers,
+        body: JSON.stringify(contactData)
+      })
+      const payload = await response.json().catch(() => null)
+      if (!response.ok || !payload?.success || !payload?.data) {
+        alert(payload?.message || 'Errore creazione cliente')
+        return
+      }
+      const created = payload.data
+      const normalized = {
+        id: String(created.id),
+        firstName: String(created.firstName || ''),
+        lastName: String(created.lastName || ''),
+        phone: created.phone ? String(created.phone) : undefined,
+        email: created.email ? String(created.email) : undefined
+      }
+      setAvailableContacts((prev) => [normalized, ...prev])
+      setRequestDraft((prev) => ({ ...prev, contactId: normalized.id }))
+      setContactSearch(`${normalized.firstName} ${normalized.lastName}`.trim())
+      setShowQuickClientModal(false)
+      setShowContactPicker(false)
+    } catch (error) {
+      console.error('Errore creazione cliente veloce:', error)
+      alert('Errore di connessione')
+    }
+  }
+
+  // Gestione caricamento immagini
+
+  const handleImageUpload = async (files: FileList) => {
+
+    if (!property) return
+
+
+
+    setUploadingImages(true)
+
+    const formData = new FormData()
+
+
+
+    Array.from(files).forEach((file) => {
+
+      formData.append('images', file)
+
+    })
+
+
+
+    try {
+
+      const response = await fetch(`/api/properties/${propertyId}/images`, {
+
+        method: 'POST',
+
+        body: formData
+
+      })
+
+
+
+      const data = await response.json()
+
+      if (data.success) {
+
+        setProperty({ ...property, images: [...(property.images || []), ...data.imageUrls] })
+
+        alert('Immagini caricate con successo!')
+
+      } else {
+
+        alert('Errore nel caricamento: ' + data.message)
+
+      }
+
+    } catch (error) {
+
+      console.error('Errore caricamento immagini:', error)
+
+      alert('Errore di connessione')
+
+    } finally {
+
+      setUploadingImages(false)
+
+    }
+
+  }
+
+
+
+  // Rimozione immagine
+
+  const handleRemoveImage = async (imageIndex: number) => {
+
+    if (!property || !property.images) return
+
+
+
+    const imageUrl = property.images[imageIndex]
+
+
+
+    try {
+
+      const response = await fetch(`/api/properties/${propertyId}/images`, {
+
+        method: 'DELETE',
+
+        headers: { 'Content-Type': 'application/json' },
+
+        body: JSON.stringify({ imageUrl })
+
+      })
+
+
+
+      const data = await response.json()
+
+      if (data.success) {
+
+        const newImages = property.images.filter((_, index) => index !== imageIndex)
+
+        setProperty({ ...property, images: newImages })
+
+      }
+
+    } catch (error) {
+
+      console.error('Errore rimozione immagine:', error)
+
+    }
+
+  }
+
+
+
+  // Aggiornamento proprieta
+
+  const handleUpdateProperty = async (updatedData: Partial<Property>) => {
+
+    if (!property) return
+
+
+
+    try {
+
+      const response = await fetch(`/api/properties/${propertyId}`, {
+
+        method: 'PUT',
+
+        headers: { 'Content-Type': 'application/json' },
+
+        body: JSON.stringify(updatedData)
+
+      })
+
+
+
+      const data = await response.json()
+
+      if (data.success) {
+
+        setProperty({ ...property, ...updatedData })
+
+        setIsEditing(false)
+
+        onRefreshData()
+
+        alert('Immobile aggiornato con successo!')
+
+      } else {
+
+        alert('Errore nell\'aggiornamento: ' + data.message)
+
+      }
+
+    } catch (error) {
+
+      console.error('Errore aggiornamento immobile:', error)
+
+      alert('Errore di connessione')
+
+    }
+
+  }
+
+
+
+  if (loading) {
+
+    return (
+
+      <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '400px' }}>
+
+        <div>Caricamento dettagli immobile...</div>
+
+      </div>
+
+    )
+
+  }
+
+
+
+  if (!property) {
+
+    return (
+
+      <div style={{ textAlign: 'center', padding: '2rem' }}>
+
+        <h2>Immobile non trovato</h2>
+
+        <button onClick={onBack} style={{ marginTop: '1rem', padding: '0.5rem 1rem', backgroundColor: '#6b7280', color: 'white', border: 'none', borderRadius: '0.375rem', cursor: 'pointer' }}>
+
+          Torna alla lista
+
+        </button>
+
+      </div>
+
+    )
+
+  }
+
+
+
+  const compactHeader = isCompactLayout
+    ? {
+        display: 'flex',
+        flexDirection: 'column' as const,
+        gap: '0.875rem',
+        alignItems: 'flex-start'
+      }
+    : {
+        display: 'flex',
+        justifyContent: 'space-between',
+        alignItems: 'flex-start',
+        gap: '1.25rem'
+      }
+
+  const mainColumnsStyle = isCompactLayout
+    ? {
+        display: 'grid',
+        gridTemplateColumns: '1fr',
+        gap: '1rem'
+      }
+    : {
+        display: 'grid',
+        gridTemplateColumns: 'minmax(0, 1fr) 320px',
+        gap: '1rem',
+        alignItems: 'start'
+      }
+
+  const imageList = Array.isArray(property.images) ? property.images.filter(Boolean) : []
+  const heroImage = imageList[0] || ''
+  const thumbImages = imageList.slice(1, 5)
+  const hasPortals = Array.isArray(property.portalTargets) && property.portalTargets.length > 0
+
+  return (
+    <>
+    <div style={{ maxWidth: '1320px', margin: '0 auto', padding: isCompactLayout ? '0.25rem' : '0.5rem 0.75rem 1rem' }}>
+
+      <div style={compactHeader}>
+
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap' }}>
+
+          <button
+
+            onClick={onBack}
+
+            style={{
+
+              display: 'inline-flex',
+
+              alignItems: 'center',
+
+              gap: '0.45rem',
+
+              padding: '0.52rem 0.95rem',
+
+              backgroundColor: '#ffffff',
+
+              border: '1px solid #d6deea',
+
+              borderRadius: '0.65rem',
+
+              cursor: 'pointer',
+
+              color: '#1f2937',
+
+              fontWeight: 600
+
+            }}
+
+          >
+
+            <ArrowLeft size={16} /> Torna alla lista
+
+          </button>
+
+          <h1 style={{ fontSize: isCompactLayout ? '1.5rem' : '1.95rem', fontWeight: 800, margin: 0, lineHeight: 1.18 }}>{property.title}</h1>
+
+        </div>
+
+        <div style={{ display: 'flex', gap: '0.6rem', flexWrap: 'wrap' }}>
+
+          <button
+            onClick={() => {
+              const publicOrigin = window.location.origin.replace(/\/$/, '')
+              const publicUrl = `${publicOrigin}/public/property/${propertyId}`
+              navigator.clipboard.writeText(publicUrl).then(() => {
+                alert('Link pubblico copiato negli appunti!\n' + publicUrl)
+              }).catch(() => {
+                alert('Link pubblico: ' + publicUrl)
+              })
+            }}
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '0.5rem',
+              padding: '0.62rem 1.05rem',
+              backgroundColor: '#059669',
+              color: '#ffffff',
+              border: '1px solid #059669',
+              borderRadius: '0.72rem',
+              cursor: 'pointer',
+              fontWeight: 700
+            }}
+          >
+            <Share2 size={16} /> Condividi Link
+          </button>
+
+          <button
+            onClick={() => {
+              const publicOrigin = window.location.origin.replace(/\/$/, '')
+              const publicUrl = `${publicOrigin}/public/property/${propertyId}`
+              window.open(publicUrl, '_blank', 'noopener,noreferrer')
+            }}
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '0.5rem',
+              padding: '0.62rem 1.05rem',
+              backgroundColor: '#7c3aed',
+              color: '#ffffff',
+              border: '1px solid #7c3aed',
+              borderRadius: '0.72rem',
+              cursor: 'pointer',
+              fontWeight: 700
+            }}
+          >
+            <Eye size={16} /> Anteprima Pubblica
+          </button>
+
+          <button
+            onClick={() => setIsEditing(!isEditing)}
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '0.5rem',
+              padding: '0.62rem 1.05rem',
+              backgroundColor: '#2563eb',
+              color: '#ffffff',
+              border: '1px solid #2563eb',
+              borderRadius: '0.72rem',
+              cursor: 'pointer',
+              fontWeight: 700
+            }}
+          >
+            <Edit size={16} /> {isEditing ? 'Annulla' : 'Modifica'}
+          </button>
+
+        </div>
+
+      </div>
+
+      <div style={{ marginTop: '0.65rem', display: 'flex', flexWrap: 'wrap', gap: '0.48rem' }}>
+        <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.34rem', color: '#41577a', fontWeight: 600 }}>
+          <MapPin size={15} /> {property.address}, {property.city}, {property.province}
+        </span>
+        <span style={{ background: '#dbeafe', color: '#1d4ed8', padding: '0.2rem 0.52rem', borderRadius: '999px', fontSize: '0.78rem', fontWeight: 700 }}>
+          {(property.contractType || '').toLowerCase() === 'rent' ? 'affitto' : 'vendita'}
+        </span>
+        <span style={{ background: '#d1fae5', color: '#047857', padding: '0.2rem 0.52rem', borderRadius: '999px', fontSize: '0.78rem', fontWeight: 700 }}>
+          {property.type || '-'}
+        </span>
+        <span style={{ background: '#fef3c7', color: '#92400e', padding: '0.2rem 0.52rem', borderRadius: '999px', fontSize: '0.78rem', fontWeight: 700 }}>
+          {property.status || '-'}
+        </span>
+        <span style={{ background: '#e5e7eb', color: '#374151', padding: '0.2rem 0.52rem', borderRadius: '999px', fontSize: '0.78rem', fontWeight: 700 }}>
+          Rif. {property.reference || '-'}
+        </span>
+      </div>
+
+      <div style={{
+        display: 'flex',
+        borderBottom: '1px solid #d8e0eb',
+        marginTop: '1rem',
+        marginBottom: '1rem',
+        gap: '1.1rem',
+        overflowX: 'auto',
+        paddingBottom: '0.2rem'
+      }}>
+
+        {[
+
+          { id: 'overview', label: 'Panoramica', icon: <Eye size={16} /> },
+
+          { id: 'images', label: 'Immagini', icon: <Image size={16} /> },
+
+          { id: 'details', label: 'Dettagli', icon: <FileText size={16} /> },
+
+          { id: 'portals', label: 'Portali', icon: <Target size={16} /> },
+
+          { id: 'history', label: 'Cronologia', icon: <Clock size={16} /> }
+
+        ].map((tab) => (
+
+          <button
+
+            key={tab.id}
+
+            onClick={() => setActiveTab(tab.id)}
+
+            style={{
+
+              display: 'inline-flex',
+
+              alignItems: 'center',
+
+              gap: '0.45rem',
+
+              padding: '0.65rem 0',
+
+              whiteSpace: 'nowrap',
+
+              backgroundColor: 'transparent',
+
+              border: 'none',
+
+              borderBottom: activeTab === tab.id ? '2px solid #2563eb' : '2px solid transparent',
+
+              color: activeTab === tab.id ? '#2563eb' : '#6b7280',
+
+              cursor: 'pointer',
+
+              fontWeight: activeTab === tab.id ? 700 : 500,
+
+              fontSize: '1rem'
+
+            }}
+
+          >
+
+            <span style={{ display: 'inline-flex', alignItems: 'center' }}>{tab.icon}</span>
+
+            {tab.label}
+
+          </button>
+
+        ))}
+
+      </div>
+
+      <div style={mainColumnsStyle}>
+        <div style={{ minWidth: 0 }}>
+          {activeTab === 'overview' && (
+            <div style={{ display: 'grid', gap: '1rem' }}>
+              <div style={{
+                border: '1px solid #d5deea',
+                borderRadius: '0.85rem',
+                background: '#eef5ff',
+                padding: isCompactLayout ? '0.75rem' : '1rem'
+              }}>
+                <h3 style={{ margin: 0, marginBottom: '0.8rem', fontSize: '1.1rem', color: '#1e3a8a', fontWeight: 700 }}>Foto immobile</h3>
+                {heroImage ? (
+                  <div style={{
+                    display: 'grid',
+                    gridTemplateColumns: isCompactLayout ? '1fr' : '2fr 1fr',
+                    gap: '0.65rem'
+                  }}>
+                    <img
+                      src={heroImage}
+                      alt={property.title}
+                      style={{ width: '100%', height: isCompactLayout ? '250px' : '360px', objectFit: 'cover', borderRadius: '0.75rem', border: '1px solid #d5deea' }}
+                    />
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '0.65rem' }}>
+                      {thumbImages.length > 0 ? thumbImages.map((img, idx) => (
+                        <img
+                          key={img + idx}
+                          src={img}
+                          alt={property.title + ' ' + (idx + 2)}
+                          style={{ width: '100%', height: isCompactLayout ? '110px' : '84px', objectFit: 'cover', borderRadius: '0.65rem', border: '1px solid #d5deea' }}
+                        />
+                      )) : (
+                        <div style={{ border: '1px dashed #bfd1ef', borderRadius: '0.65rem', minHeight: isCompactLayout ? '110px' : '180px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#64748b' }}>
+                          Nessuna miniatura disponibile
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                ) : (
+                  <div style={{ border: '1px dashed #bfd1ef', borderRadius: '0.75rem', minHeight: '180px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#64748b' }}>
+                    Nessuna immagine caricata
+                  </div>
+                )}
+              </div>
+
+              <div style={{
+                border: '1px solid #d5deea',
+                borderRadius: '0.85rem',
+                background: '#eef5ff',
+                padding: isCompactLayout ? '0.75rem' : '1rem'
+              }}>
+                <h3 style={{ margin: 0, marginBottom: '0.8rem', fontSize: '1.1rem', color: '#1e3a8a', fontWeight: 700 }}>Dati principali</h3>
+                <div style={{
+                  display: 'grid',
+                  gridTemplateColumns: isCompactLayout ? '1fr 1fr' : 'repeat(3, minmax(0, 1fr))',
+                  gap: '0.85rem 1.1rem'
+                }}>
+                  <div><div style={{ color: '#1e3a8a', fontSize: '0.78rem', fontWeight: 700 }}>PREZZO</div><div style={{ fontWeight: 700, color: '#0f172a' }}>{formatPriceCompact(getPropertyDisplayPrice(property), property.contractType)}</div></div>
+                  <div><div style={{ color: '#1e3a8a', fontSize: '0.78rem', fontWeight: 700 }}>SUPERFICIE</div><div style={{ fontWeight: 700, color: '#0f172a' }}>{property.surface ? `${property.surface} m²` : '-'}</div></div>
+                  <div><div style={{ color: '#1e3a8a', fontSize: '0.78rem', fontWeight: 700 }}>LOCALI</div><div style={{ fontWeight: 700, color: '#0f172a' }}>{property.rooms ?? '-'}</div></div>
+                  <div><div style={{ color: '#1e3a8a', fontSize: '0.78rem', fontWeight: 700 }}>CAMERE</div><div style={{ fontWeight: 700, color: '#0f172a' }}>{property.bedrooms ?? '-'}</div></div>
+                  <div><div style={{ color: '#1e3a8a', fontSize: '0.78rem', fontWeight: 700 }}>BAGNI</div><div style={{ fontWeight: 700, color: '#0f172a' }}>{property.bathrooms ?? '-'}</div></div>
+                  <div><div style={{ color: '#1e3a8a', fontSize: '0.78rem', fontWeight: 700 }}>CLASSE ENERGETICA</div><div style={{ fontWeight: 700, color: '#0f172a' }}>{property.energyClass || '-'}</div></div>
+                </div>
+              </div>
+
+              <PropertyOverviewTab
+                property={property}
+                isEditing={isEditing}
+                onUpdate={handleUpdateProperty}
+              />
+            </div>
+          )}
+
+          {activeTab === 'images' && (
+            <PropertyImagesTab
+              property={property}
+              onImageUpload={handleImageUpload}
+              onRemoveImage={handleRemoveImage}
+              uploadingImages={uploadingImages}
+            />
+          )}
+
+          {activeTab === 'details' && (
+            <PropertyDetailsTab
+              property={property}
+              isEditing={isEditing}
+              onUpdate={handleUpdateProperty}
+            />
+          )}
+
+          {activeTab === 'portals' && (
+            <PropertyPortalsTab
+              property={property}
+              onReload={async () => {
+                setLoading(true)
+                await loadProperty()
+              }}
+              onRefreshData={onRefreshData}
+            />
+          )}
+
+          {activeTab === 'history' && (
+            <PropertyHistoryTab property={property} />
+          )}
+        </div>
+
+        <aside style={{
+          position: isCompactLayout ? 'static' : 'sticky',
+          top: isCompactLayout ? undefined : '88px',
+          display: 'grid',
+          gap: '0.85rem'
+        }}>
+          <div style={{
+            border: '1px solid #d5deea',
+            borderRadius: '0.85rem',
+            background: '#eef5ff',
+            padding: '0.95rem'
+          }}>
+            <h3 style={{ margin: 0, marginBottom: '0.75rem', color: '#1e3a8a', fontSize: '1.08rem', fontWeight: 700 }}>Collegamenti</h3>
+            <div style={{ borderTop: '1px solid #d5deea', paddingTop: '0.7rem', display: 'grid', gap: '0.7rem' }}>
+              <div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <div style={{ color: '#1d4ed8', fontWeight: 700, fontSize: '0.82rem', letterSpacing: '0.03em' }}>AGENTE</div>
+                  <button style={{ border: 'none', background: 'transparent', color: '#64748b', fontWeight: 700, cursor: 'pointer' }}>+</button>
+                </div>
+                <div style={{ marginTop: '0.3rem', color: '#0f172a', fontWeight: 600 }}>Responsabile: {property.agentName || 'Non assegnato'}</div>
+              </div>
+              <div style={{ height: 1, background: '#d5deea' }} />
+              <div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <div style={{ color: '#1d4ed8', fontWeight: 700, fontSize: '0.82rem', letterSpacing: '0.03em' }}>CLIENTI</div>
+                  <button style={{ border: 'none', background: 'transparent', color: '#64748b', fontWeight: 700, cursor: 'pointer' }}>+</button>
+                </div>
+                <div style={{ marginTop: '0.3rem', color: '#334155' }}>Venditore: {(property.ownerFirstName || property.ownerLastName) ? ((property.ownerFirstName || '') + ' ' + (property.ownerLastName || '')).trim() : 'Nessuno'}</div>
+                <div style={{ marginTop: '0.2rem', color: '#334155' }}>Acquirente: Nessuno</div>
+              </div>
+              <div style={{ height: 1, background: '#d5deea' }} />
+              <div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <div style={{ color: '#1d4ed8', fontWeight: 700, fontSize: '0.82rem', letterSpacing: '0.03em' }}>RICHIESTE</div>
+                  {isAdminUser ? (
+                    <button
+                      onClick={() => setShowRequestComposer((prev) => !prev)}
+                      style={{ border: 'none', background: 'transparent', color: '#64748b', fontWeight: 700, cursor: 'pointer' }}
+                    >
+                      {showRequestComposer ? '-' : '+'}
+                    </button>
+                  ) : null}
+                </div>
+                {showRequestComposer && isAdminUser ? (
+                  <div style={{ marginTop: '0.55rem', display: 'grid', gap: '0.45rem' }}>
+                    <div style={{ position: 'relative' }}>
+                      <div style={{ display: 'flex', gap: '0.4rem' }}>
+                        <input
+                          value={contactSearch}
+                          onChange={(event) => {
+                            setContactSearch(event.target.value)
+                            setShowContactPicker(true)
+                            if (!event.target.value.trim()) {
+                              setRequestDraft((prev) => ({ ...prev, contactId: '' }))
+                            }
+                          }}
+                          onFocus={() => setShowContactPicker(true)}
+                          placeholder="Seleziona cliente schedato"
+                          style={{ width: '100%', border: '1px solid #cfd9ea', borderRadius: '0.5rem', padding: '0.45rem 0.55rem', fontSize: '0.82rem' }}
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setShowQuickClientModal(true)}
+                          style={{
+                            border: '1px solid #2563eb',
+                            background: '#eff6ff',
+                            color: '#1d4ed8',
+                            borderRadius: '0.5rem',
+                            padding: '0.45rem 0.6rem',
+                            fontSize: '0.9rem',
+                            fontWeight: 700,
+                            cursor: 'pointer'
+                          }}
+                        >
+                          +
+                        </button>
+                      </div>
+                      {showContactPicker ? (
+                        <div
+                          style={{
+                            marginTop: '0.25rem',
+                            position: 'absolute',
+                            left: 0,
+                            right: 0,
+                            zIndex: 30,
+                            background: '#ffffff',
+                            border: '1px solid #cfd9ea',
+                            borderRadius: '0.5rem',
+                            maxHeight: '220px',
+                            overflowY: 'auto',
+                            boxShadow: '0 10px 28px rgba(15, 23, 42, 0.14)'
+                          }}
+                        >
+                          {filteredContacts.length === 0 ? (
+                            <div style={{ padding: '0.55rem 0.6rem', color: '#64748b', fontSize: '0.8rem' }}>
+                              Nessun cliente trovato.
+                            </div>
+                          ) : (
+                            filteredContacts.slice(0, 30).map((contact) => {
+                              const label = `${contact.firstName || ''} ${contact.lastName || ''}`.trim() || `Cliente ${contact.id.slice(0, 6)}`
+                              return (
+                                <button
+                                  key={contact.id}
+                                  type="button"
+                                  onClick={() => {
+                                    setRequestDraft((prev) => ({ ...prev, contactId: contact.id }))
+                                    setContactSearch(label)
+                                    setShowContactPicker(false)
+                                  }}
+                                  style={{
+                                    width: '100%',
+                                    textAlign: 'left',
+                                    border: 'none',
+                                    borderBottom: '1px solid #edf2fa',
+                                    background: requestDraft.contactId === contact.id ? '#eff6ff' : '#ffffff',
+                                    padding: '0.52rem 0.6rem',
+                                    cursor: 'pointer'
+                                  }}
+                                >
+                                  <div style={{ color: '#0f172a', fontWeight: 700, fontSize: '0.8rem' }}>{label}</div>
+                                  <div style={{ color: '#64748b', fontSize: '0.74rem' }}>
+                                    {contact.email || 'email non disponibile'}{contact.phone ? ` · ${contact.phone}` : ''}
+                                  </div>
+                                </button>
+                              )
+                            })
+                          )}
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setShowQuickClientModal(true)
+                              setShowContactPicker(false)
+                            }}
+                            style={{
+                              width: '100%',
+                              textAlign: 'left',
+                              border: 'none',
+                              background: '#f8fafc',
+                              color: '#1d4ed8',
+                              padding: '0.55rem 0.6rem',
+                              cursor: 'pointer',
+                              fontWeight: 700,
+                              fontSize: '0.8rem'
+                            }}
+                          >
+                            + Nuovo cliente
+                          </button>
+                        </div>
+                      ) : null}
+                    </div>
+                    <select
+                      value={requestDraft.agentId}
+                      onChange={(event) => setRequestDraft((prev) => ({ ...prev, agentId: event.target.value }))}
+                      style={{ width: '100%', border: '1px solid #cfd9ea', borderRadius: '0.5rem', padding: '0.45rem 0.55rem', fontSize: '0.82rem' }}
+                    >
+                      <option value="">Assegna ad agente</option>
+                      {availableAgents.map((agent) => (
+                        <option key={agent.id} value={agent.id}>{agent.name}</option>
+                      ))}
+                    </select>
+                    <select
+                      value={requestDraft.notePreset}
+                      onChange={(event) => setRequestDraft((prev) => ({ ...prev, notePreset: event.target.value }))}
+                      style={{ width: '100%', border: '1px solid #cfd9ea', borderRadius: '0.5rem', padding: '0.45rem 0.55rem', fontSize: '0.82rem' }}
+                    >
+                      <option value="">Nota preimpostata (opzionale)</option>
+                      {requestPresetOptions.map((item) => (
+                        <option key={item} value={item}>{item}</option>
+                      ))}
+                    </select>
+                    <textarea
+                      value={requestDraft.noteText}
+                      onChange={(event) => setRequestDraft((prev) => ({ ...prev, noteText: event.target.value }))}
+                      placeholder="Note libere admin per l'agente"
+                      rows={2}
+                      style={{ width: '100%', border: '1px solid #cfd9ea', borderRadius: '0.5rem', padding: '0.45rem 0.55rem', fontSize: '0.82rem', resize: 'vertical' }}
+                    />
+                    <button
+                      onClick={saveLinkedRequest}
+                      style={{
+                        border: '1px solid #2563eb',
+                        background: '#2563eb',
+                        color: '#fff',
+                        borderRadius: '0.5rem',
+                        padding: '0.4rem 0.55rem',
+                        fontSize: '0.8rem',
+                        fontWeight: 700,
+                        cursor: 'pointer'
+                      }}
+                    >
+                      Invia richiesta all'agente
+                    </button>
+                  </div>
+                ) : null}
+                <div style={{ marginTop: '0.35rem', display: 'grid', gap: '0.35rem' }}>
+                  {linkedRequests.length > 0 ? (
+                    linkedRequests.slice(0, 3).map((request) => (
+                      <div key={request.id} style={{ border: '1px solid #d8e1ef', background: '#f8fbff', borderRadius: '0.5rem', padding: '0.42rem 0.5rem' }}>
+                        <div style={{ color: '#0f172a', fontWeight: 700, fontSize: '0.8rem' }}>{request.contactName}</div>
+                        <div style={{ color: '#334155', fontSize: '0.76rem' }}>
+                          Agente: {request.agentName}
+                          {request.contactPhone ? ` · ${request.contactPhone}` : ''}
+                        </div>
+                        {request.notePreset ? <div style={{ color: '#1d4ed8', fontSize: '0.74rem', fontWeight: 700 }}>{request.notePreset}</div> : null}
+                        {request.noteText ? <div style={{ color: '#334155', fontSize: '0.74rem' }}>{request.noteText}</div> : null}
+                        <div style={{ color: '#64748b', fontSize: '0.7rem' }}>{new Date(request.createdAt).toLocaleString('it-IT')}</div>
+                      </div>
+                    ))
+                  ) : (
+                    <div style={{ color: '#334155' }}>Nessuna richiesta collegata.</div>
+                  )}
+                </div>
+              </div>
+              <div style={{ height: 1, background: '#d5deea' }} />
+              <div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <div style={{ color: '#1d4ed8', fontWeight: 700, fontSize: '0.82rem', letterSpacing: '0.03em' }}>INCARICHI</div>
+                  <button style={{ border: 'none', background: 'transparent', color: '#64748b', fontWeight: 700, cursor: 'pointer' }}>+</button>
+                </div>
+                <div style={{ marginTop: '0.3rem', color: '#334155' }}>
+                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.35rem', background: '#fef3c7', color: '#92400e', borderRadius: '999px', padding: '0.12rem 0.5rem', fontSize: '0.78rem', fontWeight: 700 }}>
+                    incarico {property.contractType === 'RENT' ? 'affitto' : 'vendita'} - Attivo
+                  </span>
+                </div>
+              </div>
+              <div style={{ height: 1, background: '#d5deea' }} />
+              <div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <div style={{ color: '#1d4ed8', fontWeight: 700, fontSize: '0.82rem', letterSpacing: '0.03em' }}>CONTRATTI</div>
+                  <button style={{ border: 'none', background: 'transparent', color: '#64748b', fontWeight: 700, cursor: 'pointer' }}>+</button>
+                </div>

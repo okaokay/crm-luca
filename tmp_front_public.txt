@@ -1,0 +1,1121 @@
+            </div>
+
+          </aside>
+
+        </main>
+
+      </div>
+
+    </div>
+
+  )
+
+}
+
+
+
+function PublicPropertyPage({
+
+  propertyId,
+
+  onBack
+
+}: {
+
+  propertyId: string
+
+  onBack?: () => void
+
+}) {
+
+  const [property, setProperty] = useState<Property | null>(null)
+
+  const [loading, setLoading] = useState(true)
+
+  const [activeImageIndex, setActiveImageIndex] = useState(0)
+
+  const [showContactForm, setShowContactForm] = useState(false)
+
+  const { token } = useAuthStore()
+
+
+
+  // Carica i dati dell'immobile
+
+  useEffect(() => {
+
+    const fetchProperty = async () => {
+
+      try {
+
+        // Se l'utente ÃƒÂ¨ autenticato, prova prima l'endpoint protetto
+
+        if (token) {
+
+          try {
+
+            const authHeaders: HeadersInit = { Authorization: `Bearer ${token}` }
+
+            const response = await fetch(`/api/properties/${propertyId}`, { headers: authHeaders })
+
+            const data = await response.json().catch(() => null)
+
+            if (response.ok && data?.success) {
+
+              setProperty(data.data)
+
+              return
+
+            }
+
+          } catch {
+
+            // in caso di errore, si passa comunque all'endpoint pubblico
+
+          }
+
+        }
+
+
+
+        // Fallback / accesso pubblico
+
+        const responsePublic = await fetch(`/api/public/properties/${propertyId}`)
+
+        const dataPublic = await responsePublic.json().catch(() => null)
+
+        if (responsePublic.ok && dataPublic?.success) {
+
+          setProperty(dataPublic.data)
+
+        } else {
+
+          setProperty(null)
+
+        }
+
+      } catch (error) {
+
+        console.error('Errore caricamento immobile:', error)
+
+      } finally {
+
+        setLoading(false)
+
+      }
+
+    }
+
+
+
+    fetchProperty()
+
+  }, [propertyId, token])
+
+
+
+  if (loading) {
+
+    return (
+
+      <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '400px' }}>
+
+        <div>Caricamento...</div>
+
+      </div>
+
+    )
+
+  }
+
+
+
+  if (!property) {
+
+    return (
+
+      <div style={{ textAlign: 'center', padding: '2rem' }}>
+
+        <h2>Immobile non trovato</h2>
+
+      </div>
+
+    )
+
+  }
+
+
+
+  return (
+
+    <div style={{
+
+      backgroundColor: '#f8fafc',
+
+      minHeight: '100vh',
+
+      fontFamily: 'system-ui, -apple-system, sans-serif'
+
+    }}>
+
+      {/* Header pubblico */}
+
+      <div style={{
+
+        backgroundColor: 'white',
+
+        borderBottom: '1px solid #e5e7eb',
+
+        padding: '1rem 0'
+
+      }}>
+
+        <div style={{ maxWidth: '1200px', margin: '0 auto', padding: '0 1rem' }}>
+
+          <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+
+            <div style={{
+
+              fontSize: '1.5rem',
+
+              fontWeight: 'bold',
+
+              color: '#2563eb',
+
+              display: 'flex',
+
+              alignItems: 'center',
+
+              gap: '0.5rem'
+
+            }}>
+
+              <Home size={20} /> CRM Immobiliare
+
+            </div>
+
+            <div style={{ flex: 1 }} />
+
+            <div style={{ display: 'flex', gap: '0.5rem' }}>
+
+              <button
+
+                style={{
+
+                  padding: '0.5rem 1rem',
+
+                  backgroundColor: '#2563eb',
+
+                  color: 'white',
+
+                  border: 'none',
+
+                  borderRadius: '0.375rem',
+
+                  cursor: 'pointer',
+
+                  fontSize: '0.875rem'
+
+                }}
+
+              >
+
+                <Languages size={16} /> Italiano
+
+              </button>
+
+              <button
+
+                onClick={() => window.print()}
+
+                style={{
+
+                  padding: '0.5rem 1rem',
+
+                  backgroundColor: '#f3f4f6',
+
+                  border: '1px solid #d1d5db',
+
+                  borderRadius: '0.375rem',
+
+                  cursor: 'pointer',
+
+                  fontSize: '0.875rem'
+
+                }}
+
+              >
+
+                <Printer size={16} /> Stampa
+
+              </button>
+
+            </div>
+
+          </div>
+
+        </div>
+
+      </div>
+
+
+
+      <div style={{ maxWidth: '1200px', margin: '0 auto', padding: '2rem 1rem' }}>
+
+        <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: '2rem' }}>
+
+          {/* Colonna sinistra - Contenuto principale */}
+
+          <div>
+
+            {/* Titolo e prezzo */}
+
+            <div style={{ marginBottom: '2rem' }}>
+
+              <h1 style={{
+
+                fontSize: '2rem',
+
+                fontWeight: 'bold',
+
+                margin: '0 0 0.5rem 0',
+
+                color: '#1f2937'
+
+              }}>
+
+                {property.title}
+
+              </h1>
+
+              <div style={{
+
+                display: 'flex',
+
+                alignItems: 'center',
+
+                gap: '1rem',
+
+                marginBottom: '1rem'
+
+              }}>
+
+                <span style={{ display: 'flex', alignItems: 'center', gap: '0.25rem', color: '#6b7280' }}><MapPin size={16} /> {property.address}, {property.city}</span>
+
+                <span style={{ display: 'flex', alignItems: 'center', gap: '0.25rem', color: '#6b7280' }}><Hash size={16} /> Rif. {property.reference}</span>
+
+              </div>
+
+              <div style={{
+
+                fontSize: '2.5rem',
+
+                fontWeight: 'bold',
+
+                color: '#059669',
+
+                marginBottom: '0.5rem'
+
+              }}>
+
+                {formatPriceCompact(getPropertyDisplayPrice(property), property.contractType)}
+
+              </div>
+
+              <div style={{
+
+                display: 'inline-block',
+
+                padding: '0.25rem 0.75rem',
+
+                borderRadius: '9999px',
+
+                fontSize: '0.875rem',
+
+                fontWeight: '500',
+
+                backgroundColor: property.contractType === 'SALE' ? '#dbeafe' : '#fef3c7',
+
+                color: property.contractType === 'SALE' ? '#1d4ed8' : '#92400e'
+
+              }}>
+
+                {property.contractType === 'SALE' ? 'In Vendita' : 'In Affitto'}
+
+              </div>
+
+            </div>
+
+
+
+            {/* Galleria immagini */}
+
+            <div style={{
+
+              backgroundColor: 'white',
+
+              borderRadius: '0.5rem',
+
+              overflow: 'hidden',
+
+              marginBottom: '2rem',
+
+              boxShadow: '0 1px 3px rgba(0,0,0,0.1)'
+
+            }}>
+
+              {property.images && property.images.length > 0 && (
+
+                <>
+
+                  <div style={{ position: 'relative' }}>
+
+                    <img
+
+                      src={property.images[activeImageIndex]}
+
+                      alt={property.title}
+
+                      style={{
+
+                        width: '100%',
+
+                        height: '400px',
+
+                        objectFit: 'cover'
+
+                      }}
+
+                    />
+
+                    <div style={{
+
+                      position: 'absolute',
+
+                      bottom: '1rem',
+
+                      left: '1rem',
+
+                      backgroundColor: 'rgba(0,0,0,0.7)',
+
+                      color: 'white',
+
+                      padding: '0.5rem 1rem',
+
+                      borderRadius: '0.375rem',
+
+                      fontSize: '0.875rem'
+
+                    }}>
+
+                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.25rem' }}>
+
+                        <Image size={14} /> {property.images.length} Immagini
+
+                      </span>
+
+                    </div>
+
+                  </div>
+
+
+
+                  {property.images.length > 1 && (
+
+                    <div style={{
+
+                      display: 'flex',
+
+                      gap: '0.5rem',
+
+                      padding: '1rem',
+
+                      overflowX: 'auto'
+
+                    }}>
+
+                      {property.images.map((image, index) => (
+
+                        <img
+
+                          key={index}
+
+                          src={image}
+
+                          alt={`${property.title} - ${index + 1}`}
+
+                          onClick={() => setActiveImageIndex(index)}
+
+                          style={{
+
+                            width: '80px',
+
+                            height: '60px',
+
+                            objectFit: 'cover',
+
+                            borderRadius: '0.375rem',
+
+                            cursor: 'pointer',
+
+                            border: activeImageIndex === index ? '2px solid #2563eb' : '2px solid transparent',
+
+                            flexShrink: 0
+
+                          }}
+
+                        />
+
+                      ))}
+
+                    </div>
+
+                  )}
+
+                </>
+
+              )}
+
+            </div>
+
+
+
+            {/* Caratteristiche principali */}
+
+            <div style={{
+
+              backgroundColor: 'white',
+
+              padding: '1.5rem',
+
+              borderRadius: '0.5rem',
+
+              marginBottom: '2rem',
+
+              boxShadow: '0 1px 3px rgba(0,0,0,0.1)'
+
+            }}>
+
+              <div style={{
+
+                display: 'grid',
+
+                gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))',
+
+                gap: '1rem',
+
+                textAlign: 'center'
+
+              }}>
+
+                <div>
+
+                  <div style={{ marginBottom: '0.25rem' }}><Ruler size={20} /></div>
+
+                  <div style={{ fontSize: '1.25rem', fontWeight: 'bold' }}>{property.surface} mq</div>
+
+                  <div style={{ fontSize: '0.875rem', color: '#6b7280' }}>Superficie</div>
+
+                </div>
+
+                <div>
+
+                  <div style={{ marginBottom: '0.25rem' }}><LayoutGrid size={20} /></div>
+
+                  <div style={{ fontSize: '1.25rem', fontWeight: 'bold' }}>{property.rooms}</div>
+
+                  <div style={{ fontSize: '0.875rem', color: '#6b7280' }}>Locali</div>
+
+                </div>
+
+                <div>
+
+                  <div style={{ marginBottom: '0.25rem' }}><Bed size={20} /></div>
+
+                  <div style={{ fontSize: '1.25rem', fontWeight: 'bold' }}>{property.bedrooms}</div>
+
+                  <div style={{ fontSize: '0.875rem', color: '#6b7280' }}>Camere</div>
+
+                </div>
+
+                <div>
+
+                  <div style={{ marginBottom: '0.25rem' }}><ShowerHead size={20} /></div>
+
+                  <div style={{ fontSize: '1.25rem', fontWeight: 'bold' }}>{property.bathrooms}</div>
+
+                  <div style={{ fontSize: '0.875rem', color: '#6b7280' }}>Bagni</div>
+
+                </div>
+
+                <div>
+
+                  <div style={{ marginBottom: '0.25rem' }}><Zap size={20} /></div>
+
+                  <div style={{ fontSize: '1.25rem', fontWeight: 'bold' }}>{property.energyClass}</div>
+
+                  <div style={{ fontSize: '0.875rem', color: '#6b7280' }}>Classe Energetica</div>
+
+                </div>
+
+              </div>
+
+            </div>
+
+
+
+            {/* Descrizione */}
+
+            <div style={{
+
+              backgroundColor: 'white',
+
+              padding: '1.5rem',
+
+              borderRadius: '0.5rem',
+
+              marginBottom: '2rem',
+
+              boxShadow: '0 1px 3px rgba(0,0,0,0.1)'
+
+            }}>
+
+              <h3 style={{ fontSize: '1.25rem', fontWeight: '600', marginBottom: '1rem' }}>
+
+                Descrizione
+
+              </h3>
+
+              <p style={{ lineHeight: '1.6', color: '#374151' }}>
+
+                {property.description}
+
+              </p>
+
+            </div>
+
+
+
+            {/* Dettagli tecnici completi */}
+
+            <PublicPropertyDetails property={property} />
+
+          </div>
+
+
+
+          {/* Colonna destra - Sidebar */}
+
+          <div>
+
+            <PublicPropertySidebar
+
+              property={property}
+
+              showContactForm={showContactForm}
+
+              onToggleContactForm={() => setShowContactForm(!showContactForm)}
+
+            />
+
+          </div>
+
+        </div>
+
+      </div>
+
+    </div>
+
+  )
+
+}
+
+
+
+// Dettagli tecnici completi (stile Cosmocasa)
+
+function PublicPropertyDetails({ property }: { property: Property }) {
+  const detailRows: Array<{ label: string; value: string }> = [];
+  const pushDetail = (label: string, value: unknown, transform?: (input: unknown) => string) => {
+    if (value == null) return;
+    if (typeof value === 'string' && !value.trim()) return;
+    if (typeof value === 'number' && !Number.isFinite(value)) return;
+    const rendered = transform ? transform(value) : String(value);
+    if (!rendered.trim()) return;
+    detailRows.push({ label, value: rendered });
+  };
+
+  pushDetail('Rif.', property.reference);
+  pushDetail(
+    'Tipologia',
+    property.type,
+    (value) =>
+      value === 'APARTMENT'
+        ? 'Appartamento'
+        : value === 'VILLA'
+        ? 'Villa'
+        : value === 'HOUSE'
+        ? 'Casa'
+        : value === 'OFFICE'
+        ? 'Ufficio'
+        : value === 'SHOP'
+        ? 'Negozio'
+        : value === 'WAREHOUSE'
+        ? 'Magazzino'
+        : value === 'LAND'
+        ? 'Terreno'
+        : value === 'GARAGE'
+        ? 'Garage'
+        : String(value)
+  );
+  pushDetail('Contratto', property.contractType, (value) => (String(value).toUpperCase() === 'RENT' ? 'In Affitto' : 'In Vendita'));
+  if (property.city || property.province) {
+    pushDetail('Località', `${property.city || ''}${property.province ? ` (${property.province})` : ''}`);
+  }
+  pushDetail('Classe Energetica', property.energyClass);
+  pushDetail('Locali', property.rooms);
+  pushDetail('Camere', property.bedrooms);
+  pushDetail('Bagni', property.bathrooms);
+  pushDetail('Superficie', property.surface, (value) => `${value} m²`);
+  pushDetail('Piano', property.floor);
+  pushDetail('Totale Piani', property.totalFloors);
+  pushDetail('Ascensore', property.elevator, (value) => (value ? 'Sì' : 'No'));
+  pushDetail('Posti Auto', property.parkingSpaces);
+  pushDetail('Terrazzo', property.terrace, (value) => `${value} m²`);
+  pushDetail('Balcone', property.balcony, (value) => `${value} m²`);
+  pushDetail('Giardino', property.garden, (value) => `${value} m²`);
+  pushDetail('Riscaldamento', property.heating);
+  pushDetail('Aria Condizionata', property.airConditioning, (value) => (value ? 'Sì' : 'No'));
+  pushDetail('Allarme', property.alarm, (value) => (value ? 'Sì' : 'No'));
+  pushDetail('Animali Ammessi', property.petsAllowed, (value) => (value ? 'Sì' : 'No'));
+  pushDetail('Condizioni', property.condition);
+  pushDetail('Anno Costruzione', property.yearBuilt);
+  pushDetail('Anno Ristrutturazione', property.yearRenovated);
+
+  return (
+    <div
+      style={{
+        backgroundColor: 'white',
+        padding: '1.5rem',
+        borderRadius: '0.5rem',
+        boxShadow: '0 1px 3px rgba(0,0,0,0.1)'
+      }}
+    >
+      <h3 style={{ fontSize: '1.25rem', fontWeight: 600, marginBottom: '1rem' }}>Dati Principali</h3>
+
+      {detailRows.length === 0 ? (
+        <div style={{ color: '#6b7280' }}>Nessun dettaglio disponibile.</div>
+      ) : (
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(210px, 1fr))', gap: '0.95rem 1.25rem' }}>
+          {detailRows.map((item) => (
+            <div key={item.label}>
+              <strong style={{ display: 'block', marginBottom: '0.2rem' }}>{item.label}</strong>
+              <span>{item.value}</span>
+            </div>
+          ))}
+        </div>
+      )}
+
+      <div style={{ marginTop: '1.4rem', borderTop: '1px solid #e5e7eb', paddingTop: '1rem' }}>
+        <h4 style={{ fontSize: '1.05rem', fontWeight: 600, margin: '0 0 0.55rem 0' }}>Dettagli Economici</h4>
+        <div>
+          <strong style={{ display: 'block', marginBottom: '0.25rem' }}>Prezzo</strong>
+          <span style={{ fontSize: '1.2rem', color: '#059669', fontWeight: 'bold' }}>
+            {formatPriceCompact(getPropertyDisplayPrice(property), property.contractType)}
+          </span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+
+
+// Sidebar con form contatto
+
+function PublicPropertySidebar({
+
+  property,
+
+  showContactForm,
+
+  onToggleContactForm
+
+}: {
+
+  property: Property
+
+  showContactForm: boolean
+
+  onToggleContactForm: () => void
+
+}) {
+
+  const [formData, setFormData] = useState({
+
+    name: '',
+
+    email: '',
+
+    phone: '',
+
+    message: ''
+
+  })
+
+
+
+  const handleSubmit = async (e: React.FormEvent) => {
+
+    e.preventDefault()
+
+
+
+    // Simula invio richiesta
+
+    try {
+
+      const response = await fetch('/api/contact-requests', {
+
+        method: 'POST',
+
+        headers: { 'Content-Type': 'application/json' },
+
+        body: JSON.stringify({
+
+          
+      propertyId: property.id,
+
+          propertyTitle: property.title
+
+        })
+
+      })
+
+
+
+      if (response.ok) {
+
+        alert('Richiesta inviata con successo! Ti contatteremo presto.')
+
+        setFormData({ name: '', email: '', phone: '', message: '' })
+
+        onToggleContactForm()
+
+      } else {
+
+        alert('Errore nell\'invio della richiesta. Riprova.')
+
+      }
+
+    } catch (error) {
+
+      console.error('Errore invio richiesta:', error)
+
+      alert('Errore di connessione. Riprova.')
+
+    }
+
+  }
+
+
+
+  return (
+
+    <div style={{ position: 'sticky', top: '2rem' }}>
+
+      {/* Prezzo in evidenza */}
+
+      <div style={{
+
+        backgroundColor: 'white',
+
+        padding: '1.5rem',
+
+        borderRadius: '0.5rem',
+
+        marginBottom: '1rem',
+
+        boxShadow: '0 1px 3px rgba(0,0,0,0.1)',
+
+        textAlign: 'center'
+
+      }}>
+
+        <div style={{ fontSize: '0.875rem', color: '#6b7280', marginBottom: '0.5rem' }}>
+
+          Prezzo:
+
+        </div>
+
+        <div style={{
+
+          fontSize: '2rem',
+
+          fontWeight: 'bold',
+
+          color: '#059669',
+
+          marginBottom: '0.5rem'
+
+        }}>
+
+          {formatPriceCompact(getPropertyDisplayPrice(property), property.contractType)}
+
+        </div>
+
+        <div style={{ fontSize: '0.875rem', color: '#6b7280' }}>
+
+          Rif. {property.reference}
+
+        </div>
+
+      </div>
+
+
+
+      {/* Bottone contatto principale */}
+
+      <button
+
+        onClick={onToggleContactForm}
+
+        style={{
+
+          width: '100%',
+
+          padding: '1rem',
+
+          backgroundColor: '#2563eb',
+
+          color: 'white',
+
+          border: 'none',
+
+          borderRadius: '0.5rem',
+
+          fontSize: '1.125rem',
+
+          fontWeight: '600',
+
+          cursor: 'pointer',
+
+          marginBottom: '1rem',
+
+          display: 'flex',
+
+          alignItems: 'center',
+
+          justifyContent: 'center',
+
+          gap: '0.5rem'
+
+        }}
+
+      >
+
+        <Calendar size={18} /> Prenota una visita
+
+      </button>
+
+
+
+      {/* Form prenotazione visita rapida */}
+
+      <VisitBookingForm property={property} />
+
+
+
+      {/* Informazioni agenzia */}
+
+      <div style={{
+
+        backgroundColor: 'white',
+
+        padding: '1.5rem',
+
+        borderRadius: '0.5rem',
+
+        marginBottom: '1rem',
+
+        boxShadow: '0 1px 3px rgba(0,0,0,0.1)'
+
+      }}>
+
+        <h4 style={{ fontSize: '1.125rem', fontWeight: '600', marginBottom: '1rem', color: '#2563eb' }}>
+
+          CRM Immobiliare
+
+        </h4>
+
+        <div style={{ marginBottom: '0.5rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+
+          <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.25rem' }}><MapPin size={16} /></span>
+
+          <span style={{ fontSize: '0.875rem' }}>Via Roma 123, Milano</span>
+
+        </div>
+
+        <div style={{ marginBottom: '0.5rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+
+          <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.25rem' }}><Phone size={16} /></span>
+
+          <span style={{ fontSize: '0.875rem' }}>02 1234567</span>
+
+        </div>
+
+        <div style={{ marginBottom: '0.5rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+
+          <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.25rem' }}><Phone size={16} /></span>
+
+          <span style={{ fontSize: '0.875rem' }}>342 1234567</span>
+
+        </div>
+
+        <div style={{ marginBottom: '1rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+
+          <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.25rem' }}><Mail size={16} /></span>
+
+          <span style={{ fontSize: '0.875rem' }}>info@crmimmobiliare.it</span>
+
+        </div>
+
+      </div>
+
+
+
+      {/* Form di contatto */}
+
+      {showContactForm && (
+
+        <div style={{
+
+          backgroundColor: 'white',
+
+          padding: '1.5rem',
+
+          borderRadius: '0.5rem',
+
+          boxShadow: '0 1px 3px rgba(0,0,0,0.1)'
+
+        }}>
+
+          <h4 style={{ fontSize: '1.125rem', fontWeight: '600', marginBottom: '1rem' }}>
+
+            Richiedi informazioni
+
+          </h4>
+
+          <p style={{ fontSize: '0.875rem', color: '#6b7280', marginBottom: '1rem' }}>
+
+            Compila e invia il modulo per richiedere un appuntamento o maggiori informazioni
+
+          </p>
+
+
+
+          <form onSubmit={handleSubmit}>
+
+            <div style={{ marginBottom: '1rem' }}>
+
+              <input
+
+                type="text"
+
+                placeholder="Nominativo"
+
+                value={formData.name}
+
+                onChange={(e) => setFormData({
+      ...formData,
+      name: e.target.value })}
+
+                required
+
+                style={{
+
+                  width: '100%',
+
+                  padding: '0.75rem',
+
+                  border: '1px solid #d1d5db',
+
+                  borderRadius: '0.375rem',
+
+                  fontSize: '0.875rem'
+
+                }}
+
+              />
+
+            </div>
+
+            <div style={{ marginBottom: '1rem' }}>
+
+              <input
+
+                type="email"
+
+                placeholder="Email"
+
+                value={formData.email}
+
+                onChange={(e) => setFormData({
+      ...formData,
+      email: e.target.value })}
+
+                required
+
+                style={{
+
+                  width: '100%',
+
+                  padding: '0.75rem',
+
+                  border: '1px solid #d1d5db',
+
+                  borderRadius: '0.375rem',
+
+                  fontSize: '0.875rem'
+
+                }}
+
+              />
+
+            </div>
+
+            <div style={{ marginBottom: '1rem' }}>
+
+              <input
+
+                type="tel"
+
+                placeholder="Telefono"
+
+                value={formData.phone}
+
+                onChange={(e) => setFormData({
+      ...formData,
+      phone: e.target.value })}
+
+                style={{
+
+                  width: '100%',
+
+                  padding: '0.75rem',
+
+                  border: '1px solid #d1d5db',
+
+                  borderRadius: '0.375rem',
+
+                  fontSize: '0.875rem'
+
+                }}
+
+              />
+
+            </div>
+
+            <div style={{ marginBottom: '1rem' }}>
+
+              <textarea

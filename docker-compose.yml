@@ -1,0 +1,111 @@
+version: '3.8'
+
+services:
+  # Database PostgreSQL
+  postgres:
+    image: postgres:15-alpine
+    container_name: immobiliare-crm-db
+    environment:
+      POSTGRES_DB: immobiliare_crm
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres123
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - crm-network
+
+  # Redis per cache e queue
+  redis:
+    image: redis:7-alpine
+    container_name: immobiliare-crm-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - crm-network
+
+  # MinIO per storage file
+  minio:
+    image: minio/minio:latest
+    container_name: immobiliare-crm-minio
+    environment:
+      MINIO_ROOT_USER: minioadmin
+      MINIO_ROOT_PASSWORD: minioadmin123
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    volumes:
+      - minio_data:/data
+    command: server /data --console-address ":9001"
+    networks:
+      - crm-network
+
+  # Backend API
+  backend:
+    build:
+      context: ./packages/backend
+      dockerfile: Dockerfile
+    container_name: immobiliare-crm-backend
+    environment:
+      NODE_ENV: development
+      PORT: 3001
+      HOME: /home/pwuser
+      DATABASE_URL: postgresql://postgres:postgres123@postgres:5432/immobiliare_crm
+      REDIS_URL: redis://redis:6379
+      JWT_SECRET: your-super-secret-jwt-key-change-in-production
+      MINIO_ENDPOINT: minio
+      MINIO_PORT: 9000
+      MINIO_ACCESS_KEY: minioadmin
+      MINIO_SECRET_KEY: minioadmin123
+      STRIPE_SECRET_KEY: ${STRIPE_SECRET_KEY}
+      STRIPE_WEBHOOK_SECRET: ${STRIPE_WEBHOOK_SECRET}
+      STRIPE_PRICE_BASE: ${STRIPE_PRICE_BASE}
+      STRIPE_PRICE_PRO: ${STRIPE_PRICE_PRO}
+      STRIPE_PRICE_ENTERPRISE: ${STRIPE_PRICE_ENTERPRISE}
+      PUBLIC_BASE_URL: ${PUBLIC_BASE_URL:-http://localhost:3000}
+      FRONTEND_URL: ${FRONTEND_URL:-http://localhost:3000}
+      IDEALISTA_SCRAPER_MODE: browser
+    command: sh -c "if [ ! -f node_modules/ts-node/package.json ] || [ ! -f node_modules/jsonwebtoken/package.json ] || [ ! -f node_modules/@prisma/client/package.json ]; then (npm ci || npm install); fi; until npx prisma migrate deploy; do echo 'Database non pronto, retry...'; sleep 2; done; npx prisma generate; npx prisma db seed || true; npm run start:dev"
+    ports:
+      - "3001:3001"
+    depends_on:
+      - postgres
+      - redis
+      - minio
+    volumes:
+      - ./packages/backend:/app
+      - /app/node_modules
+    networks:
+      - crm-network
+
+  # Frontend React
+  frontend:
+    build:
+      context: ./packages/frontend
+      dockerfile: Dockerfile.dev
+    container_name: immobiliare-crm-frontend
+    environment:
+      - VITE_API_URL=http://localhost:3001/api
+      - VITE_PROXY_TARGET=http://backend:3001
+    command: sh -c "if [ ! -f node_modules/zustand/package.json ] || [ ! -f node_modules/@hookform/resolvers/package.json ] || [ ! -f node_modules/leaflet/package.json ]; then npm install; fi; npm run dev -- --host --port 3000"
+    ports:
+      - "3000:3000"
+    depends_on:
+      - backend
+    volumes:
+      - ./packages/frontend:/app
+      - /app/node_modules
+    networks:
+      - crm-network
+
+volumes:
+  postgres_data:
+  redis_data:
+  minio_data:
+
+networks:
+  crm-network:
+    driver: bridge 

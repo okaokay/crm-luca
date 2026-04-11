@@ -1,0 +1,26 @@
+name: Appointment Reminder Sweep
+
+on:
+  schedule:
+    # GitHub Actions minimum granularity is 5 minutes.
+    - cron: "*/5 * * * *"
+  workflow_dispatch:
+
+jobs:
+  sweep:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger reminder sweep
+        env:
+          REMINDER_SWEEP_URL: ${{ secrets.REMINDER_SWEEP_URL }}
+          REMINDER_SWEEP_SECRET: ${{ secrets.REMINDER_SWEEP_SECRET }}
+        run: |
+          if [ -z "$REMINDER_SWEEP_URL" ] || [ -z "$REMINDER_SWEEP_SECRET" ]; then
+            echo "Missing REMINDER_SWEEP_URL or REMINDER_SWEEP_SECRET GitHub secret"
+            exit 1
+          fi
+
+          curl --fail --silent --show-error \
+            -H "Authorization: Bearer $REMINDER_SWEEP_SECRET" \
+            "$REMINDER_SWEEP_URL"
+
