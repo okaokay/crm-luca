@@ -1,13 +1,18 @@
-import React, { useState, useEffect } from 'react'
+﻿import React, { useState, useEffect } from 'react'
 
 import { useLocation, useNavigate } from 'react-router-dom'
 import { createPortal } from 'react-dom'
+import { Calendar as BigCalendar, dateFnsLocalizer, type View as BigCalendarView } from 'react-big-calendar'
+import { format as formatDateFns, parse as parseDateFns, startOfWeek as startOfWeekDateFns, getDay as getDayDateFns } from 'date-fns'
+import { it as dateFnsLocaleIt } from 'date-fns/locale'
+import 'react-big-calendar/lib/css/react-big-calendar.css'
 
 import { ContractModal } from './components/ContractModal'
 
 import { AgentZoneTasksPage } from './components/AgentZoneTasksPage'
 
 import { LoginPage } from './pages/auth/LoginPage'
+import { PropertyModalOneClick } from './PropertyModalOneClick'
 
 import { useAuthStore } from './store/authStore'
 
@@ -34,6 +39,7 @@ import {
   Target,
 
   Plus,
+  Minus,
 
   Search,
 
@@ -101,11 +107,26 @@ import {
 
   Globe,
 
-  Menu
+  Menu,
+  Mic,
+  Trophy,
+  Gift,
+  Sparkles
 
 } from 'lucide-react'
 
 import { generateRandomProperty, generateRandomAgent, generateRandomContact, generateRandomAppointment } from './utils/randomData'
+
+const urlBase64ToUint8Array = (base64String: string) => {
+  const padding = '='.repeat((4 - (base64String.length % 4)) % 4)
+  const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/')
+  const rawData = window.atob(base64)
+  const outputArray = new Uint8Array(rawData.length)
+  for (let i = 0; i < rawData.length; i += 1) {
+    outputArray[i] = rawData.charCodeAt(i)
+  }
+  return outputArray
+}
 
 
 
@@ -1953,7 +1974,7 @@ function InternalLoginPage() {
 
           <span>Logout</span>
 
-          <span style={{ fontSize: '1rem' }}>⟶</span>
+          <span style={{ fontSize: '1rem' }}>ÃƒÂ¢Ã…Â¸Ã‚Â¶</span>
 
         </button>
 
@@ -2351,7 +2372,7 @@ function InternalLoginPage() {
 
                         <div style={{ fontWeight: 500 }}>{a.name}</div>
 
-                        <div style={{ fontSize: '0.75rem', color: '#9ca3af' }}>{a.slug || 'â⬝'}</div>
+                        <div style={{ fontSize: '0.75rem', color: '#9ca3af' }}>{a.slug || ' ?'}</div>
 
                         <div
 
@@ -2587,7 +2608,7 @@ function InternalLoginPage() {
 
               {detailLoading ? (
 
-                <div style={{ fontSize: '0.8rem', color: '#9ca3af' }}>Caricamento in corso…</div>
+                <div style={{ fontSize: '0.8rem', color: '#9ca3af' }}>Caricamento in corsoÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¦</div>
 
               ) : detailError ? (
 
@@ -2683,7 +2704,7 @@ function InternalLoginPage() {
 
                           <div style={{ fontSize: '0.75rem', color: '#9ca3af' }}>Slug</div>
 
-                          <div style={{ fontSize: '0.85rem' }}>{selectedAgencyDetail.slug || 'â⬝'}</div>
+                          <div style={{ fontSize: '0.85rem' }}>{selectedAgencyDetail.slug || ' ?'}</div>
 
                         </div>
 
@@ -2705,7 +2726,7 @@ function InternalLoginPage() {
 
                             {typeof selectedAgencyDetail.onboardingStep === 'number' &&
 
-                              ` · Step ${selectedAgencyDetail.onboardingStep}`}
+                              ` Ãƒâ€šÃ‚Â· Step ${selectedAgencyDetail.onboardingStep}`}
 
                           </div>
 
@@ -2773,7 +2794,7 @@ function InternalLoginPage() {
 
                               ) : (
 
-                                'â⬝'
+                                ' ?'
 
                               )}
 
@@ -3127,7 +3148,7 @@ function InternalLoginPage() {
 
                                     <div style={{ fontSize: '0.75rem', color: '#9ca3af' }}>
 
-                                      {t.type} · {t.status}
+                                      {t.type} Ãƒâ€šÃ‚Â· {t.status}
 
                                     </div>
 
@@ -3219,7 +3240,7 @@ function InternalLoginPage() {
 
                                       {r.assignedTo && r.assignedTo.email
 
-                                        ? ` · Assegnato a ${r.assignedTo.email}`
+                                        ? ` Ãƒâ€šÃ‚Â· Assegnato a ${r.assignedTo.email}`
 
                                         : ''}
 
@@ -3353,7 +3374,7 @@ function InternalLoginPage() {
 
                             {!subscriptionEdit && (
 
-                              <div style={{ fontSize: '0.8rem', color: '#9ca3af' }}>Caricamento abbonamento…</div>
+                              <div style={{ fontSize: '0.8rem', color: '#9ca3af' }}>Caricamento abbonamentoÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¦</div>
 
                             )}
 
@@ -3667,7 +3688,7 @@ function InternalLoginPage() {
 
                                       if (!subscriptionEdit || !subscriptionEdit.planCode.trim()) {
 
-                                        setSubscriptionError('Il piano non puÒ² essere vuoto')
+                                        setSubscriptionError('Il piano non puÃ’Â² essere vuoto')
 
                                         setSubscriptionSuccess(null)
 
@@ -3829,7 +3850,7 @@ function InternalLoginPage() {
 
                                   >
 
-                                    {subscriptionSaving ? 'Salvataggioâ¦' : 'Salva modifiche'}
+                                    {subscriptionSaving ? 'Salvataggio ' : 'Salva modifiche'}
 
                                   </button>
 
@@ -3967,7 +3988,7 @@ function InternalLoginPage() {
 
                   onChange={e => setPortalRequestsPortalFilter(e.target.value)}
 
-                  placeholder="IMMOBILIARE_IT, APIMO_NETâ¦"
+                  placeholder="IMMOBILIARE_IT, APIMO_NET "
 
                   style={{
 
@@ -4265,7 +4286,7 @@ function InternalLoginPage() {
 
                   <div style={{ padding: '1.25rem 0.9rem', fontSize: '0.8rem', color: '#9ca3af' }}>
 
-                    Caricamento richieste in corso…
+                    Caricamento richieste in corsoÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¦
 
                   </div>
 
@@ -4381,7 +4402,7 @@ function InternalLoginPage() {
 
                           <div style={{ fontSize: '0.8rem' }}>{r.agency.name}</div>
 
-                          <div style={{ fontSize: '0.75rem', color: '#9ca3af' }}>{r.agency.slug || 'â⬝'}</div>
+                          <div style={{ fontSize: '0.75rem', color: '#9ca3af' }}>{r.agency.slug || ' ?'}</div>
 
                         </div>
 
@@ -4863,7 +4884,7 @@ function InternalLoginPage() {
 
                       >
 
-                        {selectedPortalRequestSaving ? 'Salvataggioâ¦' : 'Salva modifiche'}
+                        {selectedPortalRequestSaving ? 'Salvataggio ' : 'Salva modifiche'}
 
                       </button>
 
@@ -4987,7 +5008,7 @@ function InternalLoginPage() {
 
                   onChange={e => setAuditActionFilter(e.target.value)}
 
-                  placeholder="PROVISION_INSTANCE_..., INTERNAL_LOGINâ¦"
+                  placeholder="PROVISION_INSTANCE_..., INTERNAL_LOGIN "
 
                   style={{
 
@@ -5023,7 +5044,7 @@ function InternalLoginPage() {
 
                   onChange={e => setAuditEntityFilter(e.target.value)}
 
-                  placeholder="Agency, Instance, Subscriptionâ¦"
+                  placeholder="Agency, Instance, Subscription "
 
                   style={{
 
@@ -5059,7 +5080,7 @@ function InternalLoginPage() {
 
                   onChange={e => setAuditEntityIdFilter(e.target.value)}
 
-                  placeholder="ID entitÒ "
+                  placeholder="ID entitÃ’Â "
 
                   style={{
 
@@ -5381,7 +5402,7 @@ function InternalLoginPage() {
 
                   <div style={{ padding: '1.25rem 0.9rem', fontSize: '0.8rem', color: '#9ca3af' }}>
 
-                    Caricamento audit log in corso…
+                    Caricamento audit log in corsoÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¦
 
                   </div>
 
@@ -5747,7 +5768,7 @@ function InternalLoginPage() {
 
                       <div>
 
-                        {selectedAuditLog.entity} · {selectedAuditLog.entityId}
+                        {selectedAuditLog.entity} Ãƒâ€šÃ‚Â· {selectedAuditLog.entityId}
 
                       </div>
 
@@ -5889,7 +5910,7 @@ async function loadItalianCities() {
 
   if (typeof window !== 'undefined') {
 
-    const cached = window.localStorage.getItem('italy_cities_v1')
+    const cached = window.localStorage.getItem('italy_cities_v2')
 
     if (cached) {
 
@@ -5931,7 +5952,8 @@ async function loadItalianCities() {
 
     provinceName: item.provincia?.nome || (item.sigla as string),
 
-    regionName: item.regione?.nome as string
+    regionName: item.regione?.nome as string,
+    istatCode: String(item.codice || '')
 
   }))
 
@@ -5945,7 +5967,7 @@ async function loadItalianCities() {
 
     try {
 
-      window.localStorage.setItem('italy_cities_v1', JSON.stringify(cities))
+      window.localStorage.setItem('italy_cities_v2', JSON.stringify(cities))
 
     } catch {
 
@@ -6003,61 +6025,416 @@ async function loadItalianProvinces() {
 
 
 
-const TEXT_FIXES: Array<[RegExp, string]> = [
-  [/AttivitÃ’Â |AttivitÒ |AttivitÒ/g, 'Attività'],
-  [/CittÃ’Â |CittÃƒÂ |CittÒ |CittÒ/g, 'Città'],
-  [/FranÒ§ais/g, 'Français'],
-  [/Ò /g, 'à'],
-  [/Ò¨/g, 'è'],
-  [/Ò©/g, 'é'],
-  [/Ò¬/g, 'ì'],
-  [/Ò²/g, 'ò'],
-  [/Ò¹/g, 'ù'],
-  [/Ò§/g, 'ç'],
-  [/Ã¢â€šÂ¬|âa¬/g, '€'],
-  [/Ã‚Â·/g, '·'],
-  [/Ã¢â‚¬Â¦/g, '...'],
-  [/Ã¢â‚¬â€œ/g, '–'],
-  [/Ã¢â‚¬â€/g, '—'],
-  [/Ã¢â‚¬â„¢/g, "'"],
-  [/ðŸ[^\s<>\"']+/g, ''],
-  [/Ã|Â|ï¿½|�/g, '']
+const MOJIBAKE_TEXT_REPLACEMENTS: Array<[RegExp, string]> = [
+  [/([A-Za-zÀ-ÿ])(?:Ã|Â|Å|â|ð)[^\s<>"'`)]*/g, '$1'],
+  [/(?:Ã|Â|Å|â|ð)[^\s<>"'`)]*/g, ''],
+  [/Ã¯Â¿Â½/g, ''],
+  [/ï¿½/g, ''],
+  [/ÃƒÂ°Ã…Â¸[^\s<>"'`)]*/g, ''],
+  [/ÃƒÂ°[^\s<>"'`)]*/g, ''],
+  [/ÃƒÆ’Ã‚Â¢Ãƒâ€¦Ã‚Â¡Ãƒâ€šÃ‚Â /g, 'Attenzione: '],
+  [/ÃƒÆ’Ã‚Â¢Ãƒâ€¦Ã‚Â¡Ãƒâ€šÃ‚Â¡/g, ''],
+  [/ÃƒÂ¢Ã…â€œÃ¢â‚¬Â¦/g, 'OK'],
+  [/ÃƒÂ¢Ã‚ÂÃ…â€™/g, 'Errore: '],
+  [/ÃƒÂ¢Ã‚ÂÃ‚Â³/g, '...'],
+  [/ÃƒÂ¢Ã‚Â¬Ã¢â‚¬Â¡ÃƒÂ¯Ã‚Â¸Ã‚Â/g, ''],
+  [/ÃƒÂ¢Ã…Â¡Ã¢â€žÂ¢ÃƒÂ¯Ã‚Â¸Ã‚Â/g, ''],
+  [/ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬/g, 'EUR '],
+  [/Ãƒâ€šÃ‚Â·/g, ' Â· '],
+  [/ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¦/g, '...'],
+  [/ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Å“|Ã¢â‚¬â€œ/g, '-'],
+  [/ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â|Ã¢â‚¬â€/g, '-'],
+  [/ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢|Ã¢â‚¬â„¢/g, "'"],
+  [/ÃƒÂ¢Ã¢â€šÂ¬Ã…â€œ|Ã¢â‚¬Å“/g, '"'],
+  [/ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â|Ã¢â‚¬Â/g, '"'],
+  [/ÃƒÆ’Ã‚Â |ÃƒÂ /g, 'Ã '],
+  [/ÃƒÆ’Ã‚Â¨|ÃƒÂ¨/g, 'Ã¨'],
+  [/ÃƒÆ’Ã‚Â©|ÃƒÂ©/g, 'Ã©'],
+  [/ÃƒÆ’Ã‚Â¬|ÃƒÂ¬/g, 'Ã¬'],
+  [/ÃƒÆ’Ã‚Â²|ÃƒÂ²/g, 'Ã²'],
+  [/ÃƒÆ’Ã‚Â¹|ÃƒÂ¹/g, 'Ã¹'],
+  [/Ã’Â /g, 'Ã '],
+  [/Ã’Â¨/g, 'Ã¨'],
+  [/Ã’Â©/g, 'Ã©'],
+  [/Ã’Â¬/g, 'Ã¬'],
+  [/Ã’Â²/g, 'Ã²'],
+  [/Ã’Â¹/g, 'Ã¹'],
+  [/CittÃƒ[^\s<>"'`]*/g, 'CittÃ '],
+  [/AttivitÃƒ[^\s<>"'`]*/g, 'AttivitÃ '],
+  [/OperativitÃƒ[^\s<>"'`]*/g, 'OperativitÃ '],
+  [/compatibilitÃƒ[^\s<>"'`]*/g, 'compatibilitÃ '],
+  [/funzionalitÃƒ[^\s<>"'`]*/g, 'funzionalitÃ '],
+  [/identitÃƒ[^\s<>"'`]*/g, 'identitÃ '],
+  [/proprietÃƒ[^\s<>"'`]*/g, 'proprietÃ '],
+  [/sarÃƒ[^\s<>"'`]*/g, 'sarÃ '],
+  [/verrÃƒ[^\s<>"'`]*/g, 'verrÃ '],
+  [/giÃƒ[^\s<>"'`]*/g, 'giÃ '],
+  [/sÃƒ[^\s<>"'`]*/g, 'sÃ¬'],
+  [/piÃƒ[^\s<>"'`]*/g, 'piÃ¹'],
+  [/mÃƒâ€šÃ‚Â²/g, 'mq'],
+  [/mÃ¯Â¿Â½/g, 'mq'],
+  [/cittÃƒ[^\s<>"'`]*/g, 'cittÃ '],
+  [/mÃ¯Â¿Â½/g, 'mq'],
+  [/CittÃ¯Â¿Â½/g, 'Citta']
 ]
 
-function normalizeCorruptedText(input: string): string {
-  let out = input
-  for (const [pattern, replacement] of TEXT_FIXES) {
-    out = out.replace(pattern, replacement)
+function normalizeMojibakeText(input: string): string {
+  let value = input
+  const mojibakeMarkerRegex = /Ãƒ.|Ã‚.|Ã¢.|Ã….|Ã°.|Å¸|Å“|Å¾|Ã¯Â¿Â½|ï¿½/
+  const mojibakeScore = (raw: string) => {
+    const matches = raw.match(/Ãƒ.|Ã‚.|Ã¢.|Ã….|Ã°.|Å¸|Å“|Å¾|Ã¯Â¿Â½|ï¿½/g)
+    return matches ? matches.length : 0
   }
-  return out
+  const cp1252Reverse: Record<string, number> = {
+    'â‚¬': 0x80,
+    'â€š': 0x82,
+    'Æ’': 0x83,
+    'â€ž': 0x84,
+    'â€¦': 0x85,
+    'â€ ': 0x86,
+    'â€¡': 0x87,
+    'Ë†': 0x88,
+    'â€°': 0x89,
+    'Å ': 0x8a,
+    'â€¹': 0x8b,
+    'Å’': 0x8c,
+    'Å½': 0x8e,
+    'â€˜': 0x91,
+    'â€™': 0x92,
+    'â€œ': 0x93,
+    'â€': 0x94,
+    'â€¢': 0x95,
+    'â€“': 0x96,
+    'â€”': 0x97,
+    'Ëœ': 0x98,
+    'â„¢': 0x99,
+    'Å¡': 0x9a,
+    'â€º': 0x9b,
+    'Å“': 0x9c,
+    'Å¾': 0x9e,
+    'Å¸': 0x9f
+  }
+  const byteFromChar = (char: string): number | null => {
+    const code = char.charCodeAt(0)
+    if (code <= 0xff) return code
+    const mapped = cp1252Reverse[char]
+    if (mapped != null) return mapped
+    return null
+  }
+  const decodeBytes = (bytes: number[]) => {
+    if (bytes.length === 0) return ''
+    if (bytes.length < 2) return String.fromCharCode(...bytes)
+    try {
+      return new TextDecoder('utf-8', { fatal: false }).decode(Uint8Array.from(bytes))
+    } catch {
+      return String.fromCharCode(...bytes)
+    }
+  }
+  const decodeMojibakeUtf8 = (raw: string) => {
+    try {
+      let output = ''
+      let bytes: number[] = []
+      for (const char of Array.from(raw)) {
+        const byte = byteFromChar(char)
+        if (byte == null) {
+          output += decodeBytes(bytes)
+          bytes = []
+          output += char
+        } else {
+          if (byte < 0x80) {
+            output += decodeBytes(bytes)
+            bytes = []
+            output += char
+          } else {
+            bytes.push(byte)
+          }
+        }
+      }
+      output += decodeBytes(bytes)
+      return output
+    } catch {
+      return raw
+    }
+  }
+  for (let i = 0; i < 4; i += 1) {
+    if (!mojibakeMarkerRegex.test(value)) break
+    const decoded = decodeMojibakeUtf8(value)
+    if (decoded === value) break
+    if (mojibakeScore(decoded) > mojibakeScore(value)) break
+    value = decoded
+  }
+  for (const [pattern, replacement] of MOJIBAKE_TEXT_REPLACEMENTS) {
+    value = value.replace(pattern, replacement)
+  }
+  value = value
+    .replace(/\s{2,}/g, ' ')
+    .replace(/\s+([,.;:!?])/g, '$1')
+  return value
 }
 
-function cleanupCorruptedTextInDocument() {
+function cleanupMojibakeInDocument() {
   if (typeof document === 'undefined') return
 
   const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT)
+  const textNodes: Text[] = []
   let node = walker.nextNode()
   while (node) {
-    const textNode = node as Text
-    const current = textNode.nodeValue || ''
-    const normalized = normalizeCorruptedText(current)
-    if (normalized !== current) {
-      textNode.nodeValue = normalized
-    }
+    textNodes.push(node as Text)
     node = walker.nextNode()
   }
 
-  for (const element of Array.from(document.querySelectorAll<HTMLElement>('*'))) {
+  for (const textNode of textNodes) {
+    const current = textNode.nodeValue || ''
+    const normalized = normalizeMojibakeText(current)
+    if (normalized !== current) {
+      textNode.nodeValue = normalized
+    }
+  }
+
+  const elements = Array.from(document.querySelectorAll<HTMLElement>('*'))
+  for (const el of elements) {
     for (const attr of ['placeholder', 'title', 'aria-label']) {
-      const current = element.getAttribute(attr)
-      if (!current) continue
-      const normalized = normalizeCorruptedText(current)
-      if (normalized !== current) {
-        element.setAttribute(attr, normalized)
+      const raw = el.getAttribute(attr)
+      if (!raw) continue
+      const normalized = normalizeMojibakeText(raw)
+      if (normalized !== raw) {
+        el.setAttribute(attr, normalized)
       }
     }
   }
 }
+
+type AiAssistIntroModalProps = {
+  step: 1 | 2
+  onClose: () => void
+  onNext: () => void
+}
+
+function AiAssistIntroModal({ step, onClose, onNext }: AiAssistIntroModalProps) {
+  const isStepOne = step === 1
+  return (
+    <div
+      style={{
+        position: 'fixed',
+        inset: 0,
+        backgroundColor: 'rgba(15, 23, 42, 0.34)',
+        backdropFilter: 'blur(6px)',
+        WebkitBackdropFilter: 'blur(6px)',
+        display: 'grid',
+        placeItems: 'center',
+        zIndex: 3000,
+        padding: '1.25rem'
+      }}
+    >
+      <div
+        style={{
+          width: '100%',
+          maxWidth: 'min(92vw, 520px)',
+          borderRadius: '24px',
+          backgroundColor: '#f8fafc',
+          border: '1px solid rgba(148, 163, 184, 0.28)',
+          boxShadow: '0 26px 60px rgba(15, 23, 42, 0.18)',
+          padding: 'clamp(1rem, 2vw, 1.4rem)',
+          position: 'relative'
+        }}
+      >
+        <button
+          type="button"
+          aria-label="Chiudi"
+          onClick={onClose}
+          style={{
+            position: 'absolute',
+            top: '1rem',
+            right: '1rem',
+            width: '42px',
+            height: '42px',
+            borderRadius: '9999px',
+            border: 'none',
+            background: 'rgba(148, 163, 184, 0.2)',
+            color: '#475569',
+            cursor: 'pointer',
+            display: 'grid',
+            placeItems: 'center'
+          }}
+        >
+          <X size={24} />
+        </button>
+
+        <div style={{ display: 'grid', placeItems: 'center', marginTop: '0.5rem' }}>
+          <div
+            style={{
+              width: 'clamp(64px, 8vw, 84px)',
+              height: 'clamp(64px, 8vw, 84px)',
+              borderRadius: '22px',
+              background: isStepOne ? 'linear-gradient(160deg, #2563eb 0%, #4f46e5 100%)' : '#f59e0b',
+              color: '#fff',
+              display: 'grid',
+              placeItems: 'center',
+              boxShadow: isStepOne ? '0 16px 34px rgba(37, 99, 235, 0.35)' : '0 16px 34px rgba(245, 158, 11, 0.35)'
+            }}
+          >
+            {isStepOne ? <Mic size={34} /> : <Trophy size={34} />}
+          </div>
+        </div>
+
+        <h2 style={{ margin: '1rem 0 0.6rem', textAlign: 'center', fontSize: 'clamp(1.95rem, 3.6vw, 2.35rem)', color: '#0f172a', lineHeight: 1.15 }}>
+          {isStepOne ? (
+            <>
+              Prova <span style={{ color: '#2563eb' }}>Ehi Maurizio AI</span>
+            </>
+          ) : (
+            'Premi di Produzione'
+          )}
+        </h2>
+
+        {isStepOne ? (
+          <p
+            style={{
+              margin: 0,
+              textAlign: 'center',
+              color: '#475569',
+              fontSize: 'clamp(1.05rem, 2.1vw, 1.35rem)',
+              lineHeight: 1.4,
+              padding: '0 0.3rem'
+            }}
+          >
+            Gestisci clienti, immobili e appuntamenti con la voce. Riduci tempi operativi, aggiorna il gestionale in
+            tempo reale e coordina il team sul campo.
+          </p>
+        ) : (
+          <div
+            style={{
+              backgroundColor: '#fff7ed',
+              border: '1px solid #fdba74',
+              borderRadius: '16px',
+              padding: '0.95rem 1rem',
+              color: '#334155',
+              fontSize: 'clamp(1rem, 1.95vw, 1.22rem)',
+              lineHeight: 1.45
+            }}
+          >
+            <span style={{ fontWeight: 800, color: '#0f172a' }}>Più richieste gestite, più premi per il team.</span>{' '}
+            Ogni utilizzo di Ehi Maurizio AI nelle attività quotidiane aumenta i punteggi: caricamento immobili,
+            follow-up clienti e appuntamenti completati.
+          </div>
+        )}
+
+        <button
+          type="button"
+          onClick={onNext}
+          style={{
+            marginTop: '1.35rem',
+            width: '100%',
+            borderRadius: '14px',
+            border: 'none',
+            cursor: 'pointer',
+            color: '#fff',
+            fontSize: 'clamp(1.15rem, 2.1vw, 1.45rem)',
+            fontWeight: 700,
+            padding: '0.78rem 0.95rem',
+            background: isStepOne ? '#0f172a' : 'linear-gradient(100deg, #2563eb 0%, #4f46e5 100%)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: '0.7rem'
+          }}
+        >
+          {isStepOne ? (
+            <>
+              <Gift size={24} />
+              Scopri il tuo premio
+              <ArrowRight size={24} />
+            </>
+          ) : (
+            'Inizia a usare l AI'
+          )}
+        </button>
+
+        {isStepOne && (
+          <p style={{ margin: '0.75rem 0 0', textAlign: 'center', color: '#64748b', fontSize: 'clamp(0.9rem, 1.6vw, 1rem)' }}>
+            <Sparkles size={18} style={{ verticalAlign: 'middle', marginRight: '0.35rem' }} />
+            Consigliato a tutto il team commerciale
+          </p>
+        )}
+      </div>
+    </div>
+  )
+}
+
+type AiAssistPageProps = {
+  userName: string
+}
+
+function AiAssistPage({ userName }: AiAssistPageProps) {
+  return (
+    <div
+      style={{
+        minHeight: '100%',
+        backgroundColor: '#dcd8fb',
+        position: 'relative',
+        display: 'flex',
+        flexDirection: 'column'
+      }}
+    >
+      <div
+        style={{
+          height: '68px',
+          borderBottom: '1px solid rgba(255,255,255,0.28)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          color: '#1e293b',
+          fontSize: 'clamp(1.2rem, 2vw, 1.8rem)',
+          fontWeight: 700
+        }}
+      >
+        Assistente AI
+      </div>
+      <div style={{ flex: 1, display: 'grid', placeItems: 'center', padding: '2rem 1rem 4rem' }}>
+        <div style={{ textAlign: 'center' }}>
+          <h1 style={{ margin: 0, color: '#0f172a', fontSize: 'clamp(2rem, 5vw, 3.35rem)', fontWeight: 800 }}>Ciao, {userName}!</h1>
+          <p style={{ margin: '0.45rem 0 0', color: '#475569', fontSize: 'clamp(1rem, 2.1vw, 1.65rem)' }}>Pronto ad aiutarti</p>
+
+          <div
+            style={{
+              width: 'clamp(220px, 36vw, 380px)',
+              height: 'clamp(220px, 36vw, 380px)',
+              margin: '1.4rem auto 0',
+              borderRadius: '9999px',
+              background:
+                'radial-gradient(circle at 35% 25%, rgba(255,255,255,0.46) 0%, rgba(255,255,255,0) 44%), radial-gradient(circle at 68% 78%, rgba(37,99,235,0.28) 0%, rgba(37,99,235,0) 54%), linear-gradient(145deg, #9ec5ff 0%, #67cdf3 42%, #7f8fc8 100%)',
+              boxShadow: '0 45px 95px rgba(79, 70, 229, 0.28)',
+              display: 'grid',
+              placeItems: 'center'
+            }}
+          >
+            <Sparkles size={72} color="#ffffff" strokeWidth={2.3} />
+          </div>
+
+          <button
+            type="button"
+            aria-label="Avvia comando vocale"
+            style={{
+              marginTop: '1.4rem',
+              width: 'clamp(74px, 10vw, 90px)',
+              height: 'clamp(74px, 10vw, 90px)',
+              borderRadius: '9999px',
+              border: 'none',
+              backgroundColor: 'rgba(255,255,255,0.85)',
+              display: 'grid',
+              placeItems: 'center',
+              color: '#334155',
+              cursor: 'pointer'
+            }}
+          >
+            <Mic size={34} />
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 // App principale con routing
 
 function App() {
@@ -6071,6 +6448,10 @@ function App() {
   const [currentPage, setCurrentPage] = useState('login')
 
   const [currentPropertyId, setCurrentPropertyId] = useState<string | null>(null)
+  const [currentContactId, setCurrentContactId] = useState<string | null>(null)
+  const [currentContactRequest, setCurrentContactRequest] = useState<any | null>(null)
+  const [clientDetailBackPage, setClientDetailBackPage] = useState<'contatti' | 'incrocio'>('contatti')
+  const [incrocioFocus, setIncrocioFocus] = useState<{ requestId: string; contactId: string } | null>(null)
 
   const [currentPortalId, setCurrentPortalId] = useState<string | null>(null)
 
@@ -6097,6 +6478,33 @@ function App() {
   const [onboardingLoading, setOnboardingLoading] = useState(false)
 
   const [onboardingError, setOnboardingError] = useState<string | null>(null)
+  const [aiAssistIntroStep, setAiAssistIntroStep] = useState<1 | 2 | null>(null)
+
+  useEffect(() => {
+    cleanupMojibakeInDocument()
+    const observer = new MutationObserver(() => cleanupMojibakeInDocument())
+    observer.observe(document.body, { childList: true, subtree: true, characterData: true, attributes: true })
+    const raf1 = requestAnimationFrame(() => cleanupMojibakeInDocument())
+    const raf2 = requestAnimationFrame(() => cleanupMojibakeInDocument())
+    return () => {
+      observer.disconnect()
+      cancelAnimationFrame(raf1)
+      cancelAnimationFrame(raf2)
+    }
+  }, [])
+
+  useEffect(() => {
+    if (currentPage !== 'ai-assist') {
+      setAiAssistIntroStep(null)
+      return
+    }
+    try {
+      const hasSeenIntro = window.localStorage.getItem('ai-assist-intro-completed-v1') === '1'
+      setAiAssistIntroStep(hasSeenIntro ? null : 1)
+    } catch {
+      setAiAssistIntroStep(1)
+    }
+  }, [currentPage])
 
   const [onboardingAgencyForm, setOnboardingAgencyForm] = useState({
 
@@ -6145,24 +6553,6 @@ function App() {
   const userRole = user?.role ?? null
 
   const mustChangePassword = user?.mustChangePassword ?? false
-
-  useEffect(() => {
-    if (typeof document === 'undefined') return
-
-    const runCleanup = () => cleanupCorruptedTextInDocument()
-    runCleanup()
-
-    const timeoutId = window.setTimeout(runCleanup, 120)
-    const intervalId = window.setInterval(runCleanup, 2500)
-    const observer = new MutationObserver(() => runCleanup())
-    observer.observe(document.body, { childList: true, subtree: true, characterData: true })
-
-    return () => {
-      window.clearTimeout(timeoutId)
-      window.clearInterval(intervalId)
-      observer.disconnect()
-    }
-  }, [currentPage])
 
 
 
@@ -6513,6 +6903,14 @@ function App() {
   const [notifications, setNotifications] = useState<Notification[]>([])
 
   const [unreadNotifications, setUnreadNotifications] = useState(0)
+  const [pushEnabled, setPushEnabled] = useState(false)
+  const [pushLoading, setPushLoading] = useState(false)
+  const [pushTestLoading, setPushTestLoading] = useState(false)
+  const [pushError, setPushError] = useState<string | null>(null)
+  const [pwaPromptEvent, setPwaPromptEvent] = useState<any>(null)
+  const [pwaInstallAvailable, setPwaInstallAvailable] = useState(false)
+  const [pwaInstalling, setPwaInstalling] = useState(false)
+  const [pwaInstallMessage, setPwaInstallMessage] = useState<string | null>(null)
 
   const [agents, setAgents] = useState<Agent[]>([])
 
@@ -6531,56 +6929,15 @@ function App() {
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false)
 
   const [notificationsUserFilter, setNotificationsUserFilter] = useState<string | 'ALL' | null>(null)
+  const [notificationFocusActivityId, setNotificationFocusActivityId] = useState<string | null>(null)
+  const [notificationFocusAppointmentId, setNotificationFocusAppointmentId] = useState<string | null>(null)
+  const [openCreateActivityNonce, setOpenCreateActivityNonce] = useState(0)
 
   const [portals, setPortals] = useState<PortalSummary[]>([])
 
   const [portalsLoading, setPortalsLoading] = useState(false)
 
   const isMobileLayout = viewportWidth < 1024
-  const notificationAudioCtxRef = React.useRef<AudioContext | null>(null)
-  const notificationKnownIdsRef = React.useRef<Set<string>>(new Set())
-  const notificationInitRef = React.useRef(false)
-
-  const ensureNotificationAudioContext = React.useCallback(async () => {
-    if (typeof window === 'undefined') return null
-    const AnyWindow = window as any
-    const Ctx = AnyWindow.AudioContext || AnyWindow.webkitAudioContext
-    if (!Ctx) return null
-    if (!notificationAudioCtxRef.current) {
-      notificationAudioCtxRef.current = new Ctx()
-    }
-    if (notificationAudioCtxRef.current.state === 'suspended') {
-      try {
-        await notificationAudioCtxRef.current.resume()
-      } catch {}
-    }
-    return notificationAudioCtxRef.current
-  }, [])
-
-  const playNotificationSound = React.useCallback(async () => {
-    const ctx = await ensureNotificationAudioContext()
-    if (!ctx) return
-
-    try {
-      const now = ctx.currentTime
-      const oscillator = ctx.createOscillator()
-      const gain = ctx.createGain()
-
-      oscillator.type = 'sine'
-      oscillator.frequency.setValueAtTime(880, now)
-      oscillator.frequency.linearRampToValueAtTime(988, now + 0.06)
-
-      gain.gain.setValueAtTime(0.0001, now)
-      gain.gain.exponentialRampToValueAtTime(0.08, now + 0.02)
-      gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.22)
-
-      oscillator.connect(gain)
-      gain.connect(ctx.destination)
-
-      oscillator.start(now)
-      oscillator.stop(now + 0.24)
-    } catch {}
-  }, [ensureNotificationAudioContext])
 
 
 
@@ -6605,18 +6962,6 @@ function App() {
     }
 
   }, [isMobileLayout])
-
-  useEffect(() => {
-    const unlockAudio = () => {
-      ensureNotificationAudioContext().catch(() => {})
-    }
-    window.addEventListener('pointerdown', unlockAudio, { passive: true })
-    window.addEventListener('keydown', unlockAudio)
-    return () => {
-      window.removeEventListener('pointerdown', unlockAudio)
-      window.removeEventListener('keydown', unlockAudio)
-    }
-  }, [ensureNotificationAudioContext])
 
 
 
@@ -6728,6 +7073,75 @@ function App() {
 
     }
 
+    if (path === '/immobili') {
+      setCurrentPage('immobili')
+      return
+    }
+
+    if (path.startsWith('/immobili/')) {
+      const parts = path.split('/')
+      const propertyId = parts[2] || ''
+      if (propertyId) {
+        setCurrentPropertyId(decodeURIComponent(propertyId))
+        setCurrentPage('property-detail')
+        return
+      }
+    }
+
+    if (path === '/contatti') {
+      setCurrentPage('contatti')
+      return
+    }
+
+    if (path === '/incrocio') {
+      setCurrentPage('incrocio')
+      return
+    }
+
+    if (path === '/agenti') {
+      setCurrentPage('agenti')
+      return
+    }
+
+    if (path === '/zone-tasks') {
+      setCurrentPage('zone-tasks')
+      return
+    }
+
+    if (path === '/appuntamenti') {
+      setCurrentPage('appuntamenti')
+      return
+    }
+
+    if (path === '/attivita') {
+      setCurrentPage('attivita')
+      return
+    }
+
+    if (path === '/contratti') {
+      setCurrentPage('contratti')
+      return
+    }
+
+    if (path === '/report') {
+      setCurrentPage('report')
+      return
+    }
+
+    if (path === '/notifiche') {
+      setCurrentPage('notifiche')
+      return
+    }
+
+    if (path === '/impostazioni') {
+      setCurrentPage('impostazioni')
+      return
+    }
+    if (path === '/ai-assist') {
+      setCurrentPage('ai-assist')
+      return
+    }
+
 
 
     if (path === '/portals') {
@@ -6781,6 +7195,44 @@ function App() {
     }
 
   }, [location.pathname, isAuthenticated, navigate, userRole, onboardingChecked])
+
+  useEffect(() => {
+    if (!('serviceWorker' in navigator)) return
+    const onMessage = (event: MessageEvent) => {
+      if (event.data?.type === 'PUSH_NAVIGATE' && typeof event.data.url === 'string') {
+        navigate(event.data.url)
+      }
+    }
+    navigator.serviceWorker.addEventListener('message', onMessage)
+    return () => navigator.serviceWorker.removeEventListener('message', onMessage)
+  }, [navigate])
+
+  useEffect(() => {
+    const path = (location.pathname || '').toLowerCase()
+    const params = new URLSearchParams(location.search || '')
+    if (path === '/attivita') {
+      const activityId = params.get('activityId')
+      if (activityId) setNotificationFocusActivityId(activityId)
+    }
+    if (path === '/appuntamenti') {
+      const appointmentId = params.get('appointmentId')
+      if (appointmentId) setNotificationFocusAppointmentId(appointmentId)
+    }
+  }, [location.pathname, location.search])
+
+  const clearNotificationFocusActivity = React.useCallback(() => {
+    setNotificationFocusActivityId(null)
+    if (location.pathname === '/attivita' && (location.search || '').includes('activityId=')) {
+      navigate('/attivita', { replace: true })
+    }
+  }, [location.pathname, location.search, navigate])
+
+  const clearNotificationFocusAppointment = React.useCallback(() => {
+    setNotificationFocusAppointmentId(null)
+    if (location.pathname === '/appuntamenti' && (location.search || '').includes('appointmentId=')) {
+      navigate('/appuntamenti', { replace: true })
+    }
+  }, [location.pathname, location.search, navigate])
 
 
 
@@ -7156,7 +7608,7 @@ function App() {
 
         fetch('/api/properties?limit=100', { headers: authHeaders }),
 
-        fetch('/api/contacts', { headers: authHeaders }),
+        fetch('/api/contacts?limit=50&page=1', { headers: authHeaders }),
 
         fetch(appointmentsUrl, { headers: authHeaders }),
 
@@ -7516,7 +7968,7 @@ function App() {
 
   // Gestione appuntamenti
 
-  const handleCreateAppointment = async (appointmentData: Omit<Appointment, 'id' | 'createdAt'>) => {
+  const handleCreateAppointment = async (appointmentData: Omit<Appointment, 'id' | 'createdAt'>): Promise<boolean> => {
 
     try {
 
@@ -7535,8 +7987,8 @@ function App() {
       const data = await response.json()
 
       if (data.success) {
-
-        setAppointments([...appointments, data.data])
+        const createdAppointments = Array.isArray(data.data) ? data.data : [data.data]
+        setAppointments(prev => [...prev, ...createdAppointments.filter(Boolean)])
 
 
 
@@ -7570,7 +8022,7 @@ function App() {
 
           'APPOINTMENT_CREATED',
 
-          '📅 Nuovo Appuntamento',
+          'ÃƒÂ°Ã…Â¸Ã¢â‚¬Å“Ã¢â‚¬Â¦ Nuovo Appuntamento',
 
           appointmentDateText
 
@@ -7578,19 +8030,25 @@ function App() {
 
             : appointmentData.title,
 
-          data.data.id
+          createdAppointments[0]?.id
 
         )
 
 
 
         fetchData()
+        return true
 
       }
+
+      alert(data?.message || 'Errore nella creazione appuntamento')
+      return false
 
     } catch (error) {
 
       console.error('Errore creazione appuntamento:', error)
+      alert('Errore di connessione durante la creazione appuntamento')
+      return false
 
     }
 
@@ -7598,7 +8056,7 @@ function App() {
 
 
 
-  const handleUpdateAppointment = async (id: string, appointmentData: Partial<Appointment>) => {
+  const handleUpdateAppointment = async (id: string, appointmentData: Partial<Appointment>): Promise<boolean> => {
 
     try {
 
@@ -7618,15 +8076,21 @@ function App() {
 
       if (data.success) {
 
-        setAppointments(appointments.map(apt => apt.id === id ? { ...apt, ...appointmentData } : apt))
+        setAppointments(prev => prev.map(apt => apt.id === id ? { ...apt, ...appointmentData } : apt))
 
         fetchData()
+        return true
 
       }
+
+      alert(data?.message || 'Errore nell\'aggiornamento appuntamento')
+      return false
 
     } catch (error) {
 
       console.error('Errore aggiornamento appuntamento:', error)
+      alert('Errore di connessione durante l\'aggiornamento appuntamento')
+      return false
 
     }
 
@@ -7666,7 +8130,7 @@ function App() {
 
   const createNotification = (
 
-    type: 'ACTIVITY_CREATED' | 'TASK_COMPLETED' | 'APPOINTMENT_CREATED' | 'APPOINTMENT_REMINDER' | 'MATCH_FOUND' | 'PROPERTY_ADDED' | 'CLIENT_ADDED',
+    type: 'ACTIVITY_CREATED' | 'TASK_CREATED' | 'TASK_COMPLETED' | 'APPOINTMENT_CREATED' | 'APPOINTMENT_REMINDER' | 'MATCH_FOUND' | 'PROPERTY_ADDED' | 'CLIENT_ADDED',
 
     title: string,
 
@@ -7764,7 +8228,7 @@ function App() {
 
 
 
-  const markAllNotificationsAsRead = () => {
+  const markAllNotificationsAsRead = async () => {
 
     setNotifications(prev => prev.map(n => ({ ...n, isRead: true })))
 
@@ -7773,17 +8237,256 @@ function App() {
 
 
     if (token && user?.id) {
+      const isAdminUser = userRole === 'SUPER_ADMIN' || userRole === 'AGENCY_ADMIN'
+      let targetUserId: string
+      let refreshUrl = '/api/notifications'
 
-      fetch(`/api/notifications/read-all/${encodeURIComponent(user.id)}`, {
+      if (isAdminUser) {
+        if (notificationsUserFilter && notificationsUserFilter !== 'ALL') {
+          targetUserId = notificationsUserFilter
+          refreshUrl += `?agentId=${encodeURIComponent(targetUserId)}`
+        } else {
+          // Admin without user filter: mark all agency notifications as read.
+          targetUserId = 'ALL'
+        }
+      } else {
+        targetUserId = user.id
+        refreshUrl += `?agentId=${encodeURIComponent(targetUserId)}`
+      }
+
+      await fetch(`/api/notifications/read-all/${encodeURIComponent(targetUserId)}`, {
 
         method: 'PUT',
 
         headers: { Authorization: `Bearer ${token}` }
 
-      }).catch(() => {})
+      }).catch(() => null)
+
+      // Hard refresh from server to avoid stale local cache entries.
+      const refreshRes = await fetch(refreshUrl, {
+        headers: { Authorization: `Bearer ${token}` }
+      }).catch(() => null)
+      const refreshJson = await refreshRes?.json().catch(() => null)
+      if (refreshJson?.success && Array.isArray(refreshJson.data)) {
+        const nextNotifications = refreshJson.data
+          .map((n: any) => ({
+            id: String(n.id),
+            type: n.type as NotificationType,
+            title: String(n.title ?? ''),
+            message: String(n.message ?? ''),
+            isRead: Boolean(n.isRead),
+            createdAt: String(n.createdAt ?? new Date().toISOString()),
+            relatedId:
+              (n.data && (n.data.appointmentId || n.data.activityId || n.data.eventId)) || undefined,
+            recipientId: n.recipientId ? String(n.recipientId) : undefined,
+            data: n.data
+          }))
+          .sort((a: Notification, b: Notification) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+        setNotifications(nextNotifications)
+        setUnreadNotifications(nextNotifications.filter((n: Notification) => !n.isRead).length)
+      }
 
     }
 
+  }
+
+  const isIosDevice = /iPad|iPhone|iPod/.test(navigator.userAgent)
+  const isStandalonePwa = window.matchMedia('(display-mode: standalone)').matches || (window.navigator as any).standalone === true
+
+  const activatePushNotifications = async () => {
+    if (!token) return
+    if (!('serviceWorker' in navigator) || !('Notification' in window)) {
+      setPushError('Push non supportate su questo dispositivo/browser')
+      return
+    }
+    if (isIosDevice && !isStandalonePwa) {
+      setPushError('Su iPhone apri la web app dalla schermata Home, poi attiva le notifiche.')
+      return
+    }
+
+    setPushLoading(true)
+    setPushError(null)
+
+    try {
+      const currentRegistration = await navigator.serviceWorker.register('/sw.js')
+      await navigator.serviceWorker.ready
+      if (!currentRegistration?.pushManager || typeof currentRegistration.pushManager.subscribe !== 'function') {
+        setPushEnabled(false)
+        setPushError('Push non disponibili: aggiorna iOS (16.4+) e apri la web app dalla Home.')
+        return
+      }
+
+      const permission = await Notification.requestPermission()
+      if (permission !== 'granted') {
+        setPushEnabled(false)
+        setPushError('Permesso notifiche non concesso')
+        return
+      }
+
+      const registration = currentRegistration
+
+      const keyRes = await fetch('/api/push/public-key', {
+        headers: { Authorization: `Bearer ${token}` }
+      })
+      const keyJson = await keyRes.json().catch(() => null)
+      const publicKey = keyJson?.data?.publicKey ? String(keyJson.data.publicKey) : ''
+      if (!publicKey) {
+        setPushEnabled(false)
+        const backendMsg = String(keyJson?.message || '')
+        if (backendMsg.toLowerCase().includes('push key not configured')) {
+          setPushError('Notifiche push non configurate sul server')
+        } else {
+          setPushError(backendMsg || 'Chiave push non disponibile')
+        }
+        return
+      }
+
+      let subscription = await registration.pushManager.getSubscription()
+      if (!subscription) {
+        try {
+          subscription = await registration.pushManager.subscribe({
+            userVisibleOnly: true,
+            applicationServerKey: urlBase64ToUint8Array(publicKey)
+          })
+        } catch (subscribeError) {
+          // Retry once with a clean subscription state.
+          const retryExisting = await registration.pushManager.getSubscription()
+          if (retryExisting) {
+            await retryExisting.unsubscribe().catch(() => {})
+          }
+          subscription = await registration.pushManager.subscribe({
+            userVisibleOnly: true,
+            applicationServerKey: urlBase64ToUint8Array(publicKey)
+          })
+        }
+      }
+
+      const subscribeRes = await fetch('/api/push/subscribe', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`
+        },
+        body: JSON.stringify({ subscription })
+      })
+      const subscribeJson = await subscribeRes.json().catch(() => null)
+      if (!subscribeRes.ok || !subscribeJson?.success) {
+        setPushEnabled(false)
+        setPushError(subscribeJson?.message || 'Errore durante attivazione notifiche push')
+        return
+      }
+
+      setPushEnabled(true)
+    } catch (error: any) {
+      setPushEnabled(false)
+      setPushError(error?.message || 'Errore durante attivazione notifiche push')
+    } finally {
+      setPushLoading(false)
+    }
+  }
+
+  const sendPushTestNotification = async () => {
+    if (!token) return
+    setPushTestLoading(true)
+    setPushError(null)
+    try {
+      const response = await fetch('/api/push/test', {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${token}`
+        }
+      })
+      const payload = await response.json().catch(() => null)
+      if (!response.ok || !payload?.success) {
+        setPushError(payload?.message || 'Errore invio notifica test')
+        return
+      }
+    } catch (error: any) {
+      setPushError(error?.message || 'Errore invio notifica test')
+    } finally {
+      setPushTestLoading(false)
+    }
+  }
+
+  useEffect(() => {
+    if (!token || !isAuthenticated) {
+      setPushEnabled(false)
+      return
+    }
+    if (!('serviceWorker' in navigator) || !('Notification' in window)) {
+      setPushEnabled(false)
+      return
+    }
+
+    let cancelled = false
+    ;(async () => {
+      try {
+        const registration = await navigator.serviceWorker.getRegistration('/sw.js')
+        const hasPushManager = Boolean(registration?.pushManager && typeof registration.pushManager.getSubscription === 'function')
+        if (!hasPushManager) {
+          if (!cancelled) setPushEnabled(false)
+          return
+        }
+        const subscription = await registration!.pushManager.getSubscription()
+        if (!cancelled) {
+          setPushEnabled(Boolean(subscription))
+        }
+      } catch {
+        if (!cancelled) setPushEnabled(false)
+      }
+    })()
+
+    return () => {
+      cancelled = true
+    }
+  }, [token, isAuthenticated])
+
+  useEffect(() => {
+    const onBeforeInstallPrompt = (event: any) => {
+      event.preventDefault()
+      setPwaPromptEvent(event)
+      setPwaInstallAvailable(true)
+      setPwaInstallMessage(null)
+    }
+
+    const onAppInstalled = () => {
+      setPwaInstallAvailable(false)
+      setPwaPromptEvent(null)
+      setPwaInstallMessage('Web app installata')
+    }
+
+    window.addEventListener('beforeinstallprompt', onBeforeInstallPrompt as EventListener)
+    window.addEventListener('appinstalled', onAppInstalled)
+
+    return () => {
+      window.removeEventListener('beforeinstallprompt', onBeforeInstallPrompt as EventListener)
+      window.removeEventListener('appinstalled', onAppInstalled)
+    }
+  }, [])
+
+  const installWebApp = async () => {
+    setPwaInstallMessage(null)
+    if (pwaPromptEvent) {
+      try {
+        setPwaInstalling(true)
+        await pwaPromptEvent.prompt()
+        await pwaPromptEvent.userChoice?.catch(() => null)
+      } catch {
+        setPwaInstallMessage('Installazione non completata')
+      } finally {
+        setPwaInstalling(false)
+      }
+      return
+    }
+
+    const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent)
+    const isSafari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent)
+    if (isIOS && isSafari) {
+      setPwaInstallMessage('Su iPhone: Condividi -> Aggiungi a schermata Home')
+      return
+    }
+
+    setPwaInstallMessage('Installazione non disponibile su questo browser')
   }
 
 
@@ -7846,57 +8549,23 @@ function App() {
 
 
 
-        setNotifications(prev => {
+        const nextNotifications = json.data
+          .map((n: any) => ({
+            id: String(n.id),
+            type: n.type as NotificationType,
+            title: String(n.title ?? ''),
+            message: String(n.message ?? ''),
+            isRead: Boolean(n.isRead),
+            createdAt: String(n.createdAt ?? new Date().toISOString()),
+            relatedId:
+              (n.data && (n.data.appointmentId || n.data.activityId || n.data.eventId)) || undefined,
+            recipientId: n.recipientId ? String(n.recipientId) : undefined,
+            data: n.data
+          }))
+          .sort((a: Notification, b: Notification) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
 
-          const byId = new Map<string, Notification>()
-
-          prev.forEach(n => {
-
-            byId.set(n.id, n)
-
-          })
-
-          json.data.forEach((n: any) => {
-
-            const base: Notification = {
-
-              id: String(n.id),
-
-              type: n.type as NotificationType,
-
-              title: String(n.title ?? ''),
-
-              message: String(n.message ?? ''),
-
-              isRead: Boolean(n.isRead),
-
-              createdAt: String(n.createdAt ?? new Date().toISOString()),
-
-              relatedId:
-
-                (n.data && (n.data.appointmentId || n.data.activityId || n.data.eventId)) || undefined,
-
-              recipientId: n.recipientId ? String(n.recipientId) : undefined,
-
-              data: n.data
-
-            }
-
-            byId.set(base.id, { ...(byId.get(base.id) || base), ...base })
-
-          })
-
-          const merged = Array.from(byId.values()).sort(
-
-            (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
-
-          )
-
-          setUnreadNotifications(merged.filter(n => !n.isRead).length)
-
-          return merged
-
-        })
+        setNotifications(nextNotifications)
+        setUnreadNotifications(nextNotifications.filter((n: Notification) => !n.isRead).length)
 
       } catch {}
 
@@ -7922,101 +8591,9 @@ function App() {
 
   }, [user, token, userRole, notificationsUserFilter])
 
-  useEffect(() => {
-    const currentIds = new Set<string>(notifications.map((n) => n.id))
-
-    if (!notificationInitRef.current) {
-      notificationKnownIdsRef.current = currentIds
-      notificationInitRef.current = true
-      return
-    }
-
-    let hasNewUnreadNotification = false
-    notifications.forEach((n) => {
-      if (!notificationKnownIdsRef.current.has(n.id) && !n.isRead) {
-        hasNewUnreadNotification = true
-      }
-    })
-
-    notificationKnownIdsRef.current = currentIds
-    if (hasNewUnreadNotification) {
-      playNotificationSound().catch(() => {})
-    }
-  }, [notifications, playNotificationSound])
 
 
-
-  // Check for upcoming appointments (reminder system)
-
-  useEffect(() => {
-
-    if (!user) return
-
-
-
-    const checkAppointmentReminders = () => {
-
-      const now = new Date()
-
-      const oneHourFromNow = new Date(now.getTime() + 60 * 60 * 1000)
-
-
-
-      appointments.forEach(appointment => {
-
-        const appointmentTime = new Date(appointment.startTime)
-
-
-
-        // Check if appointment is within the next hour and hasn't been reminded yet
-
-        if (appointmentTime > now && appointmentTime <= oneHourFromNow) {
-
-          // Check if we already sent a reminder for this appointment
-
-          const alreadyReminded = notifications.some(
-
-            n => n.type === 'APPOINTMENT_REMINDER' && n.relatedId === appointment.id
-
-          )
-
-
-
-          if (!alreadyReminded) {
-
-            createNotification(
-
-              'APPOINTMENT_REMINDER',
-
-              '⏰ Appuntamento Imminente',
-
-              `${appointment.title} tra ${Math.round((appointmentTime.getTime() - now.getTime()) / (1000 * 60))} minuti`,
-
-              appointment.id
-
-            )
-
-          }
-
-        }
-
-      })
-
-    }
-
-
-
-    // Check every minute
-
-    const interval = setInterval(checkAppointmentReminders, 60000)
-
-    checkAppointmentReminders() // Check immediately
-
-
-
-    return () => clearInterval(interval)
-
-  }, [appointments, user, notifications])
+  // Promemoria appuntamenti gestiti lato backend + push web
 
 
 
@@ -8154,7 +8731,7 @@ function App() {
 
           'CLIENT_ADDED',
 
-          '🤠Nuovo Cliente',
+          ' Nuovo Cliente',
 
           `${contactData.firstName} ${contactData.lastName} - ${clientType}`,
 
@@ -8433,7 +9010,7 @@ function App() {
 
           'PROPERTY_ADDED',
 
-          '🏠 Nuovo Immobile',
+          'Nuovo Immobile',
 
           `${newProperty.title} - ${newProperty.address}`,
 
@@ -8477,7 +9054,8 @@ function App() {
 
          agencyId: user?.agency?.id,
 
-         assignedToId: activityData.assignedToId || user?.id
+         assignedToId: activityData.assignedToId || user?.id,
+         assignedToIds: Array.isArray(activityData.assignedToIds) ? activityData.assignedToIds : undefined
 
        }
 
@@ -8499,33 +9077,35 @@ function App() {
 
        if (data.success) {
 
-         const newActivity = data.data
-
-         setActivities(prev => [newActivity, ...prev])
-
+         const createdActivities = Array.isArray(data.data) ? data.data : [data.data]
+         setActivities(prev => [...createdActivities, ...prev])
+         if (createdActivities.length === 1) {
+           const newActivity = createdActivities[0]
+           createNotification(
+             'ACTIVITY_CREATED',
+             'Nuova AttivitÃ’Â ',
+             newActivity.title,
+             newActivity.id
+           )
+           return newActivity
+         }
          createNotification(
-
            'ACTIVITY_CREATED',
-
-           'Nuova AttivitÒ ',
-
-           newActivity.title,
-
-           newActivity.id
-
+           'Nuove attivitÃ’Â ',
+           `${createdActivities.length} attivit create`,
+           createdActivities[0]?.id || ''
          )
-
-         return newActivity
+         return createdActivities
 
        } else {
 
-         alert('Errore creazione attivitÒ : ' + data.message)
+         alert('Errore creazione attivitÃ’Â : ' + data.message)
 
        }
 
      } catch (error) {
 
-       console.error('Errore creazione attivitÒ :', error)
+       console.error('Errore creazione attivitÃ’Â :', error)
 
        alert('Errore di connessione')
 
@@ -8569,9 +9149,9 @@ function App() {
 
           'TASK_COMPLETED',
 
-          'â⬦ Task Completato',
+          '? Task Completato',
 
-          `${activityTitle} è stato completato`,
+          `${activityTitle} ÃƒÆ’Ã‚Â¨ stato completato`,
 
           id
 
@@ -8581,9 +9161,9 @@ function App() {
 
     } catch (error) {
 
-      console.error('Errore completamento attivitÒ :', error)
+      console.error('Errore completamento attivitÃ’Â :', error)
 
-      alert('Errore nel completamento dell\'attività')
+      alert("Errore nel completamento dell'attivit")
 
     }
 
@@ -8621,7 +9201,7 @@ function App() {
 
     } catch (error) {
 
-      console.error('Errore aggiornamento attivitÒ :', error)
+      console.error('Errore aggiornamento attivitÃ’Â :', error)
 
     }
 
@@ -8631,7 +9211,7 @@ function App() {
 
   const handleDeleteActivity = async (id: string) => {
 
-    if (!confirm('Sei sicuro di voler eliminare questa attivitÒ ?')) return
+    if (!confirm('Sei sicuro di voler eliminare questa attivitÃ’Â ?')) return
 
     try {
 
@@ -8647,7 +9227,7 @@ function App() {
 
     } catch (error) {
 
-      console.error('Errore eliminazione attivitÒ :', error)
+      console.error('Errore eliminazione attivitÃ’Â :', error)
 
     }
 
@@ -9011,7 +9591,7 @@ function App() {
 
                 Per garantire una partenza corretta raccogliamo alcuni dati essenziali. Il processo
 
-                richiede pochi minuti e migliora l'operatività quotidiana del tuo team.
+                richiede pochi minuti e migliora l'operativitÃƒÆ’Ã‚Â  quotidiana del tuo team.
 
               </p>
 
@@ -9071,7 +9651,7 @@ function App() {
 
               >
 
-                Verifica dello stato di onboarding in corso…
+                Verifica dello stato di onboarding in corsoÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¦
 
               </div>
 
@@ -9103,13 +9683,13 @@ function App() {
 
               >
 
-                <div style={{ fontSize: '0.9rem', fontWeight: 500 }}>Step 1 · Dati agenzia</div>
+                <div style={{ fontSize: '0.9rem', fontWeight: 500 }}>Step 1 Ãƒâ€šÃ‚Â· Dati agenzia</div>
 
                 <p style={{ fontSize: '0.85rem', color: '#4b5563' }}>
 
                   Inserisci i dati fiscali e di contatto principali della tua agenzia. Servono per i
 
-                  documenti, le comunicazioni ai clienti e l'identitÒ  del tuo account.
+                  documenti, le comunicazioni ai clienti e l'identitÃ’Â  del tuo account.
 
                 </p>
 
@@ -9215,7 +9795,7 @@ function App() {
 
                     <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 500, marginBottom: '0.25rem' }}>
 
-                      CittÒ 
+                      CittÃ’Â 
 
                     </label>
 
@@ -9533,11 +10113,11 @@ function App() {
 
               >
 
-                <div style={{ fontSize: '0.9rem', fontWeight: 500 }}>Step 2 · Team</div>
+                <div style={{ fontSize: '0.9rem', fontWeight: 500 }}>Step 2   Team</div>
 
                 <p style={{ fontSize: '0.85rem', color: '#4b5563' }}>
 
-                  Crea i primi utenti chiave che utilizzeranno il CRM. Il primo utente sarÒ 
+                  Crea i primi utenti chiave che utilizzeranno il CRM. Il primo utente sarÃ’Â 
 
                   l'amministratore dell'agenzia se non specifichi ruoli diversi.
 
@@ -10043,7 +10623,7 @@ function App() {
 
               >
 
-                <div style={{ fontSize: '0.9rem', fontWeight: 500 }}>Step 3 · Configurazioni</div>
+                <div style={{ fontSize: '0.9rem', fontWeight: 500 }}>Step 3   Configurazioni</div>
 
                 <p style={{ fontSize: '0.85rem', color: '#4b5563' }}>
 
@@ -10395,7 +10975,7 @@ function App() {
 
               >
 
-                <div style={{ fontSize: '0.9rem', fontWeight: 500 }}>Step 4 · Riepilogo</div>
+                <div style={{ fontSize: '0.9rem', fontWeight: 500 }}>Step 4   Riepilogo</div>
 
                 <p style={{ fontSize: '0.85rem', color: '#166534' }}>
 
@@ -10639,7 +11219,7 @@ function App() {
 
               <div style={{ fontSize: '0.8rem', color: '#6b7280' }}>
 
-                Il completamento dell'onboarding è necessario per accedere alla dashboard principale.
+                Il completamento dell'onboarding ÃƒÆ’Ã‚Â¨ necessario per accedere alla dashboard principale.
 
               </div>
 
@@ -10701,7 +11281,7 @@ function App() {
 
     { name: 'Immobili', page: 'immobili', icon: Building },
 
-    { name: 'Portali', page: 'portals', icon: Globe, adminOnly: true },
+    { name: '1clickannunci', page: 'portals', icon: Globe, adminOnly: true },
 
     { name: 'Clienti', page: 'contatti', icon: Users },
 
@@ -10715,11 +11295,12 @@ function App() {
 
     { name: 'Contratti', page: 'contratti', icon: FileText },
 
-    { name: 'AttivitÒ ', page: 'attivita', icon: CheckSquare },
+    { name: 'Attivita', page: 'attivita', icon: CheckSquare },
 
     { name: 'Notifiche', page: 'notifiche', icon: Bell },
+    { name: 'AI Assist', page: 'ai-assist', icon: Sparkles },
 
-    { name: 'Report', page: 'report', icon: BarChart3 },
+    { name: 'Report', page: 'report', icon: BarChart3, adminOnly: true },
 
     { name: 'Impostazioni', page: 'impostazioni', icon: Settings },
 
@@ -10728,9 +11309,7 @@ function App() {
 
 
   const navigation = allNavigation.filter(item =>
-
     !item.adminOnly || userRole === 'SUPER_ADMIN' || userRole === 'AGENCY_ADMIN'
-
   )
 
   const currentNav = navigation.find((item) => item.page === currentPage)?.name || 'CRM'
@@ -10741,9 +11320,6 @@ function App() {
     return (
       <PublicPropertyPage
         propertyId={currentPropertyId}
-        onBack={() => {
-          navigate('/dashboard')
-        }}
       />
     )
   }
@@ -10846,6 +11422,9 @@ function App() {
 
                     navigate('/portals')
 
+                  }
+                  if (item.page === 'ai-assist') {
+                    navigate('/ai-assist')
                   }
 
                   if (isMobileLayout) {
@@ -11046,7 +11625,7 @@ function App() {
 
               >
 
-                {globalPortalsLoading ? 'Aggiornamentoâ¦' : 'Ricarica elenco'}
+                {globalPortalsLoading ? 'Aggiornamento ' : 'Ricarica elenco'}
 
               </button>
 
@@ -11122,7 +11701,7 @@ function App() {
 
                   <div style={{ padding: '1.25rem 0.9rem', fontSize: '0.8rem', color: '#9ca3af' }}>
 
-                    Caricamento portali…
+                    Caricamento portaliÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¦
 
                   </div>
 
@@ -11684,7 +12263,7 @@ function App() {
 
                         >
 
-                          {globalPortalSaving ? 'Salvataggioâ¦' : 'Salva credenziali'}
+                          {globalPortalSaving ? 'Salvataggio ' : 'Salva credenziali'}
 
                         </button>
 
@@ -11772,7 +12351,7 @@ function App() {
 
                         >
 
-                          {globalPortalTesting ? 'Test in corsoâ¦' : 'Test connessione'}
+                          {globalPortalTesting ? 'Test in corso ' : 'Test connessione'}
 
                         </button>
 
@@ -11854,7 +12433,7 @@ function App() {
 
               >
 
-                {portalRequestsLoading ? 'Aggiornamentoâ¦' : 'Ricarica elenco'}
+                {portalRequestsLoading ? 'Aggiornamento ' : 'Ricarica elenco'}
 
               </button>
 
@@ -11930,7 +12509,7 @@ function App() {
 
                       onChange={e => setPortalRequestsPortalFilter(e.target.value)}
 
-                      placeholder="Filtra per portalIdâ¦"
+                      placeholder="Filtra per portalId "
 
                       style={{
 
@@ -11994,7 +12573,7 @@ function App() {
 
                       onChange={e => setPortalRequestsAgencyFilter(e.target.value)}
 
-                      placeholder="Filtra per agenzia (nome o slug)â¦"
+                      placeholder="Filtra per agenzia (nome o slug) "
 
                       style={{
 
@@ -12100,7 +12679,7 @@ function App() {
 
                   <div style={{ padding: '1.25rem 0.9rem', fontSize: '0.8rem', color: '#9ca3af' }}>
 
-                    Caricamento richieste…
+                    Caricamento richiesteÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¦
 
                   </div>
 
@@ -12240,7 +12819,7 @@ function App() {
 
                               <div style={{ fontSize: '0.72rem', color: '#6b7280' }}>
 
-                                {r.agency.slug || 'â⬝'}
+                                {r.agency.slug || ' ?'}
 
                               </div>
 
@@ -12673,7 +13252,7 @@ function App() {
       >
 
         {/* Header con Notifiche */}
-
+        {currentPage !== 'ai-assist' && (
         <div className="manus-contact-modal-header" style={{
 
           backgroundColor: 'white',
@@ -12744,7 +13323,107 @@ function App() {
 
           {/* Notification Bell Icon */}
 
-          <div style={{ position: 'relative' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', position: 'relative' }}>
+            {!isMobileLayout && (
+            <>
+            <button
+
+              type="button"
+
+              onClick={installWebApp}
+
+              disabled={pwaInstalling}
+
+              style={{
+
+                border: '1px solid #cbd5e1',
+
+                background: '#ffffff',
+
+                color: '#1e293b',
+
+                borderRadius: '9999px',
+
+                padding: isMobileLayout ? '0.38rem 0.65rem' : '0.42rem 0.78rem',
+
+                fontSize: isMobileLayout ? '0.72rem' : '0.78rem',
+
+                fontWeight: 600,
+
+                cursor: pwaInstalling ? 'default' : 'pointer',
+
+                opacity: pwaInstalling ? 0.7 : 1,
+
+                whiteSpace: 'nowrap'
+
+              }}
+
+            >
+
+              {pwaInstalling ? 'Installazione' : 'Scarica web app'}
+
+            </button>
+            <button
+
+              type="button"
+
+              onClick={activatePushNotifications}
+
+              disabled={pushLoading || pushEnabled}
+
+              title={pushError || ''}
+
+              style={{
+
+                border: pushEnabled ? '1px solid #86efac' : '1px solid #cbd5e1',
+
+                background: pushEnabled ? '#dcfce7' : '#ffffff',
+
+                color: pushEnabled ? '#166534' : '#1e293b',
+
+                borderRadius: '9999px',
+
+                padding: isMobileLayout ? '0.38rem 0.65rem' : '0.42rem 0.78rem',
+
+                fontSize: isMobileLayout ? '0.72rem' : '0.78rem',
+
+                fontWeight: 600,
+
+                cursor: pushLoading || pushEnabled ? 'default' : 'pointer',
+
+                opacity: pushLoading ? 0.7 : 1,
+
+                whiteSpace: 'nowrap'
+
+              }}
+
+            >
+
+              {pushEnabled ? 'Notifiche attive' : pushLoading ? 'Attivazione' : 'Attiva notifiche'}
+
+            </button>
+            <button
+              type="button"
+              onClick={sendPushTestNotification}
+              disabled={pushTestLoading || !pushEnabled}
+              title={!pushEnabled ? 'Attiva prima le notifiche push' : ''}
+              style={{
+                border: '1px solid #cbd5e1',
+                background: '#ffffff',
+                color: '#1e293b',
+                borderRadius: '9999px',
+                padding: isMobileLayout ? '0.38rem 0.65rem' : '0.42rem 0.78rem',
+                fontSize: isMobileLayout ? '0.72rem' : '0.78rem',
+                fontWeight: 600,
+                cursor: pushTestLoading || !pushEnabled ? 'default' : 'pointer',
+                opacity: pushTestLoading || !pushEnabled ? 0.7 : 1,
+                whiteSpace: 'nowrap'
+              }}
+            >
+              {pushTestLoading ? 'Invio test' : 'Test push'}
+            </button>
+            </>
+            )}
 
             <button
 
@@ -12819,6 +13498,16 @@ function App() {
               )}
 
             </button>
+            {!isMobileLayout && pushError && !pushEnabled && (
+              <span style={{ color: '#b91c1c', fontSize: '0.72rem', maxWidth: '220px' }}>
+                {pushError}
+              </span>
+            )}
+            {!isMobileLayout && pwaInstallMessage && (
+              <span style={{ color: '#1e3a8a', fontSize: '0.72rem', maxWidth: '240px' }}>
+                {pwaInstallMessage}
+              </span>
+            )}
 
 
 
@@ -12920,7 +13609,7 @@ function App() {
 
                     >
 
-                      ×
+                      
 
                     </button>
 
@@ -12930,7 +13619,7 @@ function App() {
 
                 <div style={{ maxHeight: '450px', overflowY: 'auto' }}>
 
-                  {notifications.length === 0 ? (
+                  {notifications.filter(n => !n.isRead).length === 0 ? (
 
                     <div style={{ padding: '3rem 2rem', textAlign: 'center', color: '#9ca3af' }}>
 
@@ -12982,11 +13671,15 @@ function App() {
 
                   ) : (
 
-                    notifications.slice(0, 10).map(notification => {
+                    notifications.filter(n => !n.isRead).slice(0, 10).map(notification => {
 
                       const getNotificationStyle = (type: string) => {
 
                         switch (type) {
+
+                          case 'TASK_CREATED':
+
+                            return { icon: 'TSK', bg: '#dbeafe', color: '#1e40af' }
 
                           case 'TASK_COMPLETED':
 
@@ -13049,12 +13742,20 @@ function App() {
                           onClick={() => {
 
                             markNotificationAsRead(notification.id)
+                            const targetUrl = typeof (notification as any)?.data?.url === 'string'
+                              ? String((notification as any).data.url)
+                              : ''
+                            if (targetUrl) {
+                              navigate(targetUrl)
+                              setShowNotifications(false)
+                              return
+                            }
 
                             if (notification.type === 'APPOINTMENT_CREATED' || notification.type === 'APPOINTMENT_REMINDER') {
 
                               setCurrentPage('appuntamenti')
 
-                            } else if (notification.type === 'TASK_COMPLETED') {
+                            } else if (notification.type === 'TASK_COMPLETED' || notification.type === 'TASK_CREATED') {
 
                               setCurrentPage('attivita')
 
@@ -13222,7 +13923,7 @@ function App() {
 
                     >
 
-                      Vedi tutte le notifiche →
+                      Vedi tutte le notifiche ?
 
                     </button>
 
@@ -13237,6 +13938,7 @@ function App() {
           </div>
 
         </div>
+        )}
 
 
 
@@ -13246,7 +13948,7 @@ function App() {
 
           style={{
 
-            padding: isMobileLayout ? '0.75rem' : '1.2rem',
+            padding: currentPage === 'ai-assist' ? '0' : isMobileLayout ? '0.85rem' : '1.6rem',
 
             flex: 1,
 
@@ -13284,7 +13986,7 @@ function App() {
 
                 minWidth: 0,
 
-                maxWidth: isMobileLayout ? '100%' : '1240px',
+                maxWidth: currentPage === 'ai-assist' ? '100%' : isMobileLayout ? '100%' : '1360px',
 
                 display: 'flex',
 
@@ -13301,6 +14003,9 @@ function App() {
               stats={stats}
 
               dataLoading={dataLoading}
+              appointments={appointments}
+              activities={activities}
+              contacts={contacts}
 
               properties={properties}
 
@@ -13318,6 +14023,12 @@ function App() {
               }}
 
               onOpenAppointments={() => setCurrentPage('appuntamenti')}
+              onOpenActivities={() => setCurrentPage('attivita')}
+              onOpenCreateActivity={() => {
+                setCurrentPage('attivita')
+                setOpenCreateActivityNonce((prev) => prev + 1)
+              }}
+              onOpenZoneTasks={() => setCurrentPage('zone-tasks')}
 
               onCreateContact={handleCreateContact}
 
@@ -13401,6 +14112,14 @@ function App() {
 
               navigateToPublicProperty={navigateToPublicProperty}
 
+              onOpenCrossRequest={(requestId, contactId) => {
+
+                setIncrocioFocus({ requestId, contactId })
+
+                setCurrentPage('incrocio')
+
+              }}
+
             />
 
           )}
@@ -13430,6 +14149,14 @@ function App() {
               onUploadDocument={uploadContactDocument}
 
               onDeleteDocument={deleteContactDocument}
+              authToken={token}
+
+              onOpenContactPage={(contact) => {
+                setCurrentContactId(contact.id)
+                setCurrentContactRequest(null)
+                setClientDetailBackPage('contatti')
+                setCurrentPage('cliente-detail')
+              }}
 
             />
 
@@ -13467,8 +14194,36 @@ function App() {
 
               canManageAssignments={userRole === 'SUPER_ADMIN' || userRole === 'AGENCY_ADMIN'}
 
+              focusRequestId={incrocioFocus?.requestId || null}
+
+              focusContactId={incrocioFocus?.contactId || null}
+
+              onFocusConsumed={() => setIncrocioFocus(null)}
+              onNavigateToContactRequest={(contact, request) => {
+                setCurrentContactId(contact.id)
+                setCurrentContactRequest(request || null)
+                setClientDetailBackPage('incrocio')
+                setCurrentPage('cliente-detail')
+              }}
+
             />
 
+          )}
+
+          {currentPage === 'cliente-detail' && currentContactId && (
+            <ClientDetailPage
+              contact={contacts.find((c) => c.id === currentContactId) || null}
+              request={currentContactRequest}
+              properties={properties}
+              onOpenProperty={(propertyId) => {
+                setCurrentPropertyId(propertyId)
+                setCurrentPage('property-detail')
+              }}
+              onBack={() => {
+                setCurrentPage(clientDetailBackPage)
+                setCurrentContactRequest(null)
+              }}
+            />
           )}
 
           {currentPage === 'agenti' && (userRole === 'SUPER_ADMIN' || userRole === 'AGENCY_ADMIN') && (
@@ -13501,7 +14256,7 @@ function App() {
 
           {currentPage === 'zone-tasks' && (
 
-            <AgentZoneTasksPage agents={agents} />
+            <AgentZoneTasksPage agents={agents} onRefreshGlobalData={fetchData} />
 
           )}
 
@@ -13528,10 +14283,16 @@ function App() {
               onCreateContact={handleCreateContact}
 
               onCreateProperty={handleCreateProperty}
+              onOpenProperty={(propertyId) => {
+                setCurrentPropertyId(propertyId)
+                setCurrentPage('property-detail')
+              }}
 
               currentUserRole={userRole}
 
               currentUserId={user?.id ?? null}
+              focusAppointmentId={notificationFocusAppointmentId}
+              onFocusAppointmentHandled={clearNotificationFocusAppointment}
 
             />
 
@@ -13564,8 +14325,12 @@ function App() {
             <ActivitiesPage
 
               activities={activities}
+              contacts={contacts}
+              properties={properties}
 
               dataLoading={dataLoading}
+
+              agents={agents}
 
               onCompleteActivity={handleCompleteActivity}
 
@@ -13574,16 +14339,28 @@ function App() {
               onUpdateActivity={handleUpdateActivity}
 
               onDeleteActivity={handleDeleteActivity}
+              onOpenProperty={(propertyId) => {
+                setCurrentPropertyId(propertyId)
+                setCurrentPage('property-detail')
+              }}
 
               currentUserRole={userRole}
 
               currentUserId={user?.id ?? null}
+              openCreateNonce={openCreateActivityNonce}
+              focusActivityId={notificationFocusActivityId}
+              onFocusActivityHandled={clearNotificationFocusActivity}
 
             />
 
           )}
 
-          {currentPage === 'report' && <ReportPage stats={stats} properties={properties} contacts={contacts} />}
+          {currentPage === 'report' && (userRole === 'SUPER_ADMIN' || userRole === 'AGENCY_ADMIN') && (
+            <ReportPage stats={stats} properties={properties} contacts={contacts} agents={agents} userRole={userRole} />
+          )}
+          {currentPage === 'report' && userRole !== 'SUPER_ADMIN' && userRole !== 'AGENCY_ADMIN' && (
+            <div>Non autorizzato</div>
+          )}
 
           {currentPage === 'portals' && (
 
@@ -13695,7 +14472,46 @@ function App() {
 
           )}
 
-          {currentPage === 'impostazioni' && <SettingsPage onRefreshData={fetchData} createNotification={createNotification} />}
+          {currentPage === 'impostazioni' && (
+            <SettingsPage
+              onRefreshData={fetchData}
+              authToken={token}
+              createNotification={createNotification}
+              installWebApp={installWebApp}
+              pwaInstalling={pwaInstalling}
+              pwaInstallMessage={pwaInstallMessage}
+              activatePushNotifications={activatePushNotifications}
+              pushLoading={pushLoading}
+              pushEnabled={pushEnabled}
+              pushError={pushError}
+              sendPushTestNotification={sendPushTestNotification}
+              pushTestLoading={pushTestLoading}
+            />
+          )}
+          {currentPage === 'ai-assist' && (
+            <AiAssistPage userName={(user?.firstName || 'Admin').trim() || 'Admin'} />
+          )}
+          {currentPage === 'ai-assist' && aiAssistIntroStep && (
+            <AiAssistIntroModal
+              step={aiAssistIntroStep}
+              onClose={() => {
+                try {
+                  window.localStorage.setItem('ai-assist-intro-completed-v1', '1')
+                } catch {}
+                setAiAssistIntroStep(null)
+              }}
+              onNext={() => {
+                if (aiAssistIntroStep === 1) {
+                  setAiAssistIntroStep(2)
+                  return
+                }
+                try {
+                  window.localStorage.setItem('ai-assist-intro-completed-v1', '1')
+                } catch {}
+                setAiAssistIntroStep(null)
+              }}
+            />
+          )}
 
             </div>
 
@@ -14551,7 +15367,7 @@ export function PortalsPage({
 
                       >
 
-                        âš  Errori elevati
+                        ÃƒÆ’Ã‚Â¢Ãƒâ€¦Ã‚Â¡Ãƒâ€šÃ‚Â  Errori elevati
 
                       </span>
 
@@ -14579,7 +15395,7 @@ export function PortalsPage({
 
                       >
 
-                        âš  Configurazione incompleta
+                        ÃƒÆ’Ã‚Â¢Ãƒâ€¦Ã‚Â¡Ãƒâ€šÃ‚Â  Configurazione incompleta
 
                       </span>
 
@@ -14589,7 +15405,7 @@ export function PortalsPage({
 
                   <p style={{ fontSize: '0.875rem', color: '#6b7280' }}>
 
-                    {portal.modeLabel} · {portal.kind}
+                    {portal.modeLabel} Ãƒâ€šÃ‚Â· {portal.kind}
 
                   </p>
 
@@ -14865,7 +15681,7 @@ export function PortalsPage({
 
         <h1 style={{ fontSize: '2rem', fontWeight: 'bold', marginBottom: '0.5rem' }}>
 
-          🌐 Portali
+          ÃƒÂ°Ã…Â¸Ã…â€™Ã‚Â Portali
 
         </h1>
 
@@ -15213,7 +16029,7 @@ function PortalDetailPage({ portalId, portals, loading, onBack, agents, onOpenPr
 
     giComuneIstat: 'Codice ISTAT comune',
 
-    location: 'Posizione (città/indirizzo/coordinate)',
+    location: 'Posizione (cittÃƒÆ’Ã‚Â /indirizzo/coordinate)',
 
     giListingId: 'ID annuncio gestionale'
 
@@ -15625,7 +16441,7 @@ function PortalDetailPage({ portalId, portals, loading, onBack, agents, onOpenPr
 
             <span style={{ color: '#111827' }}>
 
-              Tipo integrazione: {portal.modeLabel} · {portal.kind}
+              Tipo integrazione: {portal.modeLabel}   {portal.kind}
 
             </span>
 
@@ -15691,7 +16507,7 @@ function PortalDetailPage({ portalId, portals, loading, onBack, agents, onOpenPr
 
               >
 
-                Ò¢&¡  Molti errori di sincronizzazione su questo portale
+                Ã’Â¢&  Molti errori di sincronizzazione su questo portale
 
               </span>
 
@@ -15961,9 +16777,9 @@ function PortalDetailPage({ portalId, portals, loading, onBack, agents, onOpenPr
 
               <strong>NON SELEZIONATO</strong>: l'immobile non viene inviato al portale.{' '}
 
-              <strong>INCLUSO NEL FEED</strong>: l'immobile è presente nel feed inviato.{' '}
+              <strong>INCLUSO NEL FEED</strong>: l'immobile ÃƒÆ’Ã‚Â¨ presente nel feed inviato.{' '}
 
-              <strong>A RISCHIO RIFIUTO</strong>: mancano requisiti minimi e il portale può rifiutare l'annuncio.{' '}
+              <strong>A RISCHIO RIFIUTO</strong>: mancano requisiti minimi e il portale puÃƒÆ’Ã‚Â² rifiutare l'annuncio.{' '}
 
               <strong>PUBBLICATO</strong>: il portale ha confermato la pubblicazione tramite API di ritorno (quando disponibili).
 
@@ -16231,7 +17047,7 @@ function PortalDetailPage({ portalId, portals, loading, onBack, agents, onOpenPr
 
             >
 
-              CittÒ /Comune
+              CittÃ’Â /Comune
 
             </label>
 
@@ -16555,7 +17371,7 @@ function PortalDetailPage({ portalId, portals, loading, onBack, agents, onOpenPr
 
                     >
 
-                      CittÒ 
+                      CittÃ’Â 
 
                     </th>
 
@@ -17149,7 +17965,7 @@ function PortalDetailPage({ portalId, portals, loading, onBack, agents, onOpenPr
 
             >
 
-              CittÒ /Comune
+              CittÃ’Â /Comune
 
             </label>
 
@@ -17473,7 +18289,7 @@ function PortalDetailPage({ portalId, portals, loading, onBack, agents, onOpenPr
 
                     >
 
-                      CittÒ 
+                      CittÃ’Â 
 
                     </th>
 
@@ -17985,7 +18801,7 @@ function PortalDetailPage({ portalId, portals, loading, onBack, agents, onOpenPr
 
           <div style={{ flexBasis: '100%', fontSize: '0.875rem', color: '#4b5563' }}>
 
-            Storico delle sincronizzazioni e degli errori per questo portale. I log sono ordinati dal piÒ¹ recente.
+            Storico delle sincronizzazioni e degli errori per questo portale. I log sono ordinati dal piÃ’Â¹ recente.
 
           </div>
 
@@ -18381,7 +19197,7 @@ function PortalDetailPage({ portalId, portals, loading, onBack, agents, onOpenPr
 
                     const propertyText = log.property
 
-                      ? [log.property.reference, log.property.title].filter(Boolean).join(' · ')
+                      ? [log.property.reference, log.property.title].filter(Boolean).join(' Ãƒâ€šÃ‚Â· ')
 
                       : 'N/D'
 
@@ -19607,7 +20423,7 @@ function PortalDetailPage({ portalId, portals, loading, onBack, agents, onOpenPr
 
                   <div style={{ marginTop: '0.25rem', fontSize: '0.75rem', color: '#6b7280' }}>
 
-                    Esiste giÒ  una password salvata.
+                    Esiste giÃ’Â  una password salvata.
 
                   </div>
 
@@ -20447,7 +21263,7 @@ function PortalDetailPage({ portalId, portals, loading, onBack, agents, onOpenPr
 
                   <div style={{ marginTop: '0.25rem', fontSize: '0.75rem', color: '#6b7280' }}>
 
-                    Esiste giÒ  un token salvato.
+                    Esiste giÃ’Â  un token salvato.
 
                   </div>
 
@@ -20513,7 +21329,7 @@ function PortalDetailPage({ portalId, portals, loading, onBack, agents, onOpenPr
 
                 <span style={{ fontWeight: 600 }}>
 
-                  {apimoConfigured ? 'Sì' : 'No'}
+                  {apimoConfigured ? 'SÃƒÆ’Ã‚Â¬' : 'No'}
 
                 </span>
 
@@ -20621,7 +21437,7 @@ function PortalDetailPage({ portalId, portals, loading, onBack, agents, onOpenPr
 
           <p style={{ fontSize: '0.85rem', color: '#4b5563' }}>
 
-            Per questo portale l&apos;integrazione automatica non Ò¨ ancora implementata. Puoi comunque esportare
+            Per questo portale l&apos;integrazione automatica non Ã’Â¨ ancora implementata. Puoi comunque esportare
 
             gli immobili e gestire manualmente la pubblicazione direttamente dal portale esterno.
 
@@ -20713,7 +21529,7 @@ function PortalDetailPage({ portalId, portals, loading, onBack, agents, onOpenPr
 
       >
 
-        â⬠ Torna all'elenco portali
+        ? Torna all'elenco portali
 
       </button>
 
@@ -20737,7 +21553,7 @@ function PortalDetailPage({ portalId, portals, loading, onBack, agents, onOpenPr
 
             <p style={{ color: '#6b7280', fontSize: '0.875rem' }}>
 
-              ID: {portal.id} · {portal.modeLabel} · {portal.kind}
+              ID: {portal.id} Ãƒâ€šÃ‚Â· {portal.modeLabel} Ãƒâ€šÃ‚Â· {portal.kind}
 
             </p>
 
@@ -20868,6 +21684,9 @@ function DashboardPage({
   stats,
 
   dataLoading,
+  appointments,
+  activities,
+  contacts,
 
   properties,
 
@@ -20879,6 +21698,9 @@ function DashboardPage({
   onOpenProperty,
 
   onOpenAppointments,
+  onOpenActivities,
+  onOpenCreateActivity,
+  onOpenZoneTasks,
 
   onCreateContact,
 
@@ -20897,6 +21719,9 @@ function DashboardPage({
   stats: DashboardStats | null
 
   dataLoading: boolean
+  appointments: Appointment[]
+  activities: Activity[]
+  contacts: Contact[]
 
   properties: Property[]
 
@@ -20909,6 +21734,9 @@ function DashboardPage({
   onOpenProperty: (propertyId: string) => void
 
   onOpenAppointments: () => void
+  onOpenActivities: () => void
+  onOpenCreateActivity: () => void
+  onOpenZoneTasks: () => void
 
   onCreateContact: (contact: Omit<Contact, 'id' | 'createdAt'>) => Promise<Contact | null>
 
@@ -20939,8 +21767,16 @@ function DashboardPage({
   const [showPropertyModal, setShowPropertyModal] = useState(false)
 
   const [showTaskModal, setShowTaskModal] = useState(false)
+  const [dashboardDetailModal, setDashboardDetailModal] = useState<
+    | { kind: 'APPOINTMENT'; item: Appointment }
+    | { kind: 'TASK'; item: Activity }
+    | { kind: 'ZONE_TASK'; item: AgentZone }
+    | null
+  >(null)
 
   const [taskSaving, setTaskSaving] = useState(false)
+  const [zoneDashboardItems, setZoneDashboardItems] = useState<AgentZone[]>([])
+  const [zoneDashboardLoading, setZoneDashboardLoading] = useState(false)
 
   const [taskForm, setTaskForm] = useState({
 
@@ -20958,7 +21794,7 @@ function DashboardPage({
   })
 
   const searchBoxRef = React.useRef<HTMLDivElement | null>(null)
-  const { user: loggedUser } = useAuthStore()
+  const { user: loggedUser, token } = useAuthStore()
   const resolvedRole = String(currentUserRole || loggedUser?.role || '').toUpperCase()
   const isAdminUser =
     canManageAssignments ||
@@ -20967,6 +21803,38 @@ function DashboardPage({
     resolvedRole === 'OWNER' ||
     resolvedRole === 'OPS_ADMIN'
 
+  useEffect(() => {
+    let cancelled = false
+    const loadZoneDashboardItems = async () => {
+      setZoneDashboardLoading(true)
+      try {
+        const authHeaders = token ? { Authorization: `Bearer ${token}` } : {}
+        const res = await fetch('/api/agent-zones', { headers: authHeaders })
+        const data = await res.json()
+        const nextItems = Array.isArray(data) ? data : Array.isArray(data?.data) ? data.data : []
+        if (!cancelled) setZoneDashboardItems(nextItems)
+      } catch {
+        if (!cancelled) setZoneDashboardItems([])
+      } finally {
+        if (!cancelled) setZoneDashboardLoading(false)
+      }
+    }
+    loadZoneDashboardItems()
+    return () => {
+      cancelled = true
+    }
+  }, [token])
+
+  useEffect(() => {
+    if (!dashboardDetailModal) return
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        setDashboardDetailModal(null)
+      }
+    }
+    window.addEventListener('keydown', onKeyDown)
+    return () => window.removeEventListener('keydown', onKeyDown)
+  }, [dashboardDetailModal])
 
 
   useEffect(() => {
@@ -21069,17 +21937,97 @@ function DashboardPage({
 
 
 
-  const topStats = [
+  const now = new Date()
+  const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate())
+  const endOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999)
 
-    { label: 'Immobili', value: safeNumber(statsData.totalProperties), icon: Building },
+  const parseDateValue = (value?: string | null) => {
+    if (!value) return null
+    const parsed = new Date(value)
+    return Number.isNaN(parsed.getTime()) ? null : parsed
+  }
+  const formatDateTime = (value?: string | null) => {
+    const parsed = parseDateValue(value)
+    if (!parsed) return '-'
+    return parsed.toLocaleString('it-IT', {
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
+    })
+  }
+  const getAppointmentStatusMeta = (status?: string) => {
+    const normalized = String(status || '').toUpperCase()
+    if (normalized === 'CONFIRMED') return { label: 'Confermato', bg: '#dcfce7', color: '#166534' }
+    if (normalized === 'COMPLETED') return { label: 'Completato', bg: '#e2e8f0', color: '#334155' }
+    if (normalized === 'CANCELLED') return { label: 'Annullato', bg: '#fee2e2', color: '#991b1b' }
+    return { label: 'Programmato', bg: '#dbeafe', color: '#1e40af' }
+  }
+  const normalizePhoneForLink = (value?: string | null) => String(value || '').replace(/[^\d+]/g, '')
+  const formatReadableNotes = (value?: string | null) => {
+    const raw = String(value || '').trim()
+    if (!raw) return ''
+    try {
+      const parsed = JSON.parse(raw)
+      if (parsed && typeof parsed === 'object') {
+        return Object.entries(parsed as Record<string, unknown>)
+          .map(([key, fieldValue]) => `${key}: ${typeof fieldValue === 'string' ? fieldValue : JSON.stringify(fieldValue)}`)
+          .join('\n')
+      }
+    } catch {}
+    return raw
+  }
+  const extractInfoFromTaskText = (value?: string | null) => {
+    const text = String(value || '')
+    const phone = (text.match(/telefono cliente:\s*([+()\d\s-]{6,})/i)?.[1] || '').trim()
+    const email = (text.match(/email cliente:\s*([^\s,;]+)/i)?.[1] || '').trim()
+    const requestNote = (text.match(/nota admin:\s*([\s\S]*)$/i)?.[1] || '').trim()
+    return { phone, email, requestNote }
+  }
 
-    { label: 'Disponibili', value: safeNumber(statsData.availableProperties), icon: Home },
+  const todayAppointments = [...appointments]
+    .filter((item) => {
+      const start = parseDateValue(item.startTime)
+      return !!start && start >= startOfToday && start <= endOfToday
+    })
+    .sort((a, b) => {
+      const aTime = parseDateValue(a.startTime)?.getTime() || 0
+      const bTime = parseDateValue(b.startTime)?.getTime() || 0
+      return aTime - bTime
+    })
 
-    { label: 'Clienti', value: safeNumber(statsData.totalContacts), icon: Users },
+  const todayTasks = [...activities]
+    .filter((item) => {
+      if (item.completed) return false
+      const due = parseDateValue(item.dueDate)
+      return !!due && due >= startOfToday && due <= endOfToday
+    })
+    .sort((a, b) => {
+      const aTime = parseDateValue(a.dueDate)?.getTime() || 0
+      const bTime = parseDateValue(b.dueDate)?.getTime() || 0
+      return aTime - bTime
+    })
 
-    { label: 'Task Pendenti', value: safeNumber(statsData.pendingActivities), icon: CheckSquare }
+  const futureTasks = [...activities]
+    .filter((item) => {
+      if (item.completed) return false
+      const due = parseDateValue(item.dueDate)
+      return !!due && due > endOfToday
+    })
+    .sort((a, b) => {
+      const aTime = parseDateValue(a.dueDate)?.getTime() || 0
+      const bTime = parseDateValue(b.dueDate)?.getTime() || 0
+      return aTime - bTime
+    })
 
-  ]
+  const zoneTasks = [...zoneDashboardItems]
+    .filter((item) => Boolean(item?.id))
+    .sort((a, b) => {
+      const aTime = parseDateValue(a.createdAt)?.getTime() || 0
+      const bTime = parseDateValue(b.createdAt)?.getTime() || 0
+      return bTime - aTime
+    })
 
 
 
@@ -21133,7 +22081,7 @@ function DashboardPage({
 
         priority: 2,
 
-        assignedToId: ''
+        assignedToId: isAdminUser ? '' : (loggedUser?.id || '')
 
       })
 
@@ -21152,8 +22100,6 @@ function DashboardPage({
     return <div>Caricamento dashboard...</div>
 
   }
-
-
 
   return (
 
@@ -21437,7 +22383,7 @@ function DashboardPage({
 
               type="button"
 
-              onClick={() => setShowTaskModal(true)}
+              onClick={onOpenCreateActivity}
 
               style={{
 
@@ -21561,59 +22507,474 @@ function DashboardPage({
 
           display: 'grid',
 
-          gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))',
+          gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))',
 
           gap: '0.85rem'
 
         }}
 
       >
+        <article
+          style={{
+            backgroundColor: 'white',
+            border: '1px solid #e2e8f0',
+            borderRadius: '0.9rem',
+            padding: '0.9rem',
+            display: 'grid',
+            gap: '0.6rem'
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '0.6rem' }}>
+            <span style={{ fontSize: '0.9rem', color: '#0f172a', fontWeight: 700 }}>Appuntamenti di oggi</span>
+            <Calendar size={16} color="#2563eb" />
+          </div>
+          <div style={{ display: 'grid', gap: '0.42rem' }}>
+            {todayAppointments.slice(0, 5).map((item) => (
+              <button
+                key={item.id}
+                type="button"
+                onClick={() => setDashboardDetailModal({ kind: 'APPOINTMENT', item })}
+                style={{ border: '1px solid #e2e8f0', borderRadius: '0.55rem', padding: '0.45rem 0.55rem', textAlign: 'left', background: '#fff', cursor: 'pointer' }}
+              >
+                <div style={{ fontWeight: 600, color: '#111827', fontSize: '0.86rem', lineHeight: 1.2 }}>{item.title || 'Appuntamento'}</div>
+                <div style={{ fontSize: '0.78rem', color: '#64748b', marginTop: '0.2rem' }}>
+                  {new Date(item.startTime).toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' })}
+                  {item.contactName ? `  ${item.contactName}` : ''}
+                </div>
+              </button>
+            ))}
+            {todayAppointments.length === 0 && <div style={{ fontSize: '0.82rem', color: '#64748b' }}>Nessun appuntamento oggi.</div>}
+          </div>
+          <button
+            type="button"
+            onClick={onOpenAppointments}
+            style={{ border: '1px solid #cbd5e1', borderRadius: '0.55rem', background: '#f8fafc', color: '#1d4ed8', fontWeight: 600, padding: '0.45rem 0.6rem', cursor: 'pointer' }}
+          >
+            Vedi tutto
+          </button>
+        </article>
 
-        {topStats.map((item) => {
+        <article
+          style={{
+            backgroundColor: 'white',
+            border: '1px solid #e2e8f0',
+            borderRadius: '0.9rem',
+            padding: '0.9rem',
+            display: 'grid',
+            gap: '0.6rem'
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '0.6rem' }}>
+            <span style={{ fontSize: '0.9rem', color: '#0f172a', fontWeight: 700 }}>Task di oggi</span>
+            <CheckSquare size={16} color="#16a34a" />
+          </div>
+          <div style={{ display: 'grid', gap: '0.42rem' }}>
+            {todayTasks.slice(0, 5).map((item) => (
+              <button
+                key={item.id}
+                type="button"
+                onClick={() => setDashboardDetailModal({ kind: 'TASK', item })}
+                style={{ border: '1px solid #e2e8f0', borderRadius: '0.55rem', padding: '0.45rem 0.55rem', textAlign: 'left', background: '#fff', cursor: 'pointer' }}
+              >
+                <div style={{ fontWeight: 600, color: '#111827', fontSize: '0.86rem', lineHeight: 1.2 }}>{item.title || 'Task'}</div>
+                <div style={{ fontSize: '0.78rem', color: '#64748b', marginTop: '0.2rem' }}>
+                  Scadenza: {new Date(item.dueDate).toLocaleDateString('it-IT')}
+                </div>
+              </button>
+            ))}
+            {todayTasks.length === 0 && <div style={{ fontSize: '0.82rem', color: '#64748b' }}>Nessun task per oggi.</div>}
+          </div>
+          <button
+            type="button"
+            onClick={onOpenActivities}
+            style={{ border: '1px solid #cbd5e1', borderRadius: '0.55rem', background: '#f8fafc', color: '#1d4ed8', fontWeight: 600, padding: '0.45rem 0.6rem', cursor: 'pointer' }}
+          >
+            Vedi tutto
+          </button>
+        </article>
 
-          const Icon = item.icon
+        <article
+          style={{
+            backgroundColor: 'white',
+            border: '1px solid #e2e8f0',
+            borderRadius: '0.9rem',
+            padding: '0.9rem',
+            display: 'grid',
+            gap: '0.6rem'
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '0.6rem' }}>
+            <span style={{ fontSize: '0.9rem', color: '#0f172a', fontWeight: 700 }}>Task futuri</span>
+            <Clock size={16} color="#f59e0b" />
+          </div>
+          <div style={{ display: 'grid', gap: '0.42rem' }}>
+            {futureTasks.slice(0, 5).map((item) => (
+              <button
+                key={item.id}
+                type="button"
+                onClick={() => setDashboardDetailModal({ kind: 'TASK', item })}
+                style={{ border: '1px solid #e2e8f0', borderRadius: '0.55rem', padding: '0.45rem 0.55rem', textAlign: 'left', background: '#fff', cursor: 'pointer' }}
+              >
+                <div style={{ fontWeight: 600, color: '#111827', fontSize: '0.86rem', lineHeight: 1.2 }}>{item.title || 'Task'}</div>
+                <div style={{ fontSize: '0.78rem', color: '#64748b', marginTop: '0.2rem' }}>
+                  {new Date(item.dueDate).toLocaleDateString('it-IT')}
+                </div>
+              </button>
+            ))}
+            {futureTasks.length === 0 && <div style={{ fontSize: '0.82rem', color: '#64748b' }}>Nessun task futuro.</div>}
+          </div>
+          <button
+            type="button"
+            onClick={onOpenActivities}
+            style={{ border: '1px solid #cbd5e1', borderRadius: '0.55rem', background: '#f8fafc', color: '#1d4ed8', fontWeight: 600, padding: '0.45rem 0.6rem', cursor: 'pointer' }}
+          >
+            Vedi tutto
+          </button>
+        </article>
 
-          return (
-
-            <article
-
-              key={item.label}
-
-              style={{
-
-                backgroundColor: 'white',
-
-                border: '1px solid #e2e8f0',
-
-                borderRadius: '0.9rem',
-
-                padding: '0.9rem'
-
-              }}
-
-            >
-
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '0.6rem' }}>
-
-                <span style={{ fontSize: '0.84rem', color: '#64748b', fontWeight: 600 }}>{item.label}</span>
-
-                <Icon size={16} color="#475569" />
-
-              </div>
-
-              <div style={{ marginTop: '0.4rem', fontSize: '1.55rem', lineHeight: 1.1, fontWeight: 700, color: '#0f172a' }}>
-
-                {item.value.toLocaleString('it-IT')}
-
-              </div>
-
-            </article>
-
-          )
-
-        })}
+        <article
+          style={{
+            backgroundColor: 'white',
+            border: '1px solid #e2e8f0',
+            borderRadius: '0.9rem',
+            padding: '0.9rem',
+            display: 'grid',
+            gap: '0.6rem'
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '0.6rem' }}>
+            <span style={{ fontSize: '0.9rem', color: '#0f172a', fontWeight: 700 }}>Task di zona da svolgere</span>
+            <MapPin size={16} color="#0ea5e9" />
+          </div>
+          <div style={{ display: 'grid', gap: '0.42rem' }}>
+            {zoneDashboardLoading && <div style={{ fontSize: '0.82rem', color: '#64748b' }}>Caricamento...</div>}
+            {!zoneDashboardLoading && zoneTasks.slice(0, 5).map((zone) => (
+              <button
+                key={zone.id}
+                type="button"
+                onClick={() => setDashboardDetailModal({ kind: 'ZONE_TASK', item: zone })}
+                style={{ border: '1px solid #e2e8f0', borderRadius: '0.55rem', padding: '0.45rem 0.55rem', textAlign: 'left', background: '#fff', cursor: 'pointer' }}
+              >
+                <div style={{ fontWeight: 600, color: '#111827', fontSize: '0.86rem', lineHeight: 1.2 }}>
+                  {[zone.city, zone.province].filter(Boolean).join(', ')}
+                </div>
+                <div style={{ fontSize: '0.78rem', color: '#64748b', marginTop: '0.2rem' }}>
+                  Gruppi: {safeNumber(zone.groupCount)}  Vie: {safeNumber(zone.streetCount)}
+                </div>
+              </button>
+            ))}
+            {!zoneDashboardLoading && zoneTasks.length === 0 && <div style={{ fontSize: '0.82rem', color: '#64748b' }}>Nessun task di zona disponibile.</div>}
+          </div>
+          <button
+            type="button"
+            onClick={onOpenZoneTasks}
+            style={{ border: '1px solid #cbd5e1', borderRadius: '0.55rem', background: '#f8fafc', color: '#1d4ed8', fontWeight: 600, padding: '0.45rem 0.6rem', cursor: 'pointer' }}
+          >
+            Vedi tutto
+          </button>
+        </article>
 
       </section>
+
+      {dashboardDetailModal && (
+        <div
+          onClick={() => setDashboardDetailModal(null)}
+          style={{
+            position: 'fixed',
+            inset: 0,
+            backgroundColor: 'rgba(15, 23, 42, 0.62)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 1400,
+            padding: '0.75rem'
+          }}
+        >
+          <div
+            onClick={(event) => event.stopPropagation()}
+            style={{
+              width: 'min(760px, 100%)',
+              maxHeight: 'calc(100vh - 24px)',
+              overflowY: 'auto',
+              backgroundColor: '#ffffff',
+              color: '#111827',
+              borderRadius: '1rem',
+              border: '1px solid #e2e8f0',
+              boxShadow: '0 30px 80px rgba(2, 6, 23, 0.45)',
+              display: 'grid',
+              gap: '0.95rem',
+              padding: '1rem'
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '0.7rem', borderBottom: '1px solid #e5e7eb', paddingBottom: '0.7rem' }}>
+              <div style={{ display: 'grid', gap: '0.25rem' }}>
+                <div style={{ fontSize: '1.15rem', fontWeight: 800 }}>
+                  {dashboardDetailModal.kind === 'APPOINTMENT'
+                    ? 'Dettaglio appuntamento'
+                    : dashboardDetailModal.kind === 'TASK'
+                      ? 'Dettaglio task'
+                      : 'Dettaglio task di zona'}
+                </div>
+                <div style={{ fontSize: '0.82rem', color: '#64748b' }}>
+                  {dashboardDetailModal.kind === 'APPOINTMENT'
+                    ? 'Informazioni complete e azioni rapide'
+                    : dashboardDetailModal.kind === 'TASK'
+                      ? 'Dettagli operativi del task'
+                      : 'Panoramica geografica e volumi assegnati'}
+                </div>
+              </div>
+              <button
+                type="button"
+                aria-label="Chiudi"
+                onClick={() => setDashboardDetailModal(null)}
+                style={{
+                  width: '34px',
+                  height: '34px',
+                  borderRadius: '9999px',
+                  border: '1px solid #cbd5e1',
+                  background: '#ffffff',
+                  color: '#334155',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  cursor: 'pointer',
+                  flexShrink: 0
+                }}
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            {dashboardDetailModal.kind === 'APPOINTMENT' && (() => {
+              const item = dashboardDetailModal.item as any
+              const linkedProperty =
+                properties.find((property) => property.id === item.propertyId) ||
+                properties.find((property) => String(property.title || '').trim() === String(item.propertyTitle || '').trim()) ||
+                null
+              const linkedPropertyId = String(item.propertyId || linkedProperty?.id || '').trim()
+              const statusMeta = getAppointmentStatusMeta(item.status)
+              const contactPhone = String(item.contactPhone || item.phone || '').trim()
+              const contactEmail = String(item.contactEmail || item.email || '').trim()
+              const locationText = String(item.location || '').trim()
+              const notesText = formatReadableNotes(item.notes)
+              const normalizedPhone = normalizePhoneForLink(contactPhone)
+              const hasPhone = normalizedPhone.length > 0
+              const hasEmail = contactEmail.length > 0
+              const hasLinkedProperty = linkedPropertyId.length > 0
+              return (
+                <div style={{ display: 'grid', gap: '0.85rem' }}>
+                  <div style={{ border: '1px solid #e2e8f0', borderRadius: '0.8rem', padding: '0.85rem', backgroundColor: '#f8fafc', display: 'grid', gap: '0.45rem' }}>
+                    <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '0.55rem' }}>
+                      <span style={{ fontSize: '1.03rem', fontWeight: 700 }}>{item.title || 'Appuntamento'}</span>
+                      <span style={{ fontSize: '0.74rem', fontWeight: 700, color: statusMeta.color, backgroundColor: statusMeta.bg, borderRadius: '9999px', padding: '0.2rem 0.55rem' }}>
+                        {statusMeta.label}
+                      </span>
+                    </div>
+                    <div style={{ fontSize: '0.9rem', color: '#334155' }}>
+                      {formatDateTime(item.startTime)} - {formatDateTime(item.endTime)}
+                    </div>
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.45rem' }}>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setDashboardDetailModal(null)
+                          onOpenAppointments()
+                        }}
+                        style={{ border: '1px solid #cbd5e1', borderRadius: '0.55rem', background: '#ffffff', color: '#1e40af', fontWeight: 700, padding: '0.45rem 0.65rem', cursor: 'pointer' }}
+                      >
+                        Apri agenda
+                      </button>
+                      {hasPhone && (
+                        <a href={`tel:${normalizedPhone}`} style={{ border: '1px solid #cbd5e1', borderRadius: '0.55rem', background: '#ffffff', color: '#0f172a', fontWeight: 700, padding: '0.45rem 0.65rem', textDecoration: 'none' }}>
+                          Chiama
+                        </a>
+                      )}
+                      {hasEmail && (
+                        <a href={`mailto:${contactEmail}`} style={{ border: '1px solid #cbd5e1', borderRadius: '0.55rem', background: '#ffffff', color: '#0f172a', fontWeight: 700, padding: '0.45rem 0.65rem', textDecoration: 'none' }}>
+                          Email
+                        </a>
+                      )}
+                      {hasPhone && (
+                        <a href={`https://wa.me/${normalizedPhone.replace(/^\+/, '')}`} target="_blank" rel="noreferrer" style={{ border: '1px solid #86efac', borderRadius: '0.55rem', background: '#f0fdf4', color: '#166534', fontWeight: 700, padding: '0.45rem 0.65rem', textDecoration: 'none' }}>
+                          WhatsApp
+                        </a>
+                      )}
+                      {hasLinkedProperty && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setDashboardDetailModal(null)
+                            onOpenProperty(linkedPropertyId)
+                          }}
+                          style={{ border: '1px solid #bfdbfe', borderRadius: '0.55rem', background: '#eff6ff', color: '#1d4ed8', fontWeight: 700, padding: '0.45rem 0.65rem', cursor: 'pointer' }}
+                        >
+                          Apri immobile
+                        </button>
+                      )}
+                    </div>
+                  </div>
+
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '0.55rem' }}>
+                    <div style={{ border: '1px solid #e2e8f0', borderRadius: '0.7rem', padding: '0.65rem' }}>
+                      <div style={{ fontSize: '0.72rem', color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.04em' }}>Cliente</div>
+                      <div style={{ fontWeight: 700, marginTop: '0.22rem' }}>{item.contactName || '-'}</div>
+                    </div>
+                    <div style={{ border: '1px solid #e2e8f0', borderRadius: '0.7rem', padding: '0.65rem' }}>
+                      <div style={{ fontSize: '0.72rem', color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.04em' }}>Telefono</div>
+                      <div style={{ fontWeight: 700, marginTop: '0.22rem' }}>{contactPhone || '-'}</div>
+                    </div>
+                    <div style={{ border: '1px solid #e2e8f0', borderRadius: '0.7rem', padding: '0.65rem' }}>
+                      <div style={{ fontSize: '0.72rem', color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.04em' }}>Email</div>
+                      <div style={{ fontWeight: 700, marginTop: '0.22rem', wordBreak: 'break-word' }}>{contactEmail || '-'}</div>
+                    </div>
+                    <div style={{ border: '1px solid #e2e8f0', borderRadius: '0.7rem', padding: '0.65rem' }}>
+                      <div style={{ fontSize: '0.72rem', color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.04em' }}>Immobile</div>
+                      <div style={{ fontWeight: 700, marginTop: '0.22rem' }}>{item.propertyTitle || '-'}</div>
+                    </div>
+                  </div>
+
+                  <div style={{ display: 'grid', gap: '0.55rem' }}>
+                    <div style={{ border: '1px solid #e2e8f0', borderRadius: '0.7rem', padding: '0.65rem' }}>
+                      <div style={{ fontSize: '0.72rem', color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.04em' }}>Luogo</div>
+                      <div style={{ marginTop: '0.22rem', lineHeight: 1.5 }}>{locationText || '-'}</div>
+                    </div>
+                    <div style={{ border: '1px solid #e2e8f0', borderRadius: '0.7rem', padding: '0.65rem' }}>
+                      <div style={{ fontSize: '0.72rem', color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.04em' }}>Descrizione</div>
+                      <div style={{ marginTop: '0.22rem', lineHeight: 1.5 }}>{item.description || '-'}</div>
+                    </div>
+                    {notesText ? (
+                      <div style={{ border: '1px solid #e2e8f0', borderRadius: '0.7rem', padding: '0.65rem' }}>
+                        <div style={{ fontSize: '0.72rem', color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.04em' }}>Note</div>
+                        <div style={{ marginTop: '0.22rem', whiteSpace: 'pre-wrap', wordBreak: 'break-word', lineHeight: 1.45 }}>{notesText}</div>
+                      </div>
+                    ) : null}
+                  </div>
+                </div>
+              )
+            })()}
+
+            {dashboardDetailModal.kind === 'TASK' && (() => {
+              const item = dashboardDetailModal.item as any
+              const linkedContact = contacts.find((contact) => contact.id === item.contactId)
+              const linkedProperty = properties.find((property) => property.id === item.propertyId)
+              const extracted = extractInfoFromTaskText(item.description)
+              const fullContactName = String(
+                item.contactName ||
+                `${String(linkedContact?.firstName || '').trim()} ${String(linkedContact?.lastName || '').trim()}`.trim() ||
+                ''
+              ).trim()
+              const contactPhone = String(item.contactPhone || item.phone || linkedContact?.phone || extracted.phone || '').trim()
+              const contactEmail = String(item.contactEmail || item.email || linkedContact?.email || extracted.email || '').trim()
+              const normalizedPhone = normalizePhoneForLink(contactPhone)
+              const propertyId = String(item.propertyId || linkedProperty?.id || '').trim()
+              const propertyTitle = String(item.propertyTitle || linkedProperty?.title || '').trim()
+              const requestInfo = extracted.requestNote || ''
+              const priorityNumber = Number(item.priority || 0)
+              const priorityLabel = priorityNumber >= 4 ? 'Alta' : priorityNumber >= 3 ? 'Media' : 'Bassa'
+              return (
+                <div style={{ display: 'grid', gap: '0.85rem' }}>
+                  <div style={{ border: '1px solid #e2e8f0', borderRadius: '0.8rem', padding: '0.85rem', backgroundColor: '#f8fafc', display: 'grid', gap: '0.45rem' }}>
+                    <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '0.5rem' }}>
+                      <span style={{ fontSize: '1.02rem', fontWeight: 700 }}>{item.title || 'Task'}</span>
+                      <span style={{ fontSize: '0.74rem', fontWeight: 700, color: item.completed ? '#166534' : '#1e40af', backgroundColor: item.completed ? '#dcfce7' : '#dbeafe', borderRadius: '9999px', padding: '0.2rem 0.55rem' }}>
+                        {item.completed ? 'Completato' : 'Da fare'}
+                      </span>
+                    </div>
+                    <div style={{ fontSize: '0.9rem', color: '#334155' }}>
+                      Scadenza: {formatDateTime(item.dueDate)} â€¢ PrioritÃ : {priorityLabel}
+                    </div>
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.45rem' }}>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setDashboardDetailModal(null)
+                          onOpenActivities()
+                        }}
+                        style={{ border: '1px solid #cbd5e1', borderRadius: '0.55rem', background: '#ffffff', color: '#1e40af', fontWeight: 700, padding: '0.45rem 0.65rem', cursor: 'pointer' }}
+                      >
+                        Apri attivitÃ 
+                      </button>
+                      {propertyId && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setDashboardDetailModal(null)
+                            onOpenProperty(propertyId)
+                          }}
+                          style={{ border: '1px solid #bfdbfe', borderRadius: '0.55rem', background: '#eff6ff', color: '#1d4ed8', fontWeight: 700, padding: '0.45rem 0.65rem', cursor: 'pointer' }}
+                        >
+                          Apri immobile
+                        </button>
+                      )}
+                      {normalizedPhone && (
+                        <a href={`tel:${normalizedPhone}`} style={{ border: '1px solid #cbd5e1', borderRadius: '0.55rem', background: '#ffffff', color: '#0f172a', fontWeight: 700, padding: '0.45rem 0.65rem', textDecoration: 'none' }}>
+                          Chiama
+                        </a>
+                      )}
+                      {contactEmail && (
+                        <a href={`mailto:${contactEmail}`} style={{ border: '1px solid #cbd5e1', borderRadius: '0.55rem', background: '#ffffff', color: '#0f172a', fontWeight: 700, padding: '0.45rem 0.65rem', textDecoration: 'none' }}>
+                          Email
+                        </a>
+                      )}
+                      {normalizedPhone && (
+                        <a href={`https://wa.me/${normalizedPhone.replace(/^\+/, '')}`} target="_blank" rel="noreferrer" style={{ border: '1px solid #86efac', borderRadius: '0.55rem', background: '#f0fdf4', color: '#166534', fontWeight: 700, padding: '0.45rem 0.65rem', textDecoration: 'none' }}>
+                          WhatsApp
+                        </a>
+                      )}
+                    </div>
+                  </div>
+
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '0.55rem' }}>
+                    <div style={{ border: '1px solid #e2e8f0', borderRadius: '0.7rem', padding: '0.65rem' }}>
+                      <div style={{ fontSize: '0.72rem', color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.04em' }}>Cliente</div>
+                      <div style={{ fontWeight: 700, marginTop: '0.22rem' }}>{fullContactName || '-'}</div>
+                    </div>
+                    <div style={{ border: '1px solid #e2e8f0', borderRadius: '0.7rem', padding: '0.65rem' }}>
+                      <div style={{ fontSize: '0.72rem', color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.04em' }}>Telefono</div>
+                      <div style={{ fontWeight: 700, marginTop: '0.22rem' }}>{contactPhone || '-'}</div>
+                    </div>
+                    <div style={{ border: '1px solid #e2e8f0', borderRadius: '0.7rem', padding: '0.65rem' }}>
+                      <div style={{ fontSize: '0.72rem', color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.04em' }}>Email</div>
+                      <div style={{ fontWeight: 700, marginTop: '0.22rem', wordBreak: 'break-word' }}>{contactEmail || '-'}</div>
+                    </div>
+                    <div style={{ border: '1px solid #e2e8f0', borderRadius: '0.7rem', padding: '0.65rem' }}>
+                      <div style={{ fontSize: '0.72rem', color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.04em' }}>Immobile</div>
+                      <div style={{ fontWeight: 700, marginTop: '0.22rem' }}>{propertyTitle || '-'}</div>
+                    </div>
+                  </div>
+
+                  <div style={{ display: 'grid', gap: '0.55rem' }}>
+                    <div style={{ border: '1px solid #e2e8f0', borderRadius: '0.7rem', padding: '0.65rem' }}>
+                      <div style={{ fontSize: '0.72rem', color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.04em' }}>Dettagli richiesta cliente</div>
+                      <div style={{ marginTop: '0.22rem', whiteSpace: 'pre-wrap', lineHeight: 1.5 }}>
+                        {requestInfo || item.description || '-'}
+                      </div>
+                    </div>
+                    {item.assignedToName ? (
+                      <div style={{ border: '1px solid #e2e8f0', borderRadius: '0.7rem', padding: '0.65rem' }}>
+                        <div style={{ fontSize: '0.72rem', color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.04em' }}>Assegnato a</div>
+                        <div style={{ marginTop: '0.22rem', fontWeight: 700 }}>{item.assignedToName}</div>
+                      </div>
+                    ) : null}
+                  </div>
+                </div>
+              )
+            })()}
+
+            {dashboardDetailModal.kind === 'ZONE_TASK' && (
+              <div style={{ display: 'grid', gap: '0.55rem' }}>
+                <div><strong>Zona:</strong> {[dashboardDetailModal.item.city, dashboardDetailModal.item.province].filter(Boolean).join(', ') || '-'}</div>
+                <div><strong>Regione:</strong> {dashboardDetailModal.item.region || '-'}</div>
+                <div><strong>CAP/Zona:</strong> {dashboardDetailModal.item.zone || '-'}</div>
+                <div><strong>Gruppi:</strong> {safeNumber(dashboardDetailModal.item.groupCount)}</div>
+                <div><strong>Vie:</strong> {safeNumber(dashboardDetailModal.item.streetCount)}</div>
+                <div><strong>Vie assegnate:</strong> {safeNumber(dashboardDetailModal.item.assignedStreetCount)}</div>
+                <div><strong>Creato il:</strong> {formatDateTime(dashboardDetailModal.item.createdAt)}</div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
 
 
 
@@ -21657,7 +23018,7 @@ function DashboardPage({
 
       {showPropertyModal && (
 
-        <PropertyModal
+        <PropertyModalOneClick
 
           property={null}
           currentUserRole={currentUserRole}
@@ -21856,7 +23217,7 @@ function DashboardPage({
                   color: '#cbd5e1',
                   fontSize: '0.88rem'
                 }}>
-                  Task personale: verrà assegnato automaticamente a te.
+                  Task personale: verrÃƒÂ  assegnato automaticamente a te.
                 </div>
               )}
 
@@ -22055,6 +23416,39 @@ function PropertiesPage({
 
   // Gestione CRUD immobili
 
+  const sanitizePropertyPayloadForCreate = (payload: any) => {
+    const isInlineDataUrl = (value: unknown) =>
+      typeof value === 'string' && /^data:/i.test(value.trim())
+
+    const inlineImagesRemoved = Array.isArray(payload?.images)
+      ? payload.images.some((img: unknown) => isInlineDataUrl(img))
+      : false
+
+    const sanitizedImages = Array.isArray(payload?.images)
+      ? payload.images.filter((img: unknown) => typeof img === 'string' && !isInlineDataUrl(img))
+      : []
+
+    const sourceOneClick = payload?.oneClickData && typeof payload.oneClickData === 'object' ? payload.oneClickData : {}
+    const sourceOneClickImages = Array.isArray(sourceOneClick?.immagini) ? sourceOneClick.immagini : []
+    const sanitizedOneClickImages = sourceOneClickImages.filter((entry: any) => {
+      const link = typeof entry?.link === 'string' ? entry.link : ''
+      return !isInlineDataUrl(link)
+    })
+
+    return {
+      sanitizedPayload: {
+        ...payload,
+        images: sanitizedImages,
+        oneClickData: {
+          ...sourceOneClick,
+          immagini: sanitizedOneClickImages
+        }
+      },
+      inlineImagesRemoved:
+        inlineImagesRemoved || sanitizedOneClickImages.length !== sourceOneClickImages.length
+    }
+  }
+
   const handleCreateProperty = async (propertyData: Omit<Property, 'id' | 'createdAt'>) => {
 
     // Inject agencyId from current user context
@@ -22075,7 +23469,8 @@ function PropertiesPage({
 
     }
 
-    console.log('handleCreateProperty payload:', payload)
+    const { sanitizedPayload, inlineImagesRemoved } = sanitizePropertyPayloadForCreate(payload)
+    console.log('handleCreateProperty payload:', sanitizedPayload)
 
     
 
@@ -22089,13 +23484,32 @@ function PropertiesPage({
 
         headers: { 'Content-Type': 'application/json', ...authHeaders },
 
-        body: JSON.stringify(payload)
+        body: JSON.stringify(sanitizedPayload)
 
       })
 
 
 
-      const data = await response.json()
+      const rawResponse = await response.text()
+      let data: any = null
+      if (rawResponse) {
+        try {
+          data = JSON.parse(rawResponse)
+        } catch {
+          data = null
+        }
+      }
+
+      if (!response.ok) {
+        if (response.status === 413) {
+          throw new Error('PAYLOAD_TOO_LARGE')
+        }
+        const messageFromServer =
+          (data && typeof data.message === 'string' && data.message.trim()) ||
+          rawResponse ||
+          `HTTP ${response.status}`
+        throw new Error(messageFromServer)
+      }
 
       if (data.success) {
 
@@ -22105,19 +23519,17 @@ function PropertiesPage({
 
 
 
-        // AUTO-MATCHING
-
         const createdProperty = (data.data || { ...propertyData, id: `${Date.now()}` }) as Property
-
-        const matches = contacts
-
-          .filter(c => c.category === 'CLIENT' && (c.type === 'BUYER' || c.type === 'TENANT'))
-
-          .map(client => ({ client, ...calculateMatchingScore(createdProperty, client) }))
-
-          .filter(m => m.score >= 50)
-
-          .sort((a, b) => b.score - a.score)
+        let matches: any[] = []
+        try {
+          const matchRes = await fetch(`/api/matching/for-property/${createdProperty.id}?minScore=60&limit=20`, {
+            headers: { ...authHeaders }
+          })
+          const matchPayload = await matchRes.json().catch(() => null)
+          matches = matchPayload?.success && Array.isArray(matchPayload?.data) ? matchPayload.data : []
+        } catch {
+          matches = []
+        }
 
 
 
@@ -22129,9 +23541,9 @@ function PropertiesPage({
 
             id: Date.now().toString(),
 
-            title: '🎯 Nuovi Match Trovati!',
+            title: 'Ã°Å¸Å½Â¯ Nuovi Match Trovati!',
 
-            message: `Trovati ${matches.length} clienti compatibili per "${createdProperty.title}". Top match: ${matches[0].client.firstName} ${matches[0].client.lastName} (${matches[0].score}%)`,
+            message: `Trovati ${matches.length} clienti compatibili per "${createdProperty.title}".`,
 
             type: 'MATCH_FOUND',
 
@@ -22141,7 +23553,7 @@ function PropertiesPage({
 
             relatedId: createdProperty.id,
 
-            data: { propertyId: createdProperty.id, clientId: matches[0].client.id }
+            data: { propertyId: createdProperty.id }
 
           }
 
@@ -22161,7 +23573,11 @@ function PropertiesPage({
 
         } else {
 
-          alert('✅ Immobile creato con successo!')
+          alert(
+            inlineImagesRemoved
+              ? 'Immobile creato con successo! Le immagini locali sono state escluse dal primo invio: caricale ora dalla scheda immobile.'
+              : 'Immobile creato con successo!'
+          )
 
         }
 
@@ -22175,7 +23591,13 @@ function PropertiesPage({
 
       console.error('Errore creazione immobile:', error)
 
-      alert('Errore di connessione')
+      const message =
+        error instanceof Error && error.message === 'PAYLOAD_TOO_LARGE'
+          ? 'Caricamento troppo pesante: il server ha rifiutato la richiesta (413). Riduci immagini/video oppure salva prima l\'immobile e carica le immagini dalla scheda immobile.'
+          : error instanceof Error && error.message
+            ? error.message
+            : 'Errore di connessione'
+      alert(message)
 
     }
 
@@ -22445,7 +23867,7 @@ function PropertiesPage({
 
           <h1 style={{ fontSize: '2rem', fontWeight: 'bold', marginBottom: '0.5rem' }}>
 
-            🏠 Immobili ({properties.length})
+            ÃƒÂ°Ã…Â¸Ã‚ÂÃ‚Â  Immobili ({properties.length})
 
           </h1>
 
@@ -22976,8 +24398,7 @@ function PropertiesPage({
                   <div>
                     <p style={{ fontSize: '0.78rem', color: '#6b7280', marginBottom: '0.2rem' }}>Prezzo</p>
                     <p style={{ fontWeight: '700', color: '#059669', fontSize: '0.98rem', lineHeight: '1.25' }}>
-                      {'�'}{(property.salePrice || property.rentPrice || 0).toLocaleString('it-IT')}
-                      {property.rentPrice ? '/mese' : ''}
+                      {formatPriceCompact(getPropertyDisplayPrice(property), property.contractType)}
                     </p>
                   </div>
                 </div>
@@ -23165,7 +24586,7 @@ function PropertiesPage({
 
       {(showCreateModal || editingProperty) && (
 
-        <PropertyModal
+        <PropertyModalOneClick
 
           property={editingProperty}
           currentUserRole={user?.role ?? null}
@@ -23228,310 +24649,6 @@ function PropertiesPage({
 
 
 
-// Algoritmo di matching intelligente per clienti (Global)
-
-const calculateMatchingScore = (property: Property, client: Contact): { score: number, reasons: string[] } => {
-
-  let score = 0
-
-  const reasons: string[] = []
-
-
-
-  const isSale = (value: string) => ['SALE', 'VENDITA'].includes((value || '').toUpperCase())
-
-  const isRent = (value: string) => ['RENT', 'AFFITTO'].includes((value || '').toUpperCase())
-
-
-
-  // 1. Match tipo di transazione (PESO: 30%)
-
-  if (
-
-    (client.type === 'BUYER' && isSale(property.contractType)) ||
-
-    (client.type === 'TENANT' && isRent(property.contractType))
-
-  ) {
-
-    score += 30
-
-    reasons.push(`✅ Tipo transazione: ${client.type === 'BUYER' ? 'Acquisto' : 'Affitto'}`)
-
-  } else {
-
-    reasons.push(`❌ Tipo transazione non compatibile`)
-
-    return { score: 0, reasons } // Se il tipo non match, score = 0
-
-  }
-
-
-
-  // 2. Match budget (PESO: 25%)
-
-  const propertyPrice = isSale(property.contractType)
-
-    ? (property.salePrice ?? null)
-
-    : isRent(property.contractType)
-
-      ? (property.rentPrice ?? null)
-
-      : (property.salePrice ?? property.rentPrice ?? null)
-
-
-
-  if (client.budget && propertyPrice != null) {
-
-    const clientBudget = parseFloat(client.budget.toString())
-
-
-
-    if (propertyPrice <= clientBudget) {
-
-      const budgetRatio = propertyPrice / clientBudget
-
-      if (budgetRatio >= 0.8) {
-
-        score += 25
-
-        reasons.push(`✅ Prezzo perfetto: €${propertyPrice.toLocaleString()} (budget €${clientBudget.toLocaleString()})`)
-
-      } else if (budgetRatio >= 0.6) {
-
-        score += 20
-
-        reasons.push(`✅ Prezzo buono: €${propertyPrice.toLocaleString()} (budget €${clientBudget.toLocaleString()})`)
-
-      } else {
-
-        score += 10
-
-        reasons.push(`✅ Prezzo conveniente: €${propertyPrice.toLocaleString()} (budget €${clientBudget.toLocaleString()})`)
-
-      }
-
-    } else {
-
-      const exceedRatio = propertyPrice / clientBudget
-
-      if (exceedRatio <= 1.1) {
-
-        score += 5
-
-        reasons.push(`✅ Prezzo leggermente sopra budget: €${propertyPrice.toLocaleString()} vs €${clientBudget.toLocaleString()}`)
-
-      } else {
-
-        reasons.push(`❌ Prezzo troppo alto: €${propertyPrice.toLocaleString()} vs budget €${clientBudget.toLocaleString()}`)
-
-      }
-
-    }
-
-  }
-
-
-
-  // 3. Match località (PESO: 20%)
-
-  const clientCity = (client.city || '').trim().toLowerCase()
-
-  const propertyCity = (property.city || '').trim().toLowerCase()
-
-  const clientProvince = (client.province || '').trim().toUpperCase()
-
-  const propertyProvince = (property.province || '').trim().toUpperCase()
-
-
-
-  if (clientCity && propertyCity && clientCity === propertyCity && clientProvince && propertyProvince && clientProvince === propertyProvince) {
-
-    score += 20
-
-    reasons.push(`✅ Località perfetta: ${property.city} (${property.province})`)
-
-  } else if (clientCity && propertyCity && clientCity === propertyCity) {
-
-    score += 15
-
-    reasons.push(`✅ Città coincidente: ${property.city}`)
-
-  } else if (!clientCity && clientProvince && propertyProvince && clientProvince === propertyProvince) {
-
-    score += 10
-
-    reasons.push(`✅ Provincia compatibile: ${propertyProvince}`)
-
-  }
-
-
-
-  const requestedBedrooms = client.requestBedrooms
-
-  const requestedBathrooms = client.requestBathrooms
-
-  const requestedFloor = client.requestFloor
-
-
-
-  if (requestedBedrooms && property.bedrooms != null) {
-
-    if (property.bedrooms >= requestedBedrooms) {
-
-      score += 10
-
-      reasons.push(`✅ Camere richieste soddisfatte: ${property.bedrooms} (min ${requestedBedrooms})`)
-
-    } else {
-
-      reasons.push(`❌ Camere insufficienti: ${property.bedrooms} < ${requestedBedrooms}`)
-
-    }
-
-  }
-
-
-
-  if (requestedBathrooms && property.bathrooms != null) {
-
-    if (property.bathrooms >= requestedBathrooms) {
-
-      score += 7
-
-      reasons.push(`✅ Bagni richiesti soddisfatti: ${property.bathrooms} (min ${requestedBathrooms})`)
-
-    } else {
-
-      reasons.push(`❌ Bagni insufficienti: ${property.bathrooms} < ${requestedBathrooms}`)
-
-    }
-
-  }
-
-
-
-  if (requestedFloor && property.floor != null) {
-
-    if (property.floor >= requestedFloor) {
-
-      score += 5
-
-      reasons.push(`✅ Piano in linea con richiesta: ${property.floor} (min ${requestedFloor})`)
-
-    } else {
-
-      reasons.push(`❌ Piano troppo basso: ${property.floor} < ${requestedFloor}`)
-
-    }
-
-  }
-
-
-
-  // 4. Match tipologia immobile (PESO: 15%)
-
-  if (client.preferences) {
-
-    const preferences = client.preferences.toLowerCase()
-
-    const propertyType = (property.type || '').toLowerCase()
-
-
-
-    if (preferences.includes(propertyType) || propertyType.includes('appartamento')) {
-
-      score += 15
-
-      reasons.push(`✅ Tipologia compatibile: ${property.type}`)
-
-    } else if (preferences.includes('qualsiasi') || preferences.includes('indifferente')) {
-
-      score += 10
-
-      reasons.push(`✅ Cliente flessibile su tipologia`)
-
-    }
-
-  }
-
-
-
-  // 5. Match caratteristiche specifiche (PESO: 10%)
-
-  if (client.preferences) {
-
-    const preferences = client.preferences.toLowerCase()
-
-    // featuresScore is not used here, directly add to score
-
-    if (preferences.includes('camera') || preferences.includes('stanza')) {
-
-      if (property.rooms && property.rooms >= 2) {
-
-        score += 3
-
-        reasons.push(`✅ Camere sufficienti: ${property.rooms}`)
-
-      }
-
-    }
-
-
-
-    if (preferences.includes('bagno')) {
-
-      if (property.bathrooms && property.bathrooms >= 2) {
-
-        score += 2
-
-        reasons.push(`✅ Bagni multipli: ${property.bathrooms}`)
-
-      }
-
-    }
-
-
-
-    if (preferences.includes('ascensore')) {
-
-      if (property.elevator) { // Changed from property.hasElevator to property.elevator
-
-        score += 3
-
-        reasons.push(`✅ Ascensore presente`)
-
-      }
-
-    }
-
-
-
-    if (preferences.includes('balcone') || preferences.includes('terrazzo')) {
-
-      if (property.balcony || property.terrace) { // Changed from property.hasBalcony/hasTerrace to property.balcony/terrace
-
-        score += 2
-
-        reasons.push(`✅ Spazio esterno disponibile`)
-
-      }
-
-    }
-
-  }
-
-
-
-  return { score: Math.min(100, score), reasons }
-
-}
-
-
-
-
-
 // ===== PAGINA INCROCIO - MATCHING INTELLIGENTE =====
 
 function IncrocioPage({
@@ -23556,7 +24673,14 @@ function IncrocioPage({
 
   onDeleteDocument,
 
-  canManageAssignments
+  canManageAssignments,
+
+  focusRequestId,
+
+  focusContactId,
+
+  onFocusConsumed,
+  onNavigateToContactRequest
 
 }: {
 
@@ -23582,61 +24706,42 @@ function IncrocioPage({
 
   canManageAssignments: boolean
 
+  focusRequestId?: string | null
+
+  focusContactId?: string | null
+
+  onFocusConsumed?: () => void
+  onNavigateToContactRequest: (contact: Contact, request?: any) => void
+
 }) {
+  const { token } = useAuthStore()
+  const clean = (value: any) => normalizeMojibakeText(String(value ?? ''))
 
   const [selectedClient, setSelectedClient] = useState<Contact | null>(null)
 
-  const [matchingResults, setMatchingResults] = useState<Array<{ property: Property, score: number, reasons: string[] }>>([])
+  const [matchingResults, setMatchingResults] = useState<Array<{
+    matchId?: string
+    requestId?: string
+    property: Property
+    contact?: any
+    request?: any
+    score: number
+    status?: string
+    reasons: string[]
+    gaps: string[]
+    feedbacks?: any[]
+  }>>([])
 
   const [searchTerm, setSearchTerm] = useState('')
 
   const [isSearching, setIsSearching] = useState(false)
 
-  const [searchMode, setSearchMode] = useState<'client' | 'manual'>('manual')
+  const [searchMode, setSearchMode] = useState<'client' | 'property'>('client')
 
   const [showNewClientModal, setShowNewClientModal] = useState(false)
-
-
-
-  // Criteri di ricerca manuale
-
-  const [manualCriteria, setManualCriteria] = useState({
-
-    saleType: '', // VENDITA o AFFITTO
-
-    minPrice: '',
-
-    maxPrice: '',
-
-    city: '',
-
-    address: '',
-
-    propertyType: '',
-
-    minRooms: '',
-
-    maxRooms: '',
-
-    minBathrooms: '',
-
-    hasElevator: false,
-
-    hasBalcony: false,
-
-    hasTerrace: false,
-
-    hasGarden: false,
-
-    hasParking: false,
-
-    energyClass: '',
-
-    floor: '',
-
-    notes: ''
-
-  })
+  const [minScore, setMinScore] = useState<number>(0)
+  const [sortBy, setSortBy] = useState<'score_desc' | 'score_asc' | 'price_asc' | 'price_desc'>('score_desc')
+  const [selectedPropertyId, setSelectedPropertyId] = useState<string>('')
 
 
 
@@ -23662,369 +24767,173 @@ function IncrocioPage({
 
   )
 
-
-
-  // Algoritmo di matching per criteri manuali
-
-  const calculateManualMatch = (property: Property, criteria: typeof manualCriteria): { score: number, reasons: string[] } => {
-
-    let score = 0
-
-    const reasons: string[] = []
-
-
-
-    // 1. Match tipo di transazione (PESO: 30%)
-
-    if (criteria.saleType && property.contractType) {
-
-      if (property.contractType === criteria.saleType) {
-
-        score += 30
-
-        reasons.push(`✅ Tipo transazione: ${criteria.saleType}`)
-
-      } else {
-
-        reasons.push(`❌ Tipo transazione non compatibile: ${property.contractType} vs ${criteria.saleType}`)
-
-        return { score: 0, reasons }
-
-      }
-
-    }
-
-
-
-    // 2. Match prezzo (PESO: 25%)
-
-    if (criteria.minPrice || criteria.maxPrice) {
-
-      const minPrice = criteria.minPrice ? parseFloat(criteria.minPrice) : 0
-
-      const maxPrice = criteria.maxPrice ? parseFloat(criteria.maxPrice) : Infinity
-
-
-
-      // Usa salePrice per vendita, rentPrice per affitto
-
-      const propertyPrice = property.contractType === 'VENDITA' ? property.salePrice : property.rentPrice
-
-
-
-      if (propertyPrice && propertyPrice >= minPrice && propertyPrice <= maxPrice) {
-
-        score += 25
-
-        reasons.push(`✅ Prezzo nel range: €${propertyPrice.toLocaleString()} (€${minPrice.toLocaleString()} - €${maxPrice.toLocaleString()})`)
-
-      } else if (propertyPrice) {
-
-        if (propertyPrice < minPrice) {
-
-          reasons.push(`❌ Prezzo troppo basso: €${propertyPrice.toLocaleString()} < €${minPrice.toLocaleString()}`)
-
-        } else {
-
-          reasons.push(`❌ Prezzo troppo alto: €${propertyPrice.toLocaleString()} > €${maxPrice.toLocaleString()}`)
-
-        }
-
-      }
-
-    }
-
-
-
-    // 3. Match località (PESO: 20%)
-
-    let locationScore = 0
-
-    if (criteria.city && property.city) {
-
-      if (property.city.toLowerCase().includes(criteria.city.toLowerCase()) ||
-
-        criteria.city.toLowerCase().includes(property.city.toLowerCase())) {
-
-        locationScore += 15
-
-        reasons.push(`✅ Città compatibile: ${property.city}`)
-
-      }
-
-    }
-
-
-
-    if (criteria.address && property.address) {
-
-      if (property.address.toLowerCase().includes(criteria.address.toLowerCase()) ||
-
-        criteria.address.toLowerCase().includes(property.address.toLowerCase())) {
-
-        locationScore += 5
-
-        reasons.push(`✅ Indirizzo compatibile: ${property.address}`)
-
-      }
-
-    }
-
-
-
-    score += locationScore
-
-
-
-    // 4. Match tipologia immobile (PESO: 15%)
-
-    if (criteria.propertyType && property.type) {
-
-      if (property.type.toLowerCase().includes(criteria.propertyType.toLowerCase()) ||
-
-        criteria.propertyType.toLowerCase().includes(criteria.propertyType.toLowerCase())) { // Corrected: property.type.toLowerCase()
-
-        score += 15
-
-        reasons.push(`✅ Tipologia compatibile: ${property.type}`)
-
-      }
-
-    }
-
-
-
-    // 5. Match caratteristiche specifiche (PESO: 10%)
-
-    let featuresScore = 0
-
-
-
-    // Camere
-
-    if (criteria.minRooms || criteria.maxRooms) {
-
-      const minRooms = criteria.minRooms ? parseInt(criteria.minRooms) : 0
-
-      const maxRooms = criteria.maxRooms ? parseInt(criteria.maxRooms) : Infinity
-
-
-
-      if (property.rooms && property.rooms >= minRooms && property.rooms <= maxRooms) { // Changed from property.bedrooms to property.rooms
-
-        featuresScore += 3
-
-        reasons.push(`✅ Camere nel range: ${property.rooms} (${minRooms}-${maxRooms})`)
-
-      }
-
-    }
-
-
-
-    // Bagni
-
-    if (criteria.minBathrooms && property.bathrooms) {
-
-      const minBaths = parseInt(criteria.minBathrooms)
-
-      if (property.bathrooms >= minBaths) {
-
-        featuresScore += 2
-
-        reasons.push(`✅ Bagni sufficienti: ${property.bathrooms} (min ${minBaths})`)
-
-      }
-
-    }
-
-
-
-    // Caratteristiche booleane
-
-    if (criteria.hasElevator && property.elevator) {
-
-      featuresScore += 1
-
-      reasons.push(`✅ Ascensore presente`)
-
-    }
-
-
-
-    if (criteria.hasBalcony && property.balcony) {
-
-      featuresScore += 1
-
-      reasons.push(`✅ Balcone presente`)
-
-    }
-
-
-
-    if (criteria.hasTerrace && property.terrace) {
-
-      featuresScore += 1
-
-      reasons.push(`✅ Terrazzo presente`)
-
-    }
-
-
-
-    if (criteria.hasGarden && property.garden) {
-
-      featuresScore += 1
-
-      reasons.push(`✅ Giardino presente`)
-
-    }
-
-
-
-    if (criteria.hasParking && property.garage) { // Assuming garage implies parking
-
-      featuresScore += 1
-
-      reasons.push(`✅ Parcheggio presente`)
-
-    }
-
-
-
-    score += Math.min(10, featuresScore)
-
-
-
-    // 6. Match classe energetica
-
-    if (criteria.energyClass && property.energyClass) {
-
-      if (property.energyClass === criteria.energyClass) {
-
-        score += 5
-
-        reasons.push(`✅ Classe energetica: ${property.energyClass}`)
-
-      }
-
-    }
-
-
-
-    // 7. Match piano
-
-    if (criteria.floor && property.floor) {
-
-      if (property.floor.toString() === criteria.floor) {
-
-        score += 5
-
-        reasons.push(`✅ Piano: ${property.floor}`)
-
-      }
-
-    }
-
-
-
-    return { score: Math.min(100, score), reasons }
-
+  const normalizeMatchRows = (rows: any[]): Array<{
+    matchId?: string
+    requestId?: string
+    property: Property
+    contact?: any
+    request?: any
+    score: number
+    status?: string
+    reasons: string[]
+    gaps: string[]
+    feedbacks?: any[]
+  }> => {
+    return (Array.isArray(rows) ? rows : []).map((row: any) => ({
+      matchId: row?.matchId || row?.id,
+      requestId: row?.requestId || row?.request?.id,
+      property: row?.property || ({} as Property),
+      contact: row?.contact || row?.request?.contact || null,
+      request: row?.request || null,
+      score: Number(row?.score || 0),
+      status: row?.label || row?.status,
+      reasons: Array.isArray(row?.reasons) ? row.reasons : Array.isArray(row?.reasonsJson) ? row.reasonsJson : [],
+      gaps: Array.isArray(row?.gaps) ? row.gaps : Array.isArray(row?.gapsJson) ? row.gapsJson : [],
+      feedbacks: Array.isArray(row?.feedbacks) ? row.feedbacks : []
+    }))
   }
 
+  const applySort = (rows: Array<{
+    matchId?: string
+    requestId?: string
+    property: Property
+    contact?: any
+    request?: any
+    score: number
+    status?: string
+    reasons: string[]
+    gaps: string[]
+    feedbacks?: any[]
+  }>) => {
+    const list = [...rows]
+    if (sortBy === 'score_asc') return list.sort((a, b) => a.score - b.score)
+    if (sortBy === 'price_asc') {
+      return list.sort((a, b) => Number((a.property.salePrice || a.property.rentPrice || 0)) - Number((b.property.salePrice || b.property.rentPrice || 0)))
+    }
+    if (sortBy === 'price_desc') {
+      return list.sort((a, b) => Number((b.property.salePrice || b.property.rentPrice || 0)) - Number((a.property.salePrice || a.property.rentPrice || 0)))
+    }
+    return list.sort((a, b) => b.score - a.score)
+  }
 
+  const fetchMatchesByClient = async (contactId: string) => {
+    if (!token) return []
+    const params = new URLSearchParams({
+      contactId,
+      minScore: String(minScore),
+      limit: '150',
+      sort: sortBy
+    })
+    const response = await fetch(`/api/matching/search?${params.toString()}`, {
+      headers: {
+        Authorization: `Bearer ${token}`
+      }
+    })
+    const payload = await response.json()
+    if (!response.ok || !payload?.success) throw new Error(payload?.message || 'Errore matching cliente')
+    return normalizeMatchRows(payload?.data || [])
+  }
+
+  const fetchMatchesByRequest = async (requestId: string) => {
+    if (!token) return []
+    const params = new URLSearchParams({
+      minScore: String(minScore),
+      limit: '150'
+    })
+    const response = await fetch(`/api/matching/for-request/${requestId}?${params.toString()}`, {
+      headers: {
+        Authorization: `Bearer ${token}`
+      }
+    })
+    const payload = await response.json()
+    if (!response.ok || !payload?.success) throw new Error(payload?.message || 'Errore matching richiesta')
+    return normalizeMatchRows(payload?.data || [])
+  }
+
+  const fetchMatchesByProperty = async (propertyId: string) => {
+    if (!token) return []
+    const params = new URLSearchParams({
+      minScore: String(minScore),
+      limit: '150'
+    })
+    const response = await fetch(`/api/matching/for-property/${propertyId}?${params.toString()}`, {
+      headers: {
+        Authorization: `Bearer ${token}`
+      }
+    })
+    const payload = await response.json()
+    if (!response.ok || !payload?.success) throw new Error(payload?.message || 'Errore matching immobile')
+    return normalizeMatchRows(payload?.data || [])
+  }
 
   // Esegui ricerca matching
-
-  const performMatching = () => {
-
+  const performMatching = async () => {
     if (searchMode === 'client' && !selectedClient) return
-
-    if (searchMode === 'manual' && !manualCriteria.saleType) {
-
-      alert('Seleziona almeno il tipo di transazione (Vendita/Affitto)')
-
+    if (searchMode === 'property' && !selectedPropertyId) {
+      alert('Seleziona un immobile')
       return
-
     }
-
-
 
     setIsSearching(true)
-
-
-
-    // Simula un po' di delay per l'effetto di ricerca
-
-    setTimeout(() => {
-
-      let results
-
-
-
-      if (searchMode === 'client' && selectedClient) {
-
-        // Matching basato su cliente
-
-        results = properties
-
-          .filter(property => property.status === 'AVAILABLE')
-
-          .map(property => ({
-
-            property,
-
-            ...calculateMatchingScore(property, selectedClient)
-
-          }))
-
-      } else {
-
-        // Matching basato su criteri manuali
-
-        results = properties
-
-          .filter(property => property.status === 'AVAILABLE')
-
-          .map(property => ({
-
-            property,
-
-            ...calculateManualMatch(property, manualCriteria)
-
-          }))
-
-      }
-
-
-
-      // Ordina per punteggio (senza filtro minimo)
-
-      results = results.sort((a, b) => b.score - a.score)
-
-
-
-      setMatchingResults(results)
-
+    try {
+      const rows =
+        searchMode === 'client' && selectedClient
+          ? await fetchMatchesByClient(selectedClient.id)
+          : await fetchMatchesByProperty(selectedPropertyId)
+      setMatchingResults(applySort(rows))
+    } catch (error: any) {
+      alert(error?.message || 'Errore durante il matching')
+      setMatchingResults([])
+    } finally {
       setIsSearching(false)
-
-    }, 1000)
-
+    }
   }
 
-
-
-  // Reset quando cambia cliente
+  useEffect(() => {
+    if (selectedClient) setMatchingResults([])
+  }, [selectedClient])
 
   useEffect(() => {
+    setMatchingResults((prev) => applySort(prev))
+  }, [sortBy])
 
-    if (selectedClient) {
+  useEffect(() => {
+    if (!focusContactId) return
+    const target = contacts.find((contact) => String(contact.id) === String(focusContactId))
+    if (!target) return
 
-      setMatchingResults([])
+    setSearchMode('client')
+    setSelectedClient(target)
+    setIsSearching(true)
 
-    }
+    fetchMatchesByClient(target.id)
+      .then((rows) => {
+        setMatchingResults(applySort(rows))
+      })
+      .catch(() => {
+        setMatchingResults([])
+      })
+      .finally(() => {
+        setIsSearching(false)
+        if (onFocusConsumed) onFocusConsumed()
+      })
+  }, [focusContactId, contacts, token])
 
-  }, [selectedClient])
+  useEffect(() => {
+    if (!focusRequestId || !token) return
+    setIsSearching(true)
+    fetchMatchesByRequest(focusRequestId)
+      .then((rows) => {
+        setMatchingResults(applySort(rows))
+      })
+      .catch(() => {
+        setMatchingResults([])
+      })
+      .finally(() => {
+        setIsSearching(false)
+        if (onFocusConsumed) onFocusConsumed()
+      })
+  }, [focusRequestId, token])
 
 
 
@@ -24088,10 +24997,8 @@ function IncrocioPage({
 
       <div style={{ marginBottom: '2rem' }}>
 
-        <h1 style={{ fontSize: '2.5rem', fontWeight: 'bold', marginBottom: '0.5rem', color: '#1f2937' }}>
-
-          🎯 Incrocio Intelligente
-
+        <h1 style={{ fontSize: '2.2rem', fontWeight: '700', marginBottom: '0.5rem', color: '#1f2937' }}>
+          Incrocio intelligente
         </h1>
 
         <p style={{ color: '#6b7280', fontSize: '1.1rem' }}>
@@ -24104,7 +25011,7 @@ function IncrocioPage({
 
 
 
-      {/* Toggle Modalità Ricerca */}
+      {/* Toggle modalita ricerca */}
 
       <div style={{
 
@@ -24124,7 +25031,7 @@ function IncrocioPage({
 
           onClick={() => {
 
-            setSearchMode('manual')
+            setSearchMode('property')
 
             setMatchingResults([])
 
@@ -24136,9 +25043,9 @@ function IncrocioPage({
 
             border: 'none',
 
-            backgroundColor: searchMode === 'manual' ? '#3b82f6' : 'transparent',
+            backgroundColor: searchMode === 'property' ? '#3b82f6' : 'transparent',
 
-            color: searchMode === 'manual' ? 'white' : '#6b7280',
+            color: searchMode === 'property' ? 'white' : '#6b7280',
 
             borderRadius: '0.5rem 0 0 0.5rem',
 
@@ -24152,7 +25059,7 @@ function IncrocioPage({
 
         >
 
-          🔍 Ricerca Manuale
+          Da Immobile
 
         </button>
 
@@ -24188,7 +25095,7 @@ function IncrocioPage({
 
         >
 
-          👤 Da Cliente
+          Da Cliente
 
         </button>
 
@@ -24196,7 +25103,7 @@ function IncrocioPage({
 
 
 
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 2fr', gap: '2rem' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'minmax(320px, 380px) 1fr', gap: '1.25rem', alignItems: 'start' }}>
 
 
 
@@ -24218,276 +25125,38 @@ function IncrocioPage({
 
           <h3 style={{ fontSize: '1.25rem', fontWeight: 'bold', marginBottom: '1rem', color: '#1f2937' }}>
 
-            {searchMode === 'manual' ? 'ðŸS⬹ Criteri di Ricerca' : '🤠Seleziona Cliente'}
+            {searchMode === 'property' ? 'Seleziona Immobile' : 'Seleziona Cliente'}
 
           </h3>
 
-
-
-          {searchMode === 'manual' ? (
-
-            /* Form Ricerca Manuale */
-
+          {searchMode === 'property' ? (
             <div>
-
-              {/* Tipo Transazione */}
-
-              <div style={{ marginBottom: '1rem' }}>
-
-                <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.875rem', fontWeight: '500' }}>
-
-                  💰 Tipo Transazione *
-
-                </label>
-
+              <div style={{ marginBottom: '0.8rem' }}>
                 <select
-
-                  value={manualCriteria.saleType}
-
-                  onChange={(e) => setManualCriteria({ ...manualCriteria, saleType: e.target.value })}
-
+                  value={selectedPropertyId}
+                  onChange={(e) => setSelectedPropertyId(e.target.value)}
                   style={{
-
                     width: '100%',
-
                     padding: '0.75rem',
-
                     border: '1px solid #d1d5db',
-
                     borderRadius: '0.375rem',
-
                     fontSize: '0.875rem'
-
                   }}
-
                 >
-
-                  <option value="">Seleziona...</option>
-
-                  <option value="VENDITA">Vendita</option>
-
-                  <option value="AFFITTO">Affitto</option>
-
+                  <option value="">Seleziona immobile...</option>
+                  {properties
+                    .filter((property) => property.status === 'AVAILABLE')
+                    .map((property) => (
+                      <option key={property.id} value={property.id}>
+                        {clean(property.title)} - {clean(property.city)} - EUR {(property.salePrice || property.rentPrice || 0).toLocaleString()}
+                      </option>
+                    ))}
                 </select>
-
               </div>
-
-
-
-              {/* Range Prezzo */}
-
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem', marginBottom: '1rem' }}>
-
-                <div>
-
-                  <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.875rem', fontWeight: '500' }}>
-
-                    💰 Prezzo Min (€)
-
-                  </label>
-
-                  <input
-
-                    type="number"
-
-                    placeholder="50.000"
-
-                    value={manualCriteria.minPrice}
-
-                    onChange={(e) => setManualCriteria({ ...manualCriteria, minPrice: e.target.value })}
-
-                    style={{
-
-                      width: '100%',
-
-                      padding: '0.75rem',
-
-                      border: '1px solid #d1d5db',
-
-                      borderRadius: '0.375rem',
-
-                      fontSize: '0.875rem'
-
-                    }}
-
-                  />
-
-                </div>
-
-                <div>
-
-                  <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.875rem', fontWeight: '500' }}>
-
-                    💰 Prezzo Max (€)
-
-                  </label>
-
-                  <input
-
-                    type="number"
-
-                    placeholder="300.000"
-
-                    value={manualCriteria.maxPrice}
-
-                    onChange={(e) => setManualCriteria({ ...manualCriteria, maxPrice: e.target.value })}
-
-                    style={{
-
-                      width: '100%',
-
-                      padding: '0.75rem',
-
-                      border: '1px solid #d1d5db',
-
-                      borderRadius: '0.375rem',
-
-                      fontSize: '0.875rem'
-
-                    }}
-
-                  />
-
-                </div>
-
+              <div style={{ color: '#64748b', fontSize: '0.83rem' }}>
+                Il sistema propone i clienti con richiesta compatibile per l'immobile selezionato.
               </div>
-
-
-
-              {/* Località */}
-
-              <div style={{ marginBottom: '1rem' }}>
-
-                <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.875rem', fontWeight: '500' }}>
-
-                  📍 Città/Zona
-
-                </label>
-
-                <input
-
-                  type="text"
-
-                  placeholder="Roma, Milano, Napoli..."
-
-                  value={manualCriteria.city}
-
-                  onChange={(e) => setManualCriteria({ ...manualCriteria, city: e.target.value })}
-
-                  style={{
-
-                    width: '100%',
-
-                    padding: '0.75rem',
-
-                    border: '1px solid #d1d5db',
-
-                    borderRadius: '0.375rem',
-
-                    fontSize: '0.875rem'
-
-                  }}
-
-                />
-
-              </div>
-
-
-
-              {/* Via/Indirizzo */}
-
-              <div style={{ marginBottom: '1rem' }}>
-
-                <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.875rem', fontWeight: '500' }}>
-
-                  📍 Via/Indirizzo
-
-                </label>
-
-                <input
-
-                  type="text"
-
-                  placeholder="Via Roma, Centro, Parioli..."
-
-                  value={manualCriteria.address}
-
-                  onChange={(e) => setManualCriteria({ ...manualCriteria, address: e.target.value })}
-
-                  style={{
-
-                    width: '100%',
-
-                    padding: '0.75rem',
-
-                    border: '1px solid #d1d5db',
-
-                    borderRadius: '0.375rem',
-
-                    fontSize: '0.875rem'
-
-                  }}
-
-                />
-
-              </div>
-
-
-
-              {/* Tipologia */}
-
-              <div style={{ marginBottom: '1rem' }}>
-
-                <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.875rem', fontWeight: '500' }}>
-
-                  🏠 Tipologia
-
-                </label>
-
-                <select
-
-                  value={manualCriteria.propertyType}
-
-                  onChange={(e) => setManualCriteria({ ...manualCriteria, propertyType: e.target.value })}
-
-                  style={{
-
-                    width: '100%',
-
-                    padding: '0.75rem',
-
-                    border: '1px solid #d1d5db',
-
-                    borderRadius: '0.375rem',
-
-                    fontSize: '0.875rem'
-
-                  }}
-
-                >
-
-                  <option value="">Qualsiasi</option>
-
-                  <option value="Appartamento">Appartamento</option>
-
-                  <option value="Villa">Villa</option>
-
-                  <option value="Villetta">Villetta</option>
-
-                  <option value="Attico">Attico</option>
-
-                  <option value="Loft">Loft</option>
-
-                  <option value="Ufficio">Ufficio</option>
-
-                  <option value="Negozio">Negozio</option>
-
-                </select>
-
-              </div>
-
             </div>
-
           ) : (
 
             /* Ricerca per Cliente */
@@ -24567,10 +25236,8 @@ function IncrocioPage({
                     <div style={{ fontSize: '0.875rem', color: '#6b7280', marginTop: '0.25rem' }}>
 
                       {client.type === 'BUYER'
-
-                        ? '🤠Cerca appartamento da acquistare'
-
-                        : '🤠Cerca appartamento in affitto'} • {client.city || 'CittҠ non specificata'}
+                        ? 'Cerca appartamento da acquistare'
+                        : 'Cerca appartamento in affitto'} - {clean(client.city) || 'Citta non specificata'}
 
                     </div>
 
@@ -24578,7 +25245,7 @@ function IncrocioPage({
 
                       <div style={{ fontSize: '0.875rem', color: '#059669', marginTop: '0.25rem' }}>
 
-                        💰 Budget: €{parseFloat(client.budget.toString()).toLocaleString()}
+                        Budget: EUR {parseFloat(client.budget.toString()).toLocaleString()}
 
                       </div>
 
@@ -24588,7 +25255,7 @@ function IncrocioPage({
 
                       <div style={{ fontSize: '0.75rem', color: '#6b7280', marginTop: '0.25rem' }}>
 
-                        📝 {client.preferences.substring(0, 50)}...
+                        Note: {clean(client.preferences).substring(0, 50)}...
 
                       </div>
 
@@ -24672,7 +25339,7 @@ function IncrocioPage({
 
           {/* Controlli matching */}
 
-          {((searchMode === 'client' && selectedClient) || (searchMode === 'manual' && manualCriteria.saleType)) && (
+          {((searchMode === 'client' && selectedClient) || (searchMode === 'property' && selectedPropertyId)) && (
 
             <div style={{ marginTop: '1.5rem', paddingTop: '1rem', borderTop: '1px solid #e5e7eb' }}>
 
@@ -24708,9 +25375,8 @@ function IncrocioPage({
 
               >
 
-                {isSearching ? 'ðŸ⬝ Ricerca in corso...' :
-
-                  searchMode === 'manual' ? 'ðŸ⬝ Cerca Immobili' : '🎯 Trova Match'}
+                {isSearching ? 'Ricerca in corso...' :
+                  searchMode === 'property' ? 'Cerca clienti compatibili' : 'Trova match'}
 
               </button>
 
@@ -24738,13 +25404,71 @@ function IncrocioPage({
 
           <h3 style={{ fontSize: '1.25rem', fontWeight: 'bold', marginBottom: '1rem', color: '#1f2937' }}>
 
-            🏡 Immobili Compatibili
+            {searchMode === 'property' ? 'Clienti Compatibili' : 'Immobili Compatibili'}
 
           </h3>
 
+          <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap', marginBottom: '1rem' }}>
+            <div>
+              <label style={{ display: 'block', fontSize: '0.75rem', color: '#6b7280', marginBottom: '0.25rem' }}>
+                Score minimo
+              </label>
+              <input
+                type="number"
+                min={0}
+                max={100}
+                value={minScore}
+                onChange={(e) => setMinScore(Math.max(0, Math.min(100, Number(e.target.value || 0))))}
+                style={{
+                  width: '90px',
+                  padding: '0.5rem',
+                  border: '1px solid #d1d5db',
+                  borderRadius: '0.375rem'
+                }}
+              />
+            </div>
+            <div>
+              <label style={{ display: 'block', fontSize: '0.75rem', color: '#6b7280', marginBottom: '0.25rem' }}>
+                Ordina per
+              </label>
+              <select
+                value={sortBy}
+                onChange={(e) => setSortBy(e.target.value as any)}
+                style={{
+                  padding: '0.5rem',
+                  border: '1px solid #d1d5db',
+                  borderRadius: '0.375rem',
+                  minWidth: '180px'
+                }}
+              >
+                <option value="score_desc">Score (alto-basso)</option>
+                <option value="score_asc">Score (basso-alto)</option>
+                <option value="price_asc">Prezzo (basso-alto)</option>
+                <option value="price_desc">Prezzo (alto-basso)</option>
+              </select>
+            </div>
+            <div style={{ alignSelf: 'flex-end' }}>
+              <button
+                onClick={performMatching}
+                style={{
+                  padding: '0.55rem 0.9rem',
+                  backgroundColor: '#1d4ed8',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '0.375rem',
+                  cursor: 'pointer',
+                  fontSize: '0.875rem',
+                  fontWeight: 600
+                }}
+              >
+                Aggiorna risultati
+              </button>
+            </div>
+          </div>
 
 
-          {((searchMode === 'client' && !selectedClient) || (searchMode === 'manual' && !manualCriteria.saleType)) && (
+
+          {((searchMode === 'client' && !selectedClient) || (searchMode === 'property' && !selectedPropertyId)) && (
 
             <div style={{ textAlign: 'center', padding: '3rem', color: '#6b7280' }}>
 
@@ -24752,17 +25476,16 @@ function IncrocioPage({
 
               <p style={{ fontSize: '1.1rem', marginBottom: '0.5rem' }}>
 
-                {searchMode === 'manual' ? 'Inserisci i criteri di ricerca' : 'Seleziona un cliente per iniziare'}
+                {searchMode === 'property' ? 'Seleziona un immobile per iniziare' : 'Seleziona un cliente per iniziare'}
 
               </p>
 
               <p style={{ fontSize: '0.875rem' }}>
 
-                {searchMode === 'manual' ?
+                {searchMode === 'property' ?
+                  'Il sistema analizzerÃ  automaticamente i clienti compatibili' :
 
-                  'Specifica almeno il tipo di transazione per iniziare la ricerca' :
-
-                  'Il sistema analizzerÒ  automaticamente gli immobili compatibili'
+                  'Il sistema analizza automaticamente gli immobili compatibili'
 
                 }
 
@@ -24774,17 +25497,17 @@ function IncrocioPage({
 
 
 
-          {((searchMode === 'client' && selectedClient) || (searchMode === 'manual' && manualCriteria.saleType)) &&
+          {((searchMode === 'client' && selectedClient) || (searchMode === 'property' && selectedPropertyId)) &&
 
             matchingResults.length === 0 && !isSearching && (
 
               <div style={{ textAlign: 'center', padding: '3rem', color: '#6b7280' }}>
 
-                <p>Nessun immobile trovato</p>
+                <p>{searchMode === 'property' ? 'Nessun cliente compatibile trovato' : 'Nessun immobile trovato'}</p>
 
                 <p style={{ fontSize: '0.875rem' }}>
 
-                  {searchMode === 'manual' ? 'Prova a modificare i criteri di ricerca' : 'Verifica i criteri del cliente'}
+                  {searchMode === 'property' ? 'Prova con un altro immobile' : 'Verifica i criteri del cliente'}
 
                 </p>
 
@@ -24832,7 +25555,7 @@ function IncrocioPage({
 
               <div
 
-                key={result.property.id}
+                key={result.matchId || result.requestId || result.property?.id || `${searchMode}-${Math.random()}`}
 
                 style={{
 
@@ -24869,15 +25592,15 @@ function IncrocioPage({
                   <div>
 
                     <h4 style={{ fontSize: '1.1rem', fontWeight: 'bold', margin: 0, color: '#1f2937' }}>
-
-                      {result.property.title}
-
+                      {searchMode === 'property'
+                        ? `${result.contact?.firstName || ''} ${result.contact?.lastName || ''}`.trim() || 'Cliente'
+                        : clean(result.property?.title) || 'Immobile'}
                     </h4>
 
                     <p style={{ fontSize: '0.875rem', color: '#6b7280', margin: '0.25rem 0 0 0' }}>
-
-                      {result.property.city} • {result.property.type} • €{(result.property.salePrice || result.property.rentPrice || 0).toLocaleString()}
-
+                      {searchMode === 'property'
+                        ? `${clean(result.contact?.city) || 'Citta n.d.'} Â· ${clean(result.contact?.phone) || 'Telefono n.d.'} Â· ${clean(result.request?.title) || 'Richiesta cliente'}`
+                        : `${clean(result.property?.city)} Â· ${clean(result.property?.type)} Â· EUR ${(result.property?.salePrice || result.property?.rentPrice || 0).toLocaleString()}`}
                     </p>
 
                   </div>
@@ -24910,7 +25633,7 @@ function IncrocioPage({
 
                     }}>
 
-                      {getScoreLabel(result.score)}
+                    {result.status || getScoreLabel(result.score)}
 
                     </div>
 
@@ -24926,7 +25649,7 @@ function IncrocioPage({
 
                   <h5 style={{ fontSize: '0.875rem', fontWeight: 'bold', marginBottom: '0.5rem', color: '#374151' }}>
 
-                    Analisi Compatibilità:
+                    Compatibilita:
 
                   </h5>
 
@@ -24936,7 +25659,7 @@ function IncrocioPage({
 
                       <li key={idx} style={{ marginBottom: '0.25rem', color: '#4b5563' }}>
 
-                        {reason}
+                            {clean(reason)}
 
                       </li>
 
@@ -24944,37 +25667,41 @@ function IncrocioPage({
 
                   </ul>
 
+                  {result.gaps.length > 0 && (
+                    <>
+                      <h5 style={{ fontSize: '0.875rem', fontWeight: 'bold', margin: '0.75rem 0 0.4rem 0', color: '#991b1b' }}>
+                        Gap / Da verificare:
+                      </h5>
+                      <ul style={{ margin: 0, paddingLeft: '1rem', fontSize: '0.85rem' }}>
+                        {result.gaps.map((gap, idx) => (
+                          <li key={`gap-${idx}`} style={{ marginBottom: '0.2rem', color: '#b91c1c' }}>
+                            {clean(gap)}
+                          </li>
+                        ))}
+                      </ul>
+                    </>
+                  )}
+
 
 
                   <div style={{ marginTop: '1rem', display: 'flex', gap: '0.5rem' }}>
 
-                    <button
-
-                      onClick={() => onNavigateToProperty(result.property.id)}
-
-                      style={{
-
-                        padding: '0.5rem 1rem',
-
-                        backgroundColor: '#3b82f6',
-
-                        color: 'white',
-
-                        border: 'none',
-
-                        borderRadius: '0.375rem',
-
-                        fontSize: '0.875rem',
-
-                        cursor: 'pointer'
-
-                      }}
-
-                    >
-
-                      👁️ Visualizza Immobile
-
-                    </button>
+                    {searchMode !== 'property' && (
+                      <button
+                        onClick={() => onNavigateToProperty(result.property.id)}
+                        style={{
+                          padding: '0.5rem 1rem',
+                          backgroundColor: '#3b82f6',
+                          color: 'white',
+                          border: 'none',
+                          borderRadius: '0.375rem',
+                          fontSize: '0.875rem',
+                          cursor: 'pointer'
+                        }}
+                      >
+                        Visualizza Immobile
+                      </button>
+                    )}
 
                     {searchMode === 'client' && selectedClient ? (
 
@@ -25006,7 +25733,7 @@ function IncrocioPage({
 
                       >
 
-                        ðŸSž Contatta Cliente
+                        Contatta Cliente
 
                       </button>
 
@@ -25015,8 +25742,12 @@ function IncrocioPage({
                       <button
 
                         onClick={() => {
-
-                          alert(`Immobile interessante trovato: "${result.property.title}"\n\nPuoi contattare i tuoi clienti interessati a:\n- ${manualCriteria.saleType}\n- Budget: âa¬${manualCriteria.minPrice || '0'} - âa¬${manualCriteria.maxPrice || '8'}\n- Zona: ${manualCriteria.city || 'Qualsiasi'}`)
+                          const matchContact = result.contact as Contact | null
+                          if (!matchContact) {
+                            alert('Contatto non disponibile per questo match')
+                            return
+                          }
+                          onNavigateToContactRequest(matchContact, result?.request || null)
 
                         }}
 
@@ -25040,7 +25771,7 @@ function IncrocioPage({
 
                       >
 
-                        ⭐ Salva Ricerca
+                        Apri richiesta
 
                       </button>
 
@@ -25158,15 +25889,17 @@ function ClientViewModal({
 
   const requiredDocumentTypes = [
 
-    'Documento identità',
+    'Documento identitÃƒÆ’Ã‚Â ',
 
     'Codice fiscale',
 
     'Visura catastale',
 
-    'Atto di proprietà'
+    'Atto di proprietÃƒÆ’Ã‚Â '
 
   ]
+
+
 
 
 
@@ -25331,7 +26064,7 @@ function ClientViewModal({
 
           <h3 className="manus-contact-title" style={{ margin: 0 }}>
 
-            🤠{contact.firstName} {contact.lastName}
+             {contact.firstName} {contact.lastName}
 
           </h3>
 
@@ -25400,7 +26133,7 @@ function ClientViewModal({
               <div style={{ marginBottom: '2rem' }}>
                 <h4 style={{ fontSize: '1.1rem', fontWeight: 'bold', marginBottom: '1rem', color: '#374151' }}>
 
-                  â~¹ï¸ Informazioni Proprietario
+                  ~Ã¯Â¸Â Informazioni Proprietario
 
                 </h4>
 
@@ -25418,7 +26151,13 @@ function ClientViewModal({
 
                     </p>
 
-                    <p style={{ fontWeight: '500' }}>{contact.email}</p>
+                    <p style={{ fontWeight: '500' }}>
+                      {contact.email ? (
+                        <a href={`mailto:${contact.email}`} style={{ color: '#2563eb', textDecoration: 'underline' }}>
+                          {contact.email}
+                        </a>
+                      ) : 'N/A'}
+                    </p>
 
                   </div>
 
@@ -25434,7 +26173,13 @@ function ClientViewModal({
 
                     </p>
 
-                    <p style={{ fontWeight: '500' }}>{contact.phone || 'N/A'}</p>
+                    <p style={{ fontWeight: '500' }}>
+                      {contact.phone ? (
+                        <a href={`tel:${contact.phone}`} style={{ color: '#2563eb', textDecoration: 'underline' }}>
+                          {contact.phone}
+                        </a>
+                      ) : 'N/A'}
+                    </p>
 
                   </div>
 
@@ -25444,7 +26189,7 @@ function ClientViewModal({
 
                     <p style={{ fontSize: '0.875rem', color: '#6b7280', marginBottom: '0.25rem' }}>
 
-                      🤠Tipologia
+                       Tipologia
 
                     </p>
 
@@ -25478,7 +26223,7 @@ function ClientViewModal({
 
                       <MapPin size={16} style={{ display: 'inline', marginRight: '0.25rem' }} />
 
-                      CittÒ 
+                      CittÃ’Â 
 
                     </p>
 
@@ -25555,7 +26300,7 @@ function ClientViewModal({
               <div style={{ marginBottom: '2rem' }}>
                 <h4 style={{ fontSize: '1.1rem', fontWeight: 'bold', marginBottom: '1rem', color: '#374151' }}>
 
-                  ðŸS⬡ Dati anagrafici completi
+                  S? Dati anagrafici completi
 
                 </h4>
 
@@ -25567,7 +26312,7 @@ function ClientViewModal({
 
                     <p style={{ fontSize: '0.875rem', color: '#6b7280', marginBottom: '0.25rem' }}>
 
-                      ðŸS Indirizzo
+                      S Indirizzo
 
                     </p>
 
@@ -25579,7 +26324,7 @@ function ClientViewModal({
 
                     <p style={{ fontSize: '0.875rem', color: '#6b7280', marginBottom: '0.25rem' }}>
 
-                      ðŸS® CAP
+                      S CAP
 
                     </p>
 
@@ -25591,7 +26336,7 @@ function ClientViewModal({
 
                     <p style={{ fontSize: '0.875rem', color: '#6b7280', marginBottom: '0.25rem' }}>
 
-                      ðŸS⬦ Data di nascita
+                      S? Data di nascita
 
                     </p>
 
@@ -25603,7 +26348,7 @@ function ClientViewModal({
 
                     <p style={{ fontSize: '0.875rem', color: '#6b7280', marginBottom: '0.25rem' }}>
 
-                      ðŸ️ Luogo di nascita
+                      Ã¯Â¸Â Luogo di nascita
 
                     </p>
 
@@ -25615,7 +26360,7 @@ function ClientViewModal({
 
                     <p style={{ fontSize: '0.875rem', color: '#6b7280', marginBottom: '0.25rem' }}>
 
-                      ðŸ⬠⬝ Codice fiscale
+                      ?? Codice fiscale
 
                     </p>
 
@@ -25630,7 +26375,7 @@ function ClientViewModal({
               {activeClientViewTab === 'assets' && (
               <div style={{ marginBottom: '2rem' }}>
                 <h4 style={{ fontSize: '1.1rem', fontWeight: 'bold', marginBottom: '1rem', color: '#374151' }}>
-                  ðŸSŽ Documentazione
+                  S Documentazione
                 </h4>
 
 
@@ -26118,7 +26863,7 @@ function ClientViewModal({
               {activeClientViewTab === 'assets' && (
               <div style={{ marginBottom: '2rem' }}>
                 <h4 style={{ fontSize: '1.1rem', fontWeight: 'bold', marginBottom: '1rem', color: '#374151' }}>
-                  🏠 Immobili del proprietario {propertiesLoading ? '(caricamento...)' : `(${properties.length})`}
+                  Ã°Å¸ÂÂ  Immobili del proprietario {propertiesLoading ? '(caricamento...)' : `(${properties.length})`}
                 </h4>
                 {properties.length === 0 && !propertiesLoading && (
 
@@ -26178,7 +26923,7 @@ function ClientViewModal({
 
                             <p style={{ fontSize: '0.85rem', color: '#6b7280', marginTop: '0.25rem' }}>
 
-                              ðŸS {property.address}, {property.city}
+                              S {property.address}, {property.city}
 
                             </p>
 
@@ -26190,7 +26935,7 @@ function ClientViewModal({
 
                               <p style={{ fontSize: '0.95rem', fontWeight: 'bold', color: '#059669', margin: 0 }}>
 
-                                âa¬{(property.salePrice || property.rentPrice || 0).toLocaleString()}
+                                a{(property.salePrice || property.rentPrice || 0).toLocaleString()}
 
                               </p>
 
@@ -26256,7 +27001,7 @@ function ClientViewModal({
               {activeClientViewTab === 'profile' && (
               <div style={{ marginBottom: '2rem' }}>
                 <h4 style={{ fontSize: '1.1rem', fontWeight: 'bold', marginBottom: '1rem', color: '#374151' }}>
-                  â~¹ï¸ Informazioni Cliente
+                  ~Ã¯Â¸Â Informazioni Cliente
                 </h4>
 
 
@@ -26273,7 +27018,13 @@ function ClientViewModal({
 
                     </p>
 
-                    <p style={{ fontWeight: '500' }}>{contact.email}</p>
+                    <p style={{ fontWeight: '500' }}>
+                      {contact.email ? (
+                        <a href={`mailto:${contact.email}`} style={{ color: '#2563eb', textDecoration: 'underline' }}>
+                          {contact.email}
+                        </a>
+                      ) : 'N/A'}
+                    </p>
 
                   </div>
 
@@ -26289,7 +27040,13 @@ function ClientViewModal({
 
                     </p>
 
-                    <p style={{ fontWeight: '500' }}>{contact.phone || 'N/A'}</p>
+                    <p style={{ fontWeight: '500' }}>
+                      {contact.phone ? (
+                        <a href={`tel:${contact.phone}`} style={{ color: '#2563eb', textDecoration: 'underline' }}>
+                          {contact.phone}
+                        </a>
+                      ) : 'N/A'}
+                    </p>
 
                   </div>
 
@@ -26299,7 +27056,7 @@ function ClientViewModal({
 
                     <p style={{ fontSize: '0.875rem', color: '#6b7280', marginBottom: '0.25rem' }}>
 
-                      🤠Tipologia
+                       Tipologia
 
                     </p>
 
@@ -26333,7 +27090,7 @@ function ClientViewModal({
 
                       <MapPin size={16} style={{ display: 'inline', marginRight: '0.25rem' }} />
 
-                      CittÒ 
+                      CittÃ’Â 
 
                     </p>
 
@@ -26349,13 +27106,13 @@ function ClientViewModal({
 
                       <p style={{ fontSize: '0.875rem', color: '#6b7280', marginBottom: '0.25rem' }}>
 
-                        ðŸ"° Budget
+                        " Budget
 
                       </p>
 
                       <p style={{ fontWeight: '500', color: '#059669' }}>
 
-                        âa¬{parseFloat(contact.budget.toString()).toLocaleString()}
+                        a{parseFloat(contact.budget.toString()).toLocaleString()}
 
                       </p>
 
@@ -26373,7 +27130,7 @@ function ClientViewModal({
 
                     <p style={{ fontSize: '0.875rem', color: '#6b7280', marginBottom: '0.25rem' }}>
 
-                      ðŸS Preferenze
+                      S Preferenze
 
                     </p>
 
@@ -26395,7 +27152,7 @@ function ClientViewModal({
 
                     <h4 style={{ fontSize: '1.1rem', fontWeight: 'bold', marginBottom: '0.75rem', color: '#374151' }}>
 
-                      🎯 Richiesta immobile
+                      Ã°Å¸Å½Â¯ Richiesta immobile
 
                     </h4>
 
@@ -26519,7 +27276,7 @@ function ClientViewModal({
               {activeClientViewTab === 'matches' && (contact.type === 'BUYER' || contact.type === 'TENANT') && (
                 <div style={{ marginBottom: '1rem' }}>
                   <h4 style={{ fontSize: '1.1rem', fontWeight: 'bold', marginBottom: '1rem', color: '#374151' }}>
-                    ðŸ"¡ Immobili Suggeriti ({suggestedProperties.length})
+                    " Immobili Suggeriti ({suggestedProperties.length})
                   </h4>
 
 
@@ -26566,7 +27323,7 @@ function ClientViewModal({
 
                             }}>
 
-                              âa¬{(property.salePrice || property.rentPrice || 0).toLocaleString()}
+                              a{(property.salePrice || property.rentPrice || 0).toLocaleString()}
 
                             </span>
 
@@ -26576,7 +27333,7 @@ function ClientViewModal({
 
                           <p style={{ fontSize: '0.875rem', color: '#6b7280', marginBottom: '0.5rem' }}>
 
-                            ðŸS {property.city} ⢠🏠 {property.type} ⢠ðŸ⬺ï¸ {property.bedrooms} camere ⢠ðŸ⬺ {property.bathrooms} bagni
+                            S {property.city}   Ã°Å¸ÂÂ  {property.type}   ?Ã¯Â¸Â {property.bedrooms} camere   ? {property.bathrooms} bagni
 
                           </p>
 
@@ -26624,7 +27381,7 @@ function ClientViewModal({
 
                             >
 
-                              ðŸï¸ Dettagli
+                              Ã¯Â¸Â Dettagli
 
                             </button>
 
@@ -26656,7 +27413,7 @@ function ClientViewModal({
 
                             >
 
-                              🤝 Proponi
+                              Ã°Å¸Â¤Â Proponi
 
                             </button>
 
@@ -26848,6 +27605,201 @@ function ClientViewModal({
 
 // ===== PAGINA CLIENTI COMPLETA =====
 
+function ClientDetailPage({
+  contact,
+  request,
+  properties,
+  onOpenProperty,
+  onBack
+}: {
+  contact: Contact | null
+  request?: any | null
+  properties: Property[]
+  onOpenProperty?: (propertyId: string) => void
+  onBack: () => void
+}) {
+  const [activeTab, setActiveTab] = useState<'anagrafica' | 'richiesta' | 'proposte'>('anagrafica')
+
+  if (!contact) {
+    return (
+      <div style={{ backgroundColor: '#fff', borderRadius: '0.75rem', padding: '1rem', border: '1px solid #e5e7eb' }}>
+        <p style={{ margin: 0, color: '#6b7280' }}>Cliente non trovato.</p>
+        <button onClick={onBack} style={{ marginTop: '0.75rem', padding: '0.5rem 0.9rem', borderRadius: '0.5rem', border: '1px solid #cbd5e1', background: '#fff', cursor: 'pointer' }}>
+          Torna indietro
+        </button>
+      </div>
+    )
+  }
+
+  const reqContract = String(request?.contractType || '').toUpperCase()
+  const reqType = String(request?.type || contact.requestApartmentType || '').toUpperCase()
+  const reqMaxPrice = Number(request?.maxPrice || contact.budget || 0) || 0
+  const reqMinRooms = Number(request?.minRooms ?? contact.requestBedrooms ?? 0) || 0
+  const reqMinBathrooms = Number(request?.minBathrooms ?? contact.requestBathrooms ?? 0) || 0
+  const reqCity = String(request?.cities?.[0] || contact.city || '').trim().toLowerCase()
+
+  const suggestedProperties = properties
+    .map((property) => {
+      let score = 0
+      if (reqContract && String(property.contractType || '').toUpperCase() === reqContract) score += 35
+      if (reqType && String(property.type || '').toUpperCase().includes(reqType)) score += 25
+      if (reqMaxPrice > 0) {
+        const p = Number(property.price || 0)
+        if (p > 0 && p <= reqMaxPrice) score += 20
+        else if (p > 0 && p <= reqMaxPrice * 1.1) score += 10
+      } else {
+        score += 10
+      }
+      const rooms = Number(property.rooms || property.bedrooms || 0)
+      if (reqMinRooms > 0) {
+        if (rooms >= reqMinRooms) score += 10
+        else if (rooms + 1 >= reqMinRooms) score += 5
+      }
+      const baths = Number(property.bathrooms || 0)
+      if (reqMinBathrooms > 0) {
+        if (baths >= reqMinBathrooms) score += 10
+        else if (baths + 1 >= reqMinBathrooms) score += 5
+      }
+      if (reqCity) {
+        const pCity = String(property.city || '').toLowerCase()
+        if (pCity.includes(reqCity)) score += 10
+      }
+      return { property, score }
+    })
+    .filter((row) => row.score > 0)
+    .sort((a, b) => b.score - a.score)
+    .slice(0, 50)
+
+  const fullName = `${contact.firstName || ''} ${contact.lastName || ''}`.trim() || 'Cliente'
+  return (
+    <div style={{ display: 'grid', gap: '1rem' }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        <h1 style={{ margin: 0, fontSize: '1.8rem', fontWeight: 700 }}>Scheda Cliente</h1>
+        <button
+          onClick={onBack}
+          style={{ padding: '0.55rem 0.95rem', borderRadius: '0.5rem', border: '1px solid #cbd5e1', background: '#fff', cursor: 'pointer' }}
+        >
+          Torna indietro
+        </button>
+      </div>
+
+      <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+        <button
+          onClick={() => setActiveTab('anagrafica')}
+          style={{ padding: '0.5rem 0.9rem', borderRadius: '0.6rem', border: activeTab === 'anagrafica' ? '1px solid #2563eb' : '1px solid #d1d5db', background: activeTab === 'anagrafica' ? '#eff6ff' : '#fff', cursor: 'pointer', fontWeight: 600 }}
+        >
+          Dati anagrafici e contatti
+        </button>
+        <button
+          onClick={() => setActiveTab('richiesta')}
+          style={{ padding: '0.5rem 0.9rem', borderRadius: '0.6rem', border: activeTab === 'richiesta' ? '1px solid #2563eb' : '1px solid #d1d5db', background: activeTab === 'richiesta' ? '#eff6ff' : '#fff', cursor: 'pointer', fontWeight: 600 }}
+        >
+          Richiesta
+        </button>
+        <button
+          onClick={() => setActiveTab('proposte')}
+          style={{ padding: '0.5rem 0.9rem', borderRadius: '0.6rem', border: activeTab === 'proposte' ? '1px solid #2563eb' : '1px solid #d1d5db', background: activeTab === 'proposte' ? '#eff6ff' : '#fff', cursor: 'pointer', fontWeight: 600 }}
+        >
+          Proposte immobile
+        </button>
+      </div>
+
+      {activeTab === 'anagrafica' && (
+      <div style={{ backgroundColor: '#fff', borderRadius: '0.75rem', border: '1px solid #e5e7eb', padding: '1rem' }}>
+        <h2 style={{ marginTop: 0, marginBottom: '0.75rem', fontSize: '1.25rem' }}>{fullName}</h2>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '0.8rem' }}>
+          <div>
+            <div style={{ fontSize: '0.8rem', color: '#6b7280' }}>Email</div>
+            <div style={{ fontWeight: 600 }}>
+              {contact.email ? <a href={`mailto:${contact.email}`} style={{ color: '#2563eb', textDecoration: 'underline' }}>{contact.email}</a> : 'N/D'}
+            </div>
+          </div>
+          <div>
+            <div style={{ fontSize: '0.8rem', color: '#6b7280' }}>Telefono</div>
+            <div style={{ fontWeight: 600 }}>
+              {contact.phone ? <a href={`tel:${contact.phone}`} style={{ color: '#2563eb', textDecoration: 'underline' }}>{contact.phone}</a> : 'N/D'}
+            </div>
+          </div>
+          <div>
+            <div style={{ fontSize: '0.8rem', color: '#6b7280' }}>Tipologia cliente</div>
+            <div style={{ fontWeight: 600 }}>{contact.type || 'N/D'}</div>
+          </div>
+          <div>
+            <div style={{ fontSize: '0.8rem', color: '#6b7280' }}>CittÃ  / Provincia</div>
+            <div style={{ fontWeight: 600 }}>{[contact.city, contact.province].filter(Boolean).join(', ') || 'N/D'}</div>
+          </div>
+        </div>
+      </div>
+      )}
+
+      {activeTab === 'richiesta' && (
+      <div style={{ backgroundColor: '#fff', borderRadius: '0.75rem', border: '1px solid #e5e7eb', padding: '1rem' }}>
+        <h3 style={{ marginTop: 0, marginBottom: '0.75rem', fontSize: '1.1rem' }}>Richiesta cliente</h3>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '0.8rem' }}>
+          <div>
+            <div style={{ fontSize: '0.8rem', color: '#6b7280' }}>Tipologia richiesta</div>
+            <div style={{ fontWeight: 600 }}>{request?.type || contact.requestApartmentType || 'N/D'}</div>
+          </div>
+          <div>
+            <div style={{ fontSize: '0.8rem', color: '#6b7280' }}>Contratto</div>
+            <div style={{ fontWeight: 600 }}>{request?.contractType || 'N/D'}</div>
+          </div>
+          <div>
+            <div style={{ fontSize: '0.8rem', color: '#6b7280' }}>Budget</div>
+            <div style={{ fontWeight: 600 }}>
+              {request?.maxPrice || contact.budget ? `â‚¬${Number(request?.maxPrice || contact.budget || 0).toLocaleString('it-IT')}` : 'N/D'}
+            </div>
+          </div>
+          <div>
+            <div style={{ fontSize: '0.8rem', color: '#6b7280' }}>Camere</div>
+            <div style={{ fontWeight: 600 }}>{request?.minRooms ?? contact.requestBedrooms ?? 'N/D'}</div>
+          </div>
+          <div>
+            <div style={{ fontSize: '0.8rem', color: '#6b7280' }}>Bagni</div>
+            <div style={{ fontWeight: 600 }}>{request?.minBathrooms ?? contact.requestBathrooms ?? 'N/D'}</div>
+          </div>
+          <div>
+            <div style={{ fontSize: '0.8rem', color: '#6b7280' }}>Note / Preferenze</div>
+            <div style={{ fontWeight: 600 }}>{request?.notes || contact.preferences || contact.notes || 'N/D'}</div>
+          </div>
+        </div>
+      </div>
+      )}
+
+      {activeTab === 'proposte' && (
+        <div style={{ backgroundColor: '#fff', borderRadius: '0.75rem', border: '1px solid #e5e7eb', padding: '1rem' }}>
+          <h3 style={{ marginTop: 0, marginBottom: '0.75rem', fontSize: '1.1rem' }}>Immobili proposti</h3>
+          {suggestedProperties.length === 0 ? (
+            <p style={{ margin: 0, color: '#6b7280' }}>Nessuna proposta compatibile al momento.</p>
+          ) : (
+            <div style={{ display: 'grid', gap: '0.6rem' }}>
+              {suggestedProperties.map(({ property, score }) => (
+                <div key={property.id} style={{ border: '1px solid #e5e7eb', borderRadius: '0.6rem', padding: '0.75rem', display: 'flex', justifyContent: 'space-between', gap: '0.75rem', alignItems: 'center' }}>
+                  <div>
+                    <div style={{ fontWeight: 700 }}>{property.title}</div>
+                    <div style={{ color: '#6b7280', fontSize: '0.9rem' }}>
+                      {[property.city, property.address].filter(Boolean).join(', ')} | â‚¬{Number(property.price || 0).toLocaleString('it-IT')}
+                    </div>
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                    <span style={{ fontWeight: 700, color: '#059669' }}>{score}%</span>
+                    <button
+                      onClick={() => onOpenProperty && onOpenProperty(property.id)}
+                      style={{ padding: '0.45rem 0.8rem', borderRadius: '0.5rem', border: '1px solid #cbd5e1', background: '#fff', cursor: 'pointer' }}
+                    >
+                      Apri immobile
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  )
+}
+
 function ClientsPage({
 
   contacts,
@@ -26870,7 +27822,9 @@ function ClientsPage({
 
   onUploadDocument,
 
-  onDeleteDocument
+  onDeleteDocument,
+  onOpenContactPage,
+  authToken
 
 }: {
 
@@ -26894,7 +27848,9 @@ function ClientsPage({
 
   onUploadDocument: (contactId: string, payload: { file: File; type: string; side?: string }) => Promise<OwnerDocument | null>,
 
-  onDeleteDocument: (contactId: string, documentId: string) => Promise<boolean>
+  onDeleteDocument: (contactId: string, documentId: string) => Promise<boolean>,
+  onOpenContactPage: (contact: Contact) => void,
+  authToken?: string | null
 
 }) {
 
@@ -26917,20 +27873,111 @@ function ClientsPage({
   const [suggestedProperties, setSuggestedProperties] = useState<Property[]>([])
 
   const [documentStats, setDocumentStats] = useState<Record<string, { missingCount: number }>>({})
+  const [serverContacts, setServerContacts] = useState<Contact[]>([])
+  const [contactsLoading, setContactsLoading] = useState(false)
+  const [currentPage, setCurrentPage] = useState(1)
+  const [pageSize] = useState(50)
+  const [totalPages, setTotalPages] = useState(1)
+  const [totalContacts, setTotalContacts] = useState(0)
+  const [tabTotals, setTabTotals] = useState<{ CLIENT: number; PROPRIETOR: number }>({ CLIENT: 0, PROPRIETOR: 0 })
+  const [debouncedSearchTerm, setDebouncedSearchTerm] = useState('')
+  const [debouncedFilterCity, setDebouncedFilterCity] = useState('')
+  const [reloadTick, setReloadTick] = useState(0)
+  const [importingCsv, setImportingCsv] = useState(false)
+  const authHeaders = authToken ? { Authorization: `Bearer ${authToken}` } : undefined
 
 
 
   const requiredDocumentTypes = [
 
-    'Documento identità',
+    'Documento identitÃƒÆ’Ã‚Â ',
 
     'Codice fiscale',
 
     'Visura catastale',
 
-    'Atto di proprietà'
+    'Atto di proprietÃƒÆ’Ã‚Â '
 
   ]
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => setDebouncedSearchTerm(searchTerm), 250)
+    return () => window.clearTimeout(timer)
+  }, [searchTerm])
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => setDebouncedFilterCity(filterCity), 250)
+    return () => window.clearTimeout(timer)
+  }, [filterCity])
+
+  useEffect(() => {
+    setCurrentPage(1)
+  }, [activeTab, debouncedSearchTerm, filterType, debouncedFilterCity, filterAgent])
+
+  useEffect(() => {
+    let cancelled = false
+    const loadContactsPage = async () => {
+      setContactsLoading(true)
+      try {
+        const params = new URLSearchParams()
+        params.set('page', String(currentPage))
+        params.set('limit', String(pageSize))
+        params.set('category', activeTab)
+        if (debouncedSearchTerm.trim()) params.set('search', debouncedSearchTerm.trim())
+        if (filterType) params.set('type', filterType)
+        if (debouncedFilterCity.trim()) params.set('city', debouncedFilterCity.trim())
+        if (filterAgent) params.set('assignedToId', filterAgent)
+        const response = await fetch(`/api/contacts?${params.toString()}`, { headers: authHeaders })
+        const data = await response.json()
+        if (!cancelled && data?.success) {
+          const mappedContacts = (data.data || []).map((c: any) => ({
+            ...c,
+            category: ['BUYER', 'TENANT', 'LEAD'].includes(c.type) ? 'CLIENT' : 'PROPRIETOR',
+            assignedAgent: c.assignedAgent || c.assignedToId || undefined
+          }))
+          setServerContacts(mappedContacts)
+          const pages = Number(data?.pagination?.pages || 1)
+          setTotalPages(pages > 0 ? pages : 1)
+          setTotalContacts(Number(data?.pagination?.total || 0))
+        }
+      } catch {
+        if (!cancelled) {
+          setServerContacts([])
+          setTotalPages(1)
+          setTotalContacts(0)
+        }
+      } finally {
+        if (!cancelled) setContactsLoading(false)
+      }
+    }
+    loadContactsPage()
+    return () => {
+      cancelled = true
+    }
+  }, [activeTab, currentPage, pageSize, debouncedSearchTerm, filterType, debouncedFilterCity, filterAgent, authToken, reloadTick])
+
+  useEffect(() => {
+    let cancelled = false
+    const loadTabTotals = async () => {
+      try {
+        const [clientRes, proprietorRes] = await Promise.all([
+          fetch('/api/contacts?page=1&limit=1&category=CLIENT', { headers: authHeaders }),
+          fetch('/api/contacts?page=1&limit=1&category=PROPRIETOR', { headers: authHeaders })
+        ])
+        const [clientData, proprietorData] = await Promise.all([clientRes.json(), proprietorRes.json()])
+        if (!cancelled) {
+          setTabTotals({
+            CLIENT: Number(clientData?.pagination?.total || 0),
+            PROPRIETOR: Number(proprietorData?.pagination?.total || 0)
+          })
+        }
+      } catch {}
+    }
+    loadTabTotals()
+    return () => {
+      cancelled = true
+    }
+  }, [authToken, reloadTick])
 
 
 
@@ -26942,7 +27989,7 @@ function ClientsPage({
 
     }
 
-    const proprietorContacts = contacts.filter(contact => contact.category === 'PROPRIETOR')
+    const proprietorContacts = serverContacts.filter(contact => contact.category === 'PROPRIETOR')
 
     proprietorContacts.forEach(contact => {
 
@@ -26986,11 +28033,11 @@ function ClientsPage({
 
     })
 
-  }, [activeTab, contacts, onLoadDocuments, documentStats])
+  }, [activeTab, serverContacts, onLoadDocuments, documentStats])
 
 
 
-  if (dataLoading) {
+  if (contactsLoading && serverContacts.length === 0) {
 
     return <div>Caricamento clienti...</div>
 
@@ -26998,45 +28045,37 @@ function ClientsPage({
 
 
 
-  const filteredContacts = contacts.filter(contact => {
+  const filteredContacts = serverContacts.filter(contact => {
+    const normalizedSearch = (searchTerm || '').toLowerCase()
+    const firstName = (contact.firstName || '').toLowerCase()
+    const lastName = (contact.lastName || '').toLowerCase()
+    const email = (contact.email || '').toLowerCase()
+    const city = (contact.city || '').toLowerCase()
 
-    const matchesCategory = contact.category === activeTab
-
-    const matchesSearch = contact.firstName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-
-      contact.lastName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-
-      contact.email.toLowerCase().includes(searchTerm.toLowerCase())
+    const matchesSearch =
+      !normalizedSearch ||
+      firstName.includes(normalizedSearch) ||
+      lastName.includes(normalizedSearch) ||
+      email.includes(normalizedSearch)
 
     const matchesType = !filterType || contact.type === filterType
 
-    const matchesCity = !filterCity || (contact.city || '').toLowerCase().includes(filterCity.toLowerCase())
+    const matchesCity = !filterCity || city.includes((filterCity || '').toLowerCase())
 
 
 
-    let matchesAgent = true
+    const matchesAgent = true
 
-    if (filterAgent) {
-
-      if (!contact.assignedAgent) {
-
-        matchesAgent = false
-
-      } else {
-
-        const agent = agents.find(a => a.id === contact.assignedAgent)
-
-        const agentName = agent ? agent.name.toLowerCase() : ''
-
-        matchesAgent = agentName.includes(filterAgent.toLowerCase())
-
-      }
-
-    }
-
-    return matchesCategory && matchesSearch && matchesType && matchesCity && matchesAgent
+    return matchesSearch && matchesType && matchesCity && matchesAgent
 
   })
+
+  const visiblePages: number[] = []
+  {
+    const start = Math.max(1, currentPage - 2)
+    const end = Math.min(totalPages, currentPage + 2)
+    for (let p = start; p <= end; p += 1) visiblePages.push(p)
+  }
 
 
 
@@ -27145,6 +28184,7 @@ function ClientsPage({
     setShowModal(false)
 
     setEditingContact(null)
+    setReloadTick(prev => prev + 1)
 
   }
 
@@ -27161,64 +28201,12 @@ function ClientsPage({
 
 
   const handleView = (contact: Contact) => {
-
-    // Trova immobili suggeriti per il cliente
-
-    const suggestions = findSuggestedProperties(contact)
-
-    setSuggestedProperties(suggestions)
-
-    setShowViewModal(contact)
-
+    onOpenContactPage(contact)
   }
 
 
 
-  // Funzione per trovare immobili compatibili con il cliente
-
-  const findSuggestedProperties = (client: Contact): Property[] => {
-
-    // Solo per clienti che cercano casa (BUYER o TENANT)
-
-    if (client.type !== 'BUYER' && client.type !== 'TENANT') {
-
-      return []
-
-    }
-
-
-
-    return properties
-
-      .filter(property => property.status === 'AVAILABLE')
-
-      .filter(property => {
-
-        if (!client.province) return true
-
-        if (!property.province) return true
-
-        return property.province.trim().toUpperCase() === client.province.trim().toUpperCase()
-
-      })
-
-      .map(property => {
-
-        const { score } = calculateMatchingScore(property, client)
-
-        return { property, score }
-
-      })
-
-      .filter(item => item.score > 0)
-
-      .sort((a, b) => b.score - a.score)
-
-      .slice(0, 5)
-
-      .map(item => item.property)
-
-  }
+  // Matching suggeriti gestito via API backend (/api/matching/search)
 
 
 
@@ -27238,6 +28226,116 @@ function ClientsPage({
 
   }
 
+  const handleExportCsv = async () => {
+    try {
+      const params = new URLSearchParams()
+      params.set('category', activeTab)
+      if (debouncedSearchTerm.trim()) params.set('search', debouncedSearchTerm.trim())
+      if (filterType) params.set('type', filterType)
+      if (debouncedFilterCity.trim()) params.set('city', debouncedFilterCity.trim())
+      if (filterAgent) params.set('assignedToId', filterAgent)
+      const response = await fetch(`/api/contacts/export?${params.toString()}`, { headers: authHeaders })
+      if (!response.ok) throw new Error(`HTTP ${response.status}`)
+      const blob = await response.blob()
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `clienti-export-${new Date().toISOString().slice(0, 10)}.csv`
+      document.body.appendChild(a)
+      a.click()
+      a.remove()
+      URL.revokeObjectURL(url)
+    } catch {
+      alert('Errore durante export CSV clienti')
+    }
+  }
+
+  const handleDownloadTemplateCsv = async () => {
+    try {
+      const response = await fetch('/api/contacts/import-template', { headers: authHeaders })
+      if (!response.ok) throw new Error(`HTTP ${response.status}`)
+      const blob = await response.blob()
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = 'template-import-clienti.csv'
+      document.body.appendChild(a)
+      a.click()
+      a.remove()
+      URL.revokeObjectURL(url)
+    } catch {
+      alert('Errore durante download template CSV')
+    }
+  }
+
+  const handleImportCsvFile = async (file: File) => {
+    setImportingCsv(true)
+    try {
+      const form = new FormData()
+      form.append('file', file)
+      const response = await fetch('/api/contacts/import', {
+        method: 'POST',
+        headers: authToken ? { Authorization: `Bearer ${authToken}` } : undefined,
+        body: form
+      })
+      const data = await response.json()
+      if (!response.ok || !data?.success) {
+        throw new Error(data?.message || `HTTP ${response.status}`)
+      }
+      alert(`Import completato. Creati: ${data.data?.created ?? 0}, Aggiornati: ${data.data?.updated ?? 0}, Richieste: ${data.data?.requestsUpserted ?? 0}, Scartati: ${data.data?.skipped ?? 0}`)
+      setReloadTick(prev => prev + 1)
+    } catch (error) {
+      alert(`Errore import CSV: ${error instanceof Error ? error.message : 'errore sconosciuto'}`)
+    } finally {
+      setImportingCsv(false)
+    }
+  }
+
+  const handleImportCsvClick = async () => {
+    if (importingCsv) return
+    try {
+      const picker = (window as any).showOpenFilePicker
+      if (typeof picker === 'function') {
+        const handles = await picker({
+          multiple: false,
+          excludeAcceptAllOption: false,
+          types: [
+            {
+              description: 'CSV',
+              accept: {
+                'text/csv': ['.csv'],
+                'application/vnd.ms-excel': ['.csv']
+              }
+            }
+          ]
+        })
+        const handle = handles?.[0]
+        if (!handle) return
+        const file = await handle.getFile()
+        if (file) {
+          await handleImportCsvFile(file)
+        }
+        return
+      }
+    } catch {
+      // Fallback to classic input picker below.
+    }
+
+    const input = document.createElement('input')
+    input.type = 'file'
+    input.accept = '.csv,text/csv'
+    input.style.position = 'fixed'
+    input.style.left = '-9999px'
+    input.style.top = '-9999px'
+    document.body.appendChild(input)
+    input.onchange = () => {
+      const file = input.files?.[0]
+      input.remove()
+      if (file) void handleImportCsvFile(file)
+    }
+    input.click()
+  }
+
 
 
   return (
@@ -27250,7 +28348,7 @@ function ClientsPage({
 
           <h1 style={{ fontSize: '2rem', fontWeight: 'bold', marginBottom: '0.5rem' }}>
 
-            👥 {getCategoryLabel(activeTab)} ({filteredContacts.length})
+            ÃƒÂ°Ã…Â¸Ã¢â‚¬ËœÃ‚Â¥ {getCategoryLabel(activeTab)} ({totalContacts})
 
           </h1>
 
@@ -27262,45 +28360,75 @@ function ClientsPage({
 
         </div>
 
-        <button
-
-          onClick={() => {
-
-            // Apri modal per nuovo cliente
-
-            setEditingContact(null)
-
-            setShowModal(true)
-
-          }}
-
-          style={{
-
-            display: 'flex',
-
-            alignItems: 'center',
-
-            backgroundColor: '#2563eb',
-
-            color: 'white',
-
-            padding: '0.75rem 1.5rem',
-
-            borderRadius: '0.375rem',
-
-            border: 'none',
-
-            cursor: 'pointer'
-
-          }}
-
-        >
-
-          <Plus size={20} style={{ marginRight: '0.5rem' }} />
-
-          Nuovo {activeTab === 'CLIENT' ? 'Cliente' : 'Proprietario'}
-
-        </button>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+          <button
+            onClick={handleExportCsv}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              backgroundColor: '#111827',
+              color: 'white',
+              padding: '0.75rem 1rem',
+              borderRadius: '0.375rem',
+              border: 'none',
+              cursor: 'pointer'
+            }}
+          >
+            Export CSV
+          </button>
+          <button
+            onClick={handleDownloadTemplateCsv}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              backgroundColor: '#4b5563',
+              color: 'white',
+              padding: '0.75rem 1rem',
+              borderRadius: '0.375rem',
+              border: 'none',
+              cursor: 'pointer'
+            }}
+          >
+            Template CSV
+          </button>
+          <button
+            type="button"
+            onClick={handleImportCsvClick}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              backgroundColor: importingCsv ? '#9ca3af' : '#0ea5e9',
+              color: 'white',
+              padding: '0.75rem 1rem',
+              borderRadius: '0.375rem',
+              border: 'none',
+              cursor: importingCsv ? 'not-allowed' : 'pointer',
+              userSelect: 'none'
+            }}
+            disabled={importingCsv}
+          >
+            {importingCsv ? 'Import in corso...' : 'Import CSV'}
+          </button>
+          <button
+            onClick={() => {
+              setEditingContact(null)
+              setShowModal(true)
+            }}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              backgroundColor: '#2563eb',
+              color: 'white',
+              padding: '0.75rem 1.5rem',
+              borderRadius: '0.375rem',
+              border: 'none',
+              cursor: 'pointer'
+            }}
+          >
+            <Plus size={20} style={{ marginRight: '0.5rem' }} />
+            Nuovo {activeTab === 'CLIENT' ? 'Cliente' : 'Proprietario'}
+          </button>
+        </div>
 
       </div>
 
@@ -27344,7 +28472,7 @@ function ClientsPage({
 
         >
 
-          👥 Clienti ({contacts.filter(c => c.category === 'CLIENT').length})
+          ÃƒÂ°Ã…Â¸Ã¢â‚¬ËœÃ‚Â¥ Clienti ({tabTotals.CLIENT})
 
         </button>
 
@@ -27374,7 +28502,7 @@ function ClientsPage({
 
         >
 
-          🏠 Proprietari ({contacts.filter(c => c.category === 'PROPRIETOR').length})
+          ÃƒÂ°Ã…Â¸Ã‚ÂÃ‚Â  Proprietari ({tabTotals.PROPRIETOR})
 
         </button>
 
@@ -27500,7 +28628,7 @@ function ClientsPage({
 
               <MapPin size={16} style={{ display: 'inline', marginRight: '0.5rem' }} />
 
-              Città
+              CittÃ 
 
             </label>
 
@@ -27508,7 +28636,7 @@ function ClientsPage({
 
               type="text"
 
-              placeholder="Filtra per cittÒ ..."
+              placeholder="Filtra per cittÃ’Â ..."
 
               value={filterCity}
 
@@ -27540,29 +28668,24 @@ function ClientsPage({
 
             </label>
 
-            <input
-
-              type="text"
-
-              placeholder="Filtra per agente..."
-
+            <select
               value={filterAgent}
-
               onChange={(e) => setFilterAgent(e.target.value)}
-
               style={{
-
                 width: '100%',
-
                 padding: '0.75rem',
-
                 border: '1px solid #d1d5db',
-
                 borderRadius: '0.375rem'
-
               }}
-
-            />
+            >
+              <option value="">Tutti</option>
+              <option value="__UNASSIGNED__">Nessun agente</option>
+              {agents.map((agent) => (
+                <option key={agent.id} value={agent.id}>
+                  {agent.name}
+                </option>
+              ))}
+            </select>
 
           </div>
 
@@ -27744,7 +28867,7 @@ function ClientsPage({
 
                       <MapPin size={16} style={{ display: 'inline', marginRight: '0.25rem' }} />
 
-                      Città
+                      CittÃ 
 
                     </p>
 
@@ -28010,7 +29133,66 @@ function ClientsPage({
 
       </div>
 
-
+      {totalPages > 1 && (
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginTop: '1rem', marginBottom: '1rem', flexWrap: 'wrap' }}>
+          <button
+            onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+            disabled={currentPage <= 1}
+            style={{ padding: '0.45rem 0.7rem', border: '1px solid #d1d5db', borderRadius: '0.45rem', background: '#fff', cursor: currentPage <= 1 ? 'not-allowed' : 'pointer', opacity: currentPage <= 1 ? 0.6 : 1 }}
+          >
+            Indietro
+          </button>
+          {currentPage > 3 && (
+            <>
+              <button
+                onClick={() => setCurrentPage(1)}
+                style={{ padding: '0.4rem 0.65rem', border: '1px solid #d1d5db', borderRadius: '0.45rem', background: '#fff', cursor: 'pointer' }}
+              >
+                1
+              </button>
+              <span style={{ color: '#6b7280' }}>...</span>
+            </>
+          )}
+          {visiblePages.map((p) => (
+            <button
+              key={p}
+              onClick={() => setCurrentPage(p)}
+              style={{
+                padding: '0.4rem 0.65rem',
+                border: p === currentPage ? '1px solid #2563eb' : '1px solid #d1d5db',
+                borderRadius: '0.45rem',
+                background: p === currentPage ? '#2563eb' : '#fff',
+                color: p === currentPage ? '#fff' : '#111827',
+                cursor: 'pointer',
+                fontWeight: 600
+              }}
+            >
+              {p}
+            </button>
+          ))}
+          {currentPage < totalPages - 2 && (
+            <>
+              <span style={{ color: '#6b7280' }}>...</span>
+              <button
+                onClick={() => setCurrentPage(totalPages)}
+                style={{ padding: '0.4rem 0.65rem', border: '1px solid #d1d5db', borderRadius: '0.45rem', background: '#fff', cursor: 'pointer' }}
+              >
+                {totalPages}
+              </button>
+            </>
+          )}
+          <button
+            onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+            disabled={currentPage >= totalPages}
+            style={{ padding: '0.45rem 0.7rem', border: '1px solid #d1d5db', borderRadius: '0.45rem', background: '#fff', cursor: currentPage >= totalPages ? 'not-allowed' : 'pointer', opacity: currentPage >= totalPages ? 0.6 : 1 }}
+          >
+            Avanti
+          </button>
+          <span style={{ marginLeft: '0.5rem', color: '#6b7280', fontSize: '0.9rem' }}>
+            Pagina {currentPage} di {totalPages} - {totalContacts} contatti
+          </span>
+        </div>
+      )}
 
       {filteredContacts.length === 0 && (
 
@@ -28159,8 +29341,27 @@ interface CalendarEvent extends Appointment {
     endDate?: string
 
   }
-
 }
+
+interface CalendarRbcEvent {
+  id: string
+  title: string
+  start: Date
+  end: Date
+  allDay?: boolean
+  color?: string
+  status: Appointment['status']
+  assignedToId?: string | null
+  resource: CalendarEvent
+}
+
+const calendarLocalizer = dateFnsLocalizer({
+  format: formatDateFns,
+  parse: parseDateFns,
+  startOfWeek: (date: Date) => startOfWeekDateFns(date, { weekStartsOn: 1, locale: dateFnsLocaleIt }),
+  getDay: getDayDateFns,
+  locales: { it: dateFnsLocaleIt }
+})
 
 
 
@@ -28185,10 +29386,13 @@ function AppointmentsPage({
   onCreateContact,
 
   onCreateProperty,
+  onOpenProperty,
 
   currentUserRole,
 
-  currentUserId
+  currentUserId,
+  focusAppointmentId,
+  onFocusAppointmentHandled
 
 }: {
 
@@ -28196,9 +29400,9 @@ function AppointmentsPage({
 
   dataLoading: boolean
 
-  onCreateAppointment: (appointment: Omit<Appointment, 'id' | 'createdAt'>) => void
+  onCreateAppointment: (appointment: Omit<Appointment, 'id' | 'createdAt'>) => Promise<boolean>
 
-  onUpdateAppointment: (id: string, appointment: Partial<Appointment>) => void
+  onUpdateAppointment: (id: string, appointment: Partial<Appointment>) => Promise<boolean>
 
   onDeleteAppointment: (id: string) => void
 
@@ -28211,2602 +29415,900 @@ function AppointmentsPage({
   onCreateContact: (contact: Omit<Contact, 'id' | 'createdAt'>) => Promise<any>
 
   onCreateProperty?: (property: Omit<Property, 'id' | 'createdAt'>) => Promise<any>
+  onOpenProperty?: (propertyId: string) => void
 
   currentUserRole?: 'SUPER_ADMIN' | 'AGENCY_ADMIN' | 'AGENT' | 'COLLABORATOR' | null
 
   currentUserId?: string | null
+  focusAppointmentId?: string | null
+  onFocusAppointmentHandled?: () => void
 
 }) {
 
   const [view, setView] = useState<CalendarView>({ type: 'month', date: new Date() })
-
+  const [viewportWidth, setViewportWidth] = useState<number>(typeof window !== 'undefined' ? window.innerWidth : 1440)
   const [showEventModal, setShowEventModal] = useState(false)
-
   const [eventModalMode, setEventModalMode] = useState<'view' | 'edit'>('edit')
-
   const [selectedEvent, setSelectedEvent] = useState<CalendarEvent | null>(null)
-
   const [selectedDate, setSelectedDate] = useState<Date | null>(null)
-
-  const [draggedEvent, setDraggedEvent] = useState<CalendarEvent | null>(null)
-
-  const [sidebarOpen, setSidebarOpen] = useState(true)
-
+  const [sidebarOpen, setSidebarOpen] = useState<boolean>(typeof window !== 'undefined' ? window.innerWidth >= 768 : true)
   const [sidebarMonth, setSidebarMonth] = useState(() => new Date(new Date().getFullYear(), new Date().getMonth(), 1))
-
   const [visibleStatuses, setVisibleStatuses] = useState<Record<string, boolean>>({
-
     SCHEDULED: true,
-
     CONFIRMED: true,
-
     COMPLETED: true,
-
     CANCELLED: true
-
   })
-
   const [visibleAgentIds, setVisibleAgentIds] = useState<Record<string, boolean>>(() => {
-
     const next: Record<string, boolean> = {}
-
     agents.forEach(a => {
-
       next[a.id] = true
-
     })
-
     return next
-
   })
-
   const [showUnassigned, setShowUnassigned] = useState(true)
 
-
-
   const isAdmin = currentUserRole === 'SUPER_ADMIN' || currentUserRole === 'AGENCY_ADMIN'
-
-
-
-  useEffect(() => {
-
-    setSidebarMonth(new Date(view.date.getFullYear(), view.date.getMonth(), 1))
-
-  }, [view.date.getFullYear(), view.date.getMonth()])
-
-
-
-  useEffect(() => {
-
-    setVisibleAgentIds(prev => {
-
-      const next = { ...prev }
-
-      agents.forEach(a => {
-
-        if (typeof next[a.id] === 'undefined') next[a.id] = true
-
-      })
-
-      Object.keys(next).forEach(id => {
-
-        if (!agents.some(a => a.id === id)) delete next[id]
-
-      })
-
-      return next
-
-    })
-
-  }, [agents])
-
-
-
-  const calendarEventsAll: CalendarEvent[] = appointments.map(apt => ({
-
-    ...apt,
-
-    color: apt.status === 'CONFIRMED' ? '#10b981' :
-
-      apt.status === 'COMPLETED' ? '#6b7280' :
-
-        apt.status === 'CANCELLED' ? '#ef4444' : '#3b82f6',
-
-    allDay: false
-
-  }))
-
-
-
-  const calendarEvents = calendarEventsAll.filter(evt => {
-
-    if (!visibleStatuses[evt.status]) return false
-
-    if (!evt.assignedToId) return showUnassigned
-
-    return visibleAgentIds[evt.assignedToId] !== false
-
-  })
-
-
-
-  // Navigazione calendario
-
-  const navigateCalendar = (direction: 'prev' | 'next' | 'today') => {
-
-    const newDate = new Date(view.date)
-
-
-
-    if (direction === 'today') {
-
-      setView({ ...view, date: new Date() })
-
-      return
-
-    }
-
-
-
-    if (view.type === 'month') {
-
-      newDate.setMonth(newDate.getMonth() + (direction === 'next' ? 1 : -1))
-
-    } else if (view.type === 'week') {
-
-      newDate.setDate(newDate.getDate() + (direction === 'next' ? 7 : -7))
-
-    } else if (view.type === 'day') {
-
-      newDate.setDate(newDate.getDate() + (direction === 'next' ? 1 : -1))
-
-    }
-
-
-
-    setView({ ...view, date: newDate })
-
-  }
-
-
-
-  const navigateSidebarMonth = (direction: 'prev' | 'next') => {
-
-    const next = new Date(sidebarMonth)
-
-    next.setMonth(next.getMonth() + (direction === 'next' ? 1 : -1))
-
-    setSidebarMonth(next)
-
-  }
-
-
-
-  const miniCalendarDays = () => {
-
-    const firstDay = new Date(sidebarMonth.getFullYear(), sidebarMonth.getMonth(), 1)
-
+  const isMobile = viewportWidth < 768
+  const isTablet = viewportWidth < 1100
+
+  const toggleSidebar = React.useCallback(() => {
+    setSidebarOpen(prev => !prev)
+  }, [])
+
+  const moveMonthSafely = React.useCallback((baseDate: Date, delta: number) => {
+    const nextDate = new Date(baseDate)
+    const originalDay = nextDate.getDate()
+    nextDate.setDate(1)
+    nextDate.setMonth(nextDate.getMonth() + delta)
+    const lastDayOfTargetMonth = new Date(nextDate.getFullYear(), nextDate.getMonth() + 1, 0).getDate()
+    nextDate.setDate(Math.min(originalDay, lastDayOfTargetMonth))
+    return nextDate
+  }, [])
+
+  const getMonthGridDays = React.useCallback((monthDate: Date) => {
+    const firstDay = new Date(monthDate.getFullYear(), monthDate.getMonth(), 1)
+    const lastDay = new Date(monthDate.getFullYear(), monthDate.getMonth() + 1, 0)
+    const mondayOffsetStart = (firstDay.getDay() + 6) % 7
+    const mondayOffsetEnd = (6 - ((lastDay.getDay() + 6) % 7) + 7) % 7
     const startDate = new Date(firstDay)
-
-    startDate.setDate(startDate.getDate() - ((startDate.getDay() + 6) % 7))
+    startDate.setDate(startDate.getDate() - mondayOffsetStart)
+    const endDate = new Date(lastDay)
+    endDate.setDate(endDate.getDate() + mondayOffsetEnd)
 
     const days: Date[] = []
+    const cursor = new Date(startDate)
 
-    const current = new Date(startDate)
+    while (cursor <= endDate) {
+      days.push(new Date(cursor))
+      cursor.setDate(cursor.getDate() + 1)
+    }
 
-    for (let i = 0; i < 42; i++) {
-
-      days.push(new Date(current))
-
-      current.setDate(current.getDate() + 1)
-
+    while (days.length < 35) {
+      days.push(new Date(cursor))
+      cursor.setDate(cursor.getDate() + 1)
     }
 
     return days
+  }, [])
 
-  }
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    const onResize = () => setViewportWidth(window.innerWidth)
+    window.addEventListener('resize', onResize)
+    return () => window.removeEventListener('resize', onResize)
+  }, [])
 
+  useEffect(() => {
+    setSidebarMonth(new Date(view.date.getFullYear(), view.date.getMonth(), 1))
+  }, [view.date])
 
+  useEffect(() => {
+    setVisibleAgentIds(prev => {
+      const next = { ...prev }
+      agents.forEach(a => {
+        if (typeof next[a.id] === 'undefined') next[a.id] = true
+      })
+      Object.keys(next).forEach(id => {
+        if (!agents.some(a => a.id === id)) delete next[id]
+      })
+      return next
+    })
+  }, [agents])
 
-  const isSameDay = (a: Date, b: Date) => a.toDateString() === b.toDateString()
+  useEffect(() => {
+    if (isMobile) {
+      setSidebarOpen(false)
+      return
+    }
+    setSidebarOpen(true)
+  }, [isMobile])
 
+  const calendarEventsAll: CalendarEvent[] = appointments.map(apt => ({
+    ...apt,
+    color:
+      apt.status === 'CONFIRMED'
+        ? '#10b981'
+        : apt.status === 'COMPLETED'
+          ? '#6b7280'
+          : apt.status === 'CANCELLED'
+            ? '#ef4444'
+            : '#3b82f6',
+    allDay: false
+  }))
 
+  const calendarEvents = calendarEventsAll.filter(evt => {
+    if (!visibleStatuses[evt.status]) return false
+    const assignedAgentIds = Array.isArray(evt.assignedAgents) && evt.assignedAgents.length > 0
+      ? evt.assignedAgents
+      : (evt.assignedToId ? [evt.assignedToId] : [])
+    if (!assignedAgentIds.length) return showUnassigned
+    return assignedAgentIds.some((agentId) => visibleAgentIds[agentId] !== false)
+  })
 
-  const handleEventClick = (event: CalendarEvent) => {
+  const rbcEvents = React.useMemo<CalendarRbcEvent[]>(() => {
+    return calendarEvents.map(evt => {
+      const startDate = new Date(evt.startTime)
+      let endDate = new Date(evt.endTime)
 
+      // Keep month view events inside the start-day cell (no visual spillover to next day).
+      if (view.type === 'month') {
+        const endOfStartDay = new Date(startDate)
+        endOfStartDay.setHours(23, 59, 59, 999)
+        if (endDate.getTime() > endOfStartDay.getTime()) {
+          endDate = new Date(startDate.getTime() + 30 * 60 * 1000)
+        }
+      }
+
+      return {
+        id: evt.id,
+        title: evt.title,
+        start: startDate,
+        end: endDate,
+        allDay: !!evt.allDay,
+        color: evt.color,
+        status: evt.status,
+        assignedToId: evt.assignedToId ?? null,
+        resource: evt
+      }
+    })
+  }, [calendarEvents, view.type])
+
+  const navigateCalendar = React.useCallback((direction: 'prev' | 'next' | 'today') => {
+    if (direction === 'today') {
+      setView(prev => ({ ...prev, date: new Date() }))
+      return
+    }
+
+    setView(prev => {
+      const newDate = new Date(prev.date)
+      if (prev.type === 'month') {
+        return { ...prev, date: moveMonthSafely(newDate, direction === 'next' ? 1 : -1) }
+      }
+      if (prev.type === 'week') {
+        newDate.setDate(newDate.getDate() + (direction === 'next' ? 7 : -7))
+      } else if (prev.type === 'day') {
+        newDate.setDate(newDate.getDate() + (direction === 'next' ? 1 : -1))
+      } else {
+        newDate.setDate(newDate.getDate() + (direction === 'next' ? 30 : -30))
+      }
+      return { ...prev, date: newDate }
+    })
+  }, [moveMonthSafely])
+
+  const navigateSidebarMonth = React.useCallback((direction: 'prev' | 'next') => {
+    const next = moveMonthSafely(sidebarMonth, direction === 'next' ? 1 : -1)
+    next.setDate(1)
+    setSidebarMonth(next)
+  }, [moveMonthSafely, sidebarMonth])
+
+  const isSameDay = React.useCallback((a: Date, b: Date) => a.toDateString() === b.toDateString(), [])
+
+  const handleEventClick = React.useCallback((event: CalendarEvent) => {
     setSelectedEvent(event)
-
     setSelectedDate(null)
-
     setEventModalMode('view')
-
     setShowEventModal(true)
+  }, [])
 
-  }
-
-
-
-  const handleDateClick = (date: Date) => {
-
+  const handleDateClick = React.useCallback((date: Date) => {
     setSelectedDate(date)
-
     setSelectedEvent(null)
-
     setEventModalMode('edit')
-
     setShowEventModal(true)
+  }, [])
 
-  }
-
-
-
-  const handleCreateEvent = (eventData: any) => {
-
+  const handleCreateEvent = React.useCallback(async (eventData: any) => {
+    let ok = false
     if (selectedEvent) {
-
-      // Modifica evento esistente
-
-      onUpdateAppointment(selectedEvent.id, eventData)
-
+      ok = await onUpdateAppointment(selectedEvent.id, eventData)
     } else {
-
-      // Nuovo evento
-
-      onCreateAppointment({
-
+      ok = await onCreateAppointment({
         ...eventData,
-
         startTime: eventData?.startTime ?? selectedDate?.toISOString() ?? new Date().toISOString(),
-
         endTime:
-
           eventData?.endTime ??
-
           new Date((selectedDate?.getTime() || Date.now()) + 60 * 60 * 1000).toISOString()
-
       })
-
     }
 
+    if (!ok) return
     setShowEventModal(false)
-
     setSelectedEvent(null)
-
     setSelectedDate(null)
+    setEventModalMode('edit')
+  }, [onCreateAppointment, onUpdateAppointment, selectedDate, selectedEvent])
 
-  }
+  const closeModal = React.useCallback(() => {
+    setShowEventModal(false)
+    setSelectedEvent(null)
+    setSelectedDate(null)
+    setEventModalMode('edit')
+  }, [])
 
-
-
-  // Drag & Drop handlers
-
-  const handleDragStart = (event: CalendarEvent, e: React.DragEvent) => {
-
-    setDraggedEvent(event)
-
-    e.dataTransfer.effectAllowed = 'move'
-
-  }
-
-
-
-  const handleDrop = (targetDate: Date, e: React.DragEvent) => {
-
-    e.preventDefault()
-
-    if (draggedEvent) {
-
-      const timeDiff = new Date(draggedEvent.endTime).getTime() - new Date(draggedEvent.startTime).getTime()
-
-      const newStartTime = new Date(targetDate)
-
-      const newEndTime = new Date(newStartTime.getTime() + timeDiff)
-
-
-
-      onUpdateAppointment(draggedEvent.id, {
-
-        startTime: newStartTime.toISOString(),
-
-        endTime: newEndTime.toISOString()
-
-      })
-
-
-
-      setDraggedEvent(null)
-
+  const formatViewTitle = React.useMemo(() => {
+    if (view.type === 'month') {
+      return view.date.toLocaleDateString('it-IT', { month: 'long', year: 'numeric' })
     }
+    if (view.type === 'day') {
+      return view.date.toLocaleDateString('it-IT', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })
+    }
+    if (view.type === 'agenda') {
+      return view.date.toLocaleDateString('it-IT', { month: 'long', year: 'numeric' })
+    }
+    const start = new Date(view.date)
+    const day = start.getDay() || 7
+    start.setDate(start.getDate() - day + 1)
+    const end = new Date(start)
+    end.setDate(start.getDate() + 6)
+    return `${start.toLocaleDateString('it-IT', { day: 'numeric', month: 'short' })} - ${end.toLocaleDateString('it-IT', { day: 'numeric', month: 'short', year: 'numeric' })}`
+  }, [view])
 
-  }
+  const sidebarDays = React.useMemo(() => getMonthGridDays(sidebarMonth), [getMonthGridDays, sidebarMonth])
+  const sidebarFiltersContent = (
+    <>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+        <div style={{ fontSize: 14, fontWeight: 800, color: '#0f172a' }}>Calendari</div>
+        {agents.map(agent => {
+          const checked = visibleAgentIds[agent.id] !== false
+          return (
+            <label key={agent.id} style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 14, color: '#334155' }}>
+              <input
+                type="checkbox"
+                checked={checked}
+                onChange={() => setVisibleAgentIds(prev => ({ ...prev, [agent.id]: !(prev[agent.id] !== false) }))}
+              />
+              <span>{agent.firstName} {agent.lastName}</span>
+            </label>
+          )
+        })}
+        <label style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 14, color: '#334155' }}>
+          <input type="checkbox" checked={showUnassigned} onChange={() => setShowUnassigned(prev => !prev)} />
+          <span>Non assegnati</span>
+        </label>
+      </div>
 
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+        <div style={{ fontSize: 14, fontWeight: 800, color: '#0f172a' }}>Stato</div>
+        {([
+          ['SCHEDULED', 'Programmato', '#3b82f6'],
+          ['CONFIRMED', 'Confermato', '#10b981'],
+          ['COMPLETED', 'Completato', '#6b7280'],
+          ['CANCELLED', 'Annullato', '#ef4444']
+        ] as const).map(([status, label, color]) => (
+          <label key={status} style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 14, color: '#334155' }}>
+            <input
+              type="checkbox"
+              checked={visibleStatuses[status]}
+              onChange={() => setVisibleStatuses(prev => ({ ...prev, [status]: !prev[status] }))}
+            />
+            <span style={{ width: 10, height: 10, borderRadius: '50%', background: color, display: 'inline-block' }} />
+            <span>{label}</span>
+          </label>
+        ))}
+      </div>
+    </>
+  )
 
+  const desktopSidebarContent = (
+    <>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        <button type="button" onClick={() => handleDateClick(new Date())} style={{ padding: '10px 14px', borderRadius: 14, border: 'none', background: '#2563eb', color: '#fff', fontWeight: 800, display: 'inline-flex', alignItems: 'center', gap: 8 }}>
+          <Plus size={16} /> Crea
+        </button>
+        {isMobile && (
+          <button type="button" onClick={toggleSidebar} style={{ width: 38, height: 38, borderRadius: 10, border: '1px solid #dbe4f0', background: '#fff', display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}>
+            <X size={16} />
+          </button>
+        )}
+      </div>
 
-  const formatViewTitle = () => {
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        <div style={{ fontSize: 16, fontWeight: 800, color: '#0f172a' }}>
+          {sidebarMonth.toLocaleDateString('it-IT', { month: 'long', year: 'numeric' })}
+        </div>
+        <div style={{ display: 'flex', gap: 6 }}>
+          <button type="button" onClick={() => navigateSidebarMonth('prev')} style={{ width: 34, height: 34, borderRadius: 10, border: '1px solid #dbe4f0', background: '#fff', display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}><ArrowLeft size={15} /></button>
+          <button type="button" onClick={() => navigateSidebarMonth('next')} style={{ width: 34, height: 34, borderRadius: 10, border: '1px solid #dbe4f0', background: '#fff', display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}><ArrowRight size={15} /></button>
+        </div>
+      </div>
 
-    const date = view.date
+      <div
+        style={{
+          display: 'grid',
+          gridTemplateColumns: isMobile ? 'repeat(7, minmax(34px, 1fr))' : 'repeat(7, minmax(0, 1fr))',
+          gap: 6,
+          alignItems: 'center'
+        }}
+      >
+        {['L', 'M', 'M', 'G', 'V', 'S', 'D'].map((label, index) => (
+          <div key={`${label}-${index}`} style={{ textAlign: 'center', fontSize: 12, fontWeight: 800, color: index >= 5 ? '#2563eb' : '#64748b', lineHeight: 1 }}>{label}</div>
+        ))}
+        {sidebarDays.map((day, index) => {
+          const isCurrentMonth = day.getMonth() === sidebarMonth.getMonth()
+          const isToday = isSameDay(day, new Date())
+          const hasEvents = rbcEvents.some(event => isSameDay(event.start, day))
+          return (
+            <button
+              key={`${day.toISOString()}-${index}`}
+              type="button"
+              onClick={() => {
+                setView(prev => ({ ...prev, date: new Date(day), type: isMobile ? 'day' : prev.type }))
+                if (isMobile) setSidebarOpen(false)
+              }}
+              style={{
+                width: '100%',
+                minHeight: 34,
+                height: isMobile ? 36 : 'auto',
+                aspectRatio: isMobile ? undefined : '1 / 1',
+                borderRadius: 12,
+                border: isToday ? '1px solid #2563eb' : '1px solid transparent',
+                background: isToday ? '#eff6ff' : 'transparent',
+                color: isCurrentMonth ? '#0f172a' : '#94a3b8',
+                fontWeight: isToday ? 800 : 600,
+                fontSize: 13,
+                position: 'relative',
+                lineHeight: 1
+              }}
+            >
+              {day.getDate()}
+              {hasEvents && (
+                <span style={{ position: 'absolute', bottom: 6, left: '50%', transform: 'translateX(-50%)', width: 5, height: 5, borderRadius: '50%', background: '#2563eb' }} />
+              )}
+            </button>
+          )
+        })}
+      </div>
 
-    const options: Intl.DateTimeFormatOptions =
+      {sidebarFiltersContent}
+    </>
+  )
 
-      view.type === 'month' ? { month: 'long', year: 'numeric' } :
+  const mobileSidebarContent = (
+    <>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        <div style={{ fontSize: 16, fontWeight: 800, color: '#0f172a' }}>Filtri calendario</div>
+        <button type="button" onClick={toggleSidebar} style={{ width: 38, height: 38, borderRadius: 10, border: '1px solid #dbe4f0', background: '#fff', display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}>
+          <X size={16} />
+        </button>
+      </div>
 
-        view.type === 'week' ? { day: '2-digit', month: 'short', year: 'numeric' } :
+      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+        <button type="button" onClick={() => navigateCalendar('today')} style={{ padding: '8px 12px', borderRadius: 10, border: '1px solid #cbd5e1', background: '#fff', fontWeight: 700 }}>Oggi</button>
+        <button type="button" onClick={() => navigateCalendar('prev')} style={{ width: 38, height: 38, borderRadius: 10, border: '1px solid #cbd5e1', background: '#fff', display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}>
+          <ArrowLeft size={16} />
+        </button>
+        <button type="button" onClick={() => navigateCalendar('next')} style={{ width: 38, height: 38, borderRadius: 10, border: '1px solid #cbd5e1', background: '#fff', display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}>
+          <ArrowRight size={16} />
+        </button>
+        <button type="button" onClick={() => handleDateClick(new Date())} style={{ padding: '8px 12px', borderRadius: 10, border: 'none', background: '#2563eb', color: '#fff', fontWeight: 800, display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+          <Plus size={14} /> Crea
+        </button>
+      </div>
 
-          view.type === 'day' ? { weekday: 'long', day: '2-digit', month: 'long', year: 'numeric' } :
+      <div style={{ fontSize: 14, fontWeight: 700, color: '#334155' }}>
+        {sidebarMonth.toLocaleDateString('it-IT', { month: 'long', year: 'numeric' })}
+      </div>
 
-            { month: 'long', year: 'numeric' }
-
-
-
-    return date.toLocaleDateString('it-IT', options)
-
-  }
-
-
+      {sidebarFiltersContent}
+    </>
+  )
 
   if (dataLoading) {
-
     return (
-      <div className="manus-contact-modal-overlay" style={{
+      <div style={{
         display: 'flex',
-
         justifyContent: 'center',
-
         alignItems: 'center',
-
-        height: '400px',
-
+        height: '420px',
         flexDirection: 'column',
-
         gap: '1rem'
-
       }}>
-
-        <div className="spin" style={{ width: '40px', height: '40px', fontSize: '2rem' }}>⏳</div>
-
+        <div className="spin" style={{ width: '40px', height: '40px', fontSize: '2rem' }}>...</div>
         <p>Caricamento calendario...</p>
-
       </div>
-
     )
-
   }
 
-
-
   return (
-
-    <div style={{ height: '100vh', display: 'flex', flexDirection: 'column', backgroundColor: '#f8fafc' }}>
+    <div
+      className="appointments-calendar-shell"
+      style={{
+        display: 'flex',
+        flexDirection: 'column',
+        gap: isMobile ? 12 : 20,
+        minHeight: '100%',
+        width: '100%'
+      }}
+    >
+      <style>{`
+        .appointments-calendar-shell .rbc-calendar {
+          background: #ffffff !important;
+          border-radius: 20px;
+          overflow: hidden;
+          font-family: inherit;
+        }
+        .appointments-calendar-shell .rbc-toolbar { display: none; }
+        .appointments-calendar-shell .rbc-header {
+          padding: 10px 6px;
+          font-size: 13px;
+          font-weight: 700;
+          color: #475569;
+          background: #f8fafc;
+          border-bottom: 1px solid #e2e8f0;
+        }
+        .appointments-calendar-shell .rbc-month-view,
+        .appointments-calendar-shell .rbc-time-view,
+        .appointments-calendar-shell .rbc-agenda-view,
+        .appointments-calendar-shell .rbc-month-row,
+        .appointments-calendar-shell .rbc-row-bg,
+        .appointments-calendar-shell .rbc-row-content,
+        .appointments-calendar-shell .rbc-row,
+        .appointments-calendar-shell .rbc-time-header,
+        .appointments-calendar-shell .rbc-time-header-content,
+        .appointments-calendar-shell .rbc-time-content,
+        .appointments-calendar-shell .rbc-time-column,
+        .appointments-calendar-shell .rbc-day-slot,
+        .appointments-calendar-shell .rbc-agenda-content {
+          background: #ffffff !important;
+          color: #0f172a !important;
+          border: 1px solid #e2e8f0 !important;
+          border-radius: 20px;
+        }
+        .appointments-calendar-shell .rbc-month-row { min-height: 112px; }
+        .appointments-calendar-shell .rbc-date-cell {
+          padding: 8px 10px 0 0;
+          font-size: 13px;
+          font-weight: 700;
+          color: #334155;
+        }
+        .appointments-calendar-shell .rbc-today { background: rgba(59,130,246,0.08); }
+        .appointments-calendar-shell .rbc-off-range-bg { background: #f8fafc; }
+        .appointments-calendar-shell .rbc-event,
+        .appointments-calendar-shell .rbc-day-slot .rbc-background-event {
+          border: none;
+          box-shadow: none;
+          min-height: 20px;
+        }
+        .appointments-calendar-shell .rbc-event-label { display: none; }
+        .appointments-calendar-shell .rbc-event-content {
+          white-space: nowrap;
+          overflow: hidden;
+          text-overflow: ellipsis;
+          font-size: 12px;
+          font-weight: 700;
+          min-width: 0;
+          max-width: 100%;
+        }
+        .appointments-calendar-shell .rbc-time-header-content,
+        .appointments-calendar-shell .rbc-time-content,
+        .appointments-calendar-shell .rbc-time-header,
+        .appointments-calendar-shell .rbc-time-column,
+        .appointments-calendar-shell .rbc-day-slot,
+        .appointments-calendar-shell .rbc-row-content,
+        .appointments-calendar-shell .rbc-row,
+        .appointments-calendar-shell .rbc-date-cell a {
+          background: #ffffff;
+          color: #0f172a;
+          border-left: none;
+        }
+        .appointments-calendar-shell .rbc-time-gutter,
+        .appointments-calendar-shell .rbc-timeslot-group,
+        .appointments-calendar-shell .rbc-time-slot,
+        .appointments-calendar-shell .rbc-label,
+        .appointments-calendar-shell .rbc-day-bg,
+        .appointments-calendar-shell .rbc-date-cell,
+        .appointments-calendar-shell .rbc-date-cell a,
+        .appointments-calendar-shell .rbc-month-row,
+        .appointments-calendar-shell .rbc-row-content,
+        .appointments-calendar-shell .rbc-row-bg,
+        .appointments-calendar-shell .rbc-row,
+        .appointments-calendar-shell .rbc-time-header,
+        .appointments-calendar-shell .rbc-time-column,
+        .appointments-calendar-shell .rbc-day-slot,
+        .appointments-calendar-shell .rbc-agenda-empty,
+        .appointments-calendar-shell .rbc-agenda-content {
+          background: #ffffff !important;
+          color: #0f172a !important;
+        }
+        .appointments-calendar-shell .rbc-current-time-indicator { background-color: #2563eb; }
+        .appointments-calendar-shell .rbc-agenda-view table.rbc-agenda-table,
+        .appointments-calendar-shell .rbc-agenda-view table.rbc-agenda-table > tbody,
+        .appointments-calendar-shell .rbc-agenda-view table.rbc-agenda-table > thead,
+        .appointments-calendar-shell .rbc-agenda-view table.rbc-agenda-table > tbody > tr,
+        .appointments-calendar-shell .rbc-agenda-view table.rbc-agenda-table > thead > tr {
+          background: #ffffff;
+          color: #0f172a;
+          border-collapse: separate;
+          border-spacing: 0;
+        }
+        .appointments-calendar-shell .rbc-agenda-view table.rbc-agenda-table thead > tr > th {
+          background: #f8fafc;
+          color: #334155;
+          border-bottom: 1px solid #e2e8f0;
+        }
+        .appointments-calendar-shell .rbc-agenda-view table.rbc-agenda-table tbody > tr > td {
+          background: #ffffff;
+          color: #0f172a;
+          padding: 12px;
+          font-size: 13px;
+        }
+        .appointments-calendar-shell .calendar-scrollbar,
+        .appointments-calendar-shell .calendar-scrollbar * {
+          scrollbar-width: thin;
+          scrollbar-color: rgba(148, 163, 184, 0.55) transparent;
+        }
+        .appointments-calendar-shell .calendar-main-section {
+          flex-wrap: nowrap !important;
+          align-items: stretch !important;
+          gap: 16px !important;
+        }
+        .appointments-calendar-shell .calendar-main-panel {
+          width: 100% !important;
+          max-width: 100% !important;
+          min-width: 0 !important;
+        }
+        .appointments-calendar-shell .calendar-main-panel .rbc-calendar {
+          width: 100% !important;
+          max-width: 100% !important;
+          min-width: 0 !important;
+        }
+        .appointments-calendar-shell .calendar-scrollbar::-webkit-scrollbar { width: 8px; height: 8px; }
+        .appointments-calendar-shell .calendar-scrollbar::-webkit-scrollbar-track { background: transparent; }
+        .appointments-calendar-shell .calendar-scrollbar::-webkit-scrollbar-thumb {
+          background: rgba(148, 163, 184, 0.55);
+          border-radius: 999px;
+        }
+        @media (max-width: 1024px) {
+          .appointments-calendar-shell .rbc-month-header,
+          .appointments-calendar-shell .rbc-month-row .rbc-row-bg,
+          .appointments-calendar-shell .rbc-month-row .rbc-row-content .rbc-row {
+            display: grid !important;
+            grid-template-columns: repeat(7, minmax(0, 1fr)) !important;
+          }
+          .appointments-calendar-shell .rbc-month-header > *,
+          .appointments-calendar-shell .rbc-month-row .rbc-row-bg > *,
+          .appointments-calendar-shell .rbc-month-row .rbc-row-content .rbc-row > * {
+            width: auto !important;
+            min-width: 0 !important;
+            max-width: 100% !important;
+          }
+          .appointments-calendar-shell .rbc-month-view,
+          .appointments-calendar-shell .rbc-month-header,
+          .appointments-calendar-shell .rbc-month-row,
+          .appointments-calendar-shell .rbc-month-row .rbc-row-bg,
+          .appointments-calendar-shell .rbc-month-row .rbc-row-content .rbc-row {
+            width: 100% !important;
+            min-width: 0 !important;
+            max-width: 100% !important;
+          }
+          .appointments-calendar-shell .rbc-month-row .rbc-row-content,
+          .appointments-calendar-shell .rbc-month-row .rbc-row-content .rbc-row,
+          .appointments-calendar-shell .rbc-month-row .rbc-row-content .rbc-row-segment,
+          .appointments-calendar-shell .rbc-month-row .rbc-row-content .rbc-event,
+          .appointments-calendar-shell .rbc-month-row .rbc-row-content .rbc-event-content {
+            min-width: 0 !important;
+            max-width: 100% !important;
+          }
+          .appointments-calendar-shell .rbc-month-row .rbc-row-content .rbc-row > * {
+            min-width: 0 !important;
+          }
+        }
+        @media (max-width: 767px) {
+          .appointments-calendar-shell {
+            width: 100%;
+            margin-left: 0;
+            margin-right: 0;
+          }
+          .appointments-calendar-shell .rbc-calendar {
+            border-radius: 0;
+            min-height: 620px;
+            border: none;
+            box-shadow: none;
+            width: 100%;
+          }
+          .appointments-calendar-shell .rbc-month-view,
+          .appointments-calendar-shell .rbc-month-header,
+          .appointments-calendar-shell .rbc-month-row,
+          .appointments-calendar-shell .rbc-month-row .rbc-row-bg,
+          .appointments-calendar-shell .rbc-month-row .rbc-row-content .rbc-row {
+            width: 100% !important;
+            min-width: 0 !important;
+            max-width: 100% !important;
+          }
+          .appointments-calendar-shell .rbc-month-header,
+          .appointments-calendar-shell .rbc-month-row .rbc-row-bg,
+          .appointments-calendar-shell .rbc-month-row .rbc-row-content .rbc-row {
+            display: grid !important;
+            grid-template-columns: repeat(7, minmax(0, 1fr)) !important;
+          }
+          .appointments-calendar-shell .rbc-month-header .rbc-header,
+          .appointments-calendar-shell .rbc-month-row .rbc-row-bg .rbc-day-bg,
+          .appointments-calendar-shell .rbc-month-row .rbc-row-content .rbc-date-cell {
+            width: auto !important;
+            min-width: 0 !important;
+            max-width: 100% !important;
+          }
+          .appointments-calendar-shell .rbc-month-row .rbc-row-content,
+          .appointments-calendar-shell .rbc-month-row .rbc-row-content .rbc-row,
+          .appointments-calendar-shell .rbc-month-row .rbc-row-content .rbc-row-segment,
+          .appointments-calendar-shell .rbc-month-row .rbc-row-content .rbc-event {
+            min-width: 0 !important;
+            max-width: 100% !important;
+          }
+          .appointments-calendar-shell .rbc-month-row .rbc-row-content .rbc-row > * {
+            min-width: 0 !important;
+          }
+          .appointments-calendar-shell .rbc-month-row .rbc-row-content .rbc-event-content {
+            min-width: 0 !important;
+            max-width: 100% !important;
+            overflow: hidden !important;
+            text-overflow: ellipsis !important;
+            white-space: nowrap !important;
+          }
+          .appointments-calendar-shell .rbc-month-row { min-height: 118px; }
+          .appointments-calendar-shell .rbc-header {
+            padding: 8px 4px;
+            font-size: 12px;
+            background: #ffffff;
+            color: #334155;
+            border-bottom-color: #e2e8f0;
+          }
+          .appointments-calendar-shell .rbc-month-view,
+          .appointments-calendar-shell .rbc-time-view,
+          .appointments-calendar-shell .rbc-agenda-view,
+          .appointments-calendar-shell .rbc-month-row,
+          .appointments-calendar-shell .rbc-row-bg,
+          .appointments-calendar-shell .rbc-row-content,
+          .appointments-calendar-shell .rbc-row,
+          .appointments-calendar-shell .rbc-time-header,
+          .appointments-calendar-shell .rbc-time-header-content,
+          .appointments-calendar-shell .rbc-time-content,
+          .appointments-calendar-shell .rbc-time-column,
+          .appointments-calendar-shell .rbc-day-slot,
+          .appointments-calendar-shell .rbc-agenda-content,
+          .appointments-calendar-shell .rbc-month-view *,
+          .appointments-calendar-shell .rbc-time-view *,
+          .appointments-calendar-shell .rbc-agenda-view * {
+            background: #ffffff !important;
+            color: #0f172a !important;
+            border-color: #e2e8f0 !important;
+          }
+          .appointments-calendar-shell .rbc-time-header-content,
+          .appointments-calendar-shell .rbc-time-content,
+          .appointments-calendar-shell .rbc-time-gutter,
+          .appointments-calendar-shell .rbc-timeslot-group,
+          .appointments-calendar-shell .rbc-time-slot,
+          .appointments-calendar-shell .rbc-label,
+          .appointments-calendar-shell .rbc-day-bg,
+          .appointments-calendar-shell .rbc-date-cell,
+          .appointments-calendar-shell .rbc-date-cell a,
+          .appointments-calendar-shell .rbc-off-range,
+          .appointments-calendar-shell .rbc-agenda-view table.rbc-agenda-table,
+          .appointments-calendar-shell .rbc-agenda-view table.rbc-agenda-table > tbody,
+          .appointments-calendar-shell .rbc-agenda-view table.rbc-agenda-table > thead,
+          .appointments-calendar-shell .rbc-agenda-view table.rbc-agenda-table > tbody > tr,
+          .appointments-calendar-shell .rbc-agenda-view table.rbc-agenda-table > thead > tr,
+          .appointments-calendar-shell .rbc-agenda-view table.rbc-agenda-table tbody > tr > td,
+          .appointments-calendar-shell .rbc-agenda-view table.rbc-agenda-table thead > tr > th,
+          .appointments-calendar-shell .rbc-agenda-empty {
+            background: #ffffff !important;
+            color: #0f172a !important;
+            border-color: #e2e8f0 !important;
+          }
+          .appointments-calendar-shell .rbc-row-bg .rbc-day-bg {
+            border-left-color: #e2e8f0;
+          }
+          .appointments-calendar-shell .rbc-date-cell {
+            color: #0f172a;
+            font-size: 12px;
+            padding-top: 6px;
+          }
+          .appointments-calendar-shell .rbc-day-bg,
+          .appointments-calendar-shell .rbc-month-row + .rbc-month-row,
+          .appointments-calendar-shell .rbc-header + .rbc-header {
+            border-color: #e2e8f0;
+          }
+          .appointments-calendar-shell .rbc-off-range-bg { background: #f8fafc; }
+          .appointments-calendar-shell .rbc-off-range .rbc-date-cell,
+          .appointments-calendar-shell .rbc-off-range { color: #94a3b8; }
+          .appointments-calendar-shell .rbc-today { background: rgba(59,130,246,0.12); }
+          .appointments-calendar-shell .rbc-event-content { font-size: 11px; }
+          .appointments-calendar-shell .rbc-row-content { overflow: hidden; }
+          .appointments-calendar-shell .rbc-row-segment,
+          .appointments-calendar-shell .rbc-event { max-width: 100%; }
+        }
+      `}</style>
 
       <div style={{
-
-        position: 'sticky',
-
-        top: 0,
-
-        zIndex: 20,
-
-        backgroundColor: 'white',
-
-        borderBottom: '1px solid #e5e7eb'
-
+        display: 'flex',
+        flexDirection: 'column',
+        gap: 10,
+        padding: isMobile ? '8px 10px' : '24px 28px',
+        background: '#ffffff',
+        borderRadius: isMobile ? 12 : 24,
+        border: '1px solid #e2e8f0'
       }}>
-
-        <div style={{
-
-          height: '64px',
-
-          padding: '0 1rem',
-
-          display: 'flex',
-
-          alignItems: 'center',
-
-          justifyContent: 'space-between',
-
-          gap: '1rem'
-
-        }}>
-
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', minWidth: 0 }}>
-
-            <button
-
-              onClick={() => setSidebarOpen(v => !v)}
-
-              style={{
-
-                width: '40px',
-
-                height: '40px',
-
-                borderRadius: '9999px',
-
-                border: 'none',
-
-                backgroundColor: 'transparent',
-
-                cursor: 'pointer',
-
-                display: 'flex',
-
-                alignItems: 'center',
-
-                justifyContent: 'center'
-
-              }}
-
-              title={sidebarOpen ? 'Nascondi barra laterale' : 'Mostra barra laterale'}
-
-            >
-
-              <LayoutGrid size={20} style={{ color: '#374151' }} />
-
-            </button>
-
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-
-              <Calendar size={22} style={{ color: '#1a73e8' }} />
-
-              <div style={{ fontSize: '1.25rem', fontWeight: '600', color: '#111827' }}>
-
-                Calendario
-
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+              <Calendar size={isMobile ? 20 : 22} style={{ color: '#2563eb' }} />
+              <div>
+                <div style={{ fontSize: isMobile ? 16 : 18, fontWeight: 800, color: '#0f172a' }}>Calendario</div>
+                <div style={{ fontSize: 13, color: '#64748b' }}>{formatViewTitle}</div>
               </div>
-
             </div>
+          </div>
 
-
-
-            <div style={{ width: '1px', height: '28px', backgroundColor: '#e5e7eb', margin: '0 0.25rem' }} />
-
-
-
-            <button
-
-              onClick={() => navigateCalendar('today')}
-
-              style={{
-
-                height: '36px',
-
-                padding: '0 12px',
-
-                backgroundColor: 'white',
-
-                border: '1px solid #d1d5db',
-
-                borderRadius: '0.5rem',
-
-                cursor: 'pointer',
-
-                fontSize: '0.875rem',
-
-                fontWeight: '500',
-
-                color: '#111827'
-
-              }}
-
-            >
-
-              Oggi
-
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+            <button type="button" onClick={() => navigateCalendar('today')} style={{ padding: '10px 14px', borderRadius: 12, border: '1px solid #cbd5e1', background: '#fff', fontWeight: 700 }}>Oggi</button>
+            <button type="button" onClick={() => navigateCalendar('prev')} style={{ width: 42, height: 42, borderRadius: 12, border: '1px solid #cbd5e1', background: '#fff', display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}>
+              <ArrowLeft size={18} />
             </button>
-
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
-
-              <button
-
-                onClick={() => navigateCalendar('prev')}
-
-                style={{
-
-                  width: '36px',
-
-                  height: '36px',
-
-                  borderRadius: '9999px',
-
-                  border: 'none',
-
-                  backgroundColor: 'transparent',
-
-                  cursor: 'pointer',
-
-                  display: 'flex',
-
-                  alignItems: 'center',
-
-                  justifyContent: 'center'
-
-                }}
-
-                title="Precedente"
-
-              >
-
-                <ArrowLeft size={18} style={{ color: '#374151' }} />
-
-              </button>
-
-              <button
-
-                onClick={() => navigateCalendar('next')}
-
-                style={{
-
-                  width: '36px',
-
-                  height: '36px',
-
-                  borderRadius: '9999px',
-
-                  border: 'none',
-
-                  backgroundColor: 'transparent',
-
-                  cursor: 'pointer',
-
-                  display: 'flex',
-
-                  alignItems: 'center',
-
-                  justifyContent: 'center'
-
-                }}
-
-                title="Successivo"
-
-              >
-
-                <ArrowRight size={18} style={{ color: '#374151' }} />
-
-              </button>
-
-            </div>
-
-
-
-            <div style={{
-
-              fontSize: '1.125rem',
-
-              fontWeight: '500',
-
-              color: '#111827',
-
-              whiteSpace: 'nowrap',
-
-              overflow: 'hidden',
-
-              textOverflow: 'ellipsis'
-
-            }}>
-
-              {formatViewTitle()}
-
-            </div>
-
+            <button type="button" onClick={() => navigateCalendar('next')} style={{ width: 42, height: 42, borderRadius: 12, border: '1px solid #cbd5e1', background: '#fff', display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}>
+              <ArrowRight size={18} />
+            </button>
+            <button type="button" onClick={() => handleDateClick(new Date())} style={{ padding: '10px 16px', borderRadius: 14, border: 'none', background: '#2563eb', color: '#fff', fontWeight: 800, display: 'inline-flex', alignItems: 'center', gap: 8 }}>
+              <Plus size={16} /> Nuovo
+            </button>
           </div>
-
-
-
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-
-            <div style={{
-
-              display: 'flex',
-
-              alignItems: 'center',
-
-              border: '1px solid #e5e7eb',
-
-              borderRadius: '0.75rem',
-
-              overflow: 'hidden',
-
-              height: '36px'
-
-            }}>
-
-              {(['month', 'week', 'day', 'agenda'] as const).map((viewType) => (
-
-                <button
-
-                  key={viewType}
-
-                  onClick={() => setView({ ...view, type: viewType })}
-
-                  style={{
-
-                    height: '36px',
-
-                    padding: '0 12px',
-
-                    backgroundColor: view.type === viewType ? '#e8f0fe' : 'white',
-
-                    color: view.type === viewType ? '#1a73e8' : '#374151',
-
-                    border: 'none',
-
-                    fontSize: '0.875rem',
-
-                    fontWeight: '600',
-
-                    cursor: 'pointer'
-
-                  }}
-
-                >
-
-                  {viewType === 'month' ? 'Mese' :
-
-                    viewType === 'week' ? 'Settimana' :
-
-                      viewType === 'day' ? 'Giorno' : 'Agenda'}
-
-                </button>
-
-              ))}
-
-            </div>
-
-
-
-            {isAdmin && (
-
-              <button
-
-                onClick={() => handleDateClick(new Date())}
-
-                style={{
-
-                  display: 'flex',
-
-                  alignItems: 'center',
-
-                  gap: '0.5rem',
-
-                  height: '40px',
-
-                  padding: '0 14px',
-
-                  borderRadius: '9999px',
-
-                  border: 'none',
-
-                  backgroundColor: '#1a73e8',
-
-                  color: 'white',
-
-                  cursor: 'pointer',
-
-                  fontWeight: '700',
-
-                  boxShadow: '0 1px 2px rgba(0,0,0,0.08)'
-
-                }}
-
-              >
-
-                <Plus size={18} />
-
-                Nuovo
-
-              </button>
-
-            )}
-
-          </div>
-
         </div>
 
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+          {([
+            ['month', 'Mese'],
+            ['week', 'Settimana'],
+            ['day', 'Giorno'],
+            ['agenda', 'Agenda']
+          ] as const).map(([nextView, label]) => {
+            const active = view.type === nextView
+            return (
+              <button
+                key={nextView}
+                type="button"
+                onClick={() => setView(prev => ({ ...prev, type: nextView }))}
+                style={{
+                  padding: isMobile ? '8px 12px' : '10px 14px',
+                  borderRadius: 999,
+                  border: active ? '1px solid #2563eb' : '1px solid #dbe4f0',
+                  background: active ? '#eff6ff' : '#ffffff',
+                  color: active ? '#2563eb' : '#475569',
+                  fontWeight: 700,
+                  fontSize: isMobile ? 12 : 13
+                }}
+              >
+                {label}
+              </button>
+            )
+          })}
+        </div>
       </div>
 
-
-
-      <div style={{ flex: 1, display: 'flex', minHeight: 0 }}>
-
-        {sidebarOpen && (
-
-          <div style={{
-
-            width: '300px',
-
-            borderRight: '1px solid #e5e7eb',
-
-            backgroundColor: 'white',
-
-            padding: '1rem',
-
-            overflow: 'auto'
-
+      <div style={{
+        display: 'grid',
+        gridTemplateColumns: isMobile ? '1fr' : sidebarOpen ? (isTablet ? '280px minmax(0,1fr)' : '320px minmax(0,1fr)') : '1fr',
+        gap: isMobile ? 10 : 16,
+        alignItems: 'start'
+      }}>
+        {!isMobile && (
+          <aside className="calendar-scrollbar" style={{
+            background: '#ffffff',
+            border: '1px solid #e2e8f0',
+            borderRadius: 24,
+            padding: 18,
+            display: 'flex',
+            flexDirection: 'column',
+            gap: 18,
+            position: isMobile ? 'relative' : 'sticky',
+            top: 16,
+            maxHeight: isMobile ? 'none' : 'calc(100vh - 140px)',
+            overflowY: 'auto'
           }}>
-
-            {isAdmin && (
-
-              <button
-
-                onClick={() => handleDateClick(new Date())}
-
-                style={{
-
-                  display: 'flex',
-
-                  alignItems: 'center',
-
-                  gap: '0.75rem',
-
-                  height: '44px',
-
-                  padding: '0 16px',
-
-                  borderRadius: '9999px',
-
-                  border: '1px solid #e5e7eb',
-
-                  backgroundColor: 'white',
-
-                  cursor: 'pointer',
-
-                  fontWeight: '700',
-
-                  color: '#111827',
-
-                  boxShadow: '0 1px 2px rgba(0,0,0,0.06)'
-
-                }}
-
-              >
-
-                <Plus size={18} style={{ color: '#1a73e8' }} />
-
-                Crea
-
-              </button>
-
-            )}
-
-
-
-            <div style={{ marginTop: '1.25rem' }}>
-
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.75rem' }}>
-
-                <div style={{ fontWeight: '700', color: '#111827' }}>
-
-                  {sidebarMonth.toLocaleDateString('it-IT', { month: 'long', year: 'numeric' })}
-
-                </div>
-
-                <div style={{ display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
-
-                  <button
-
-                    onClick={() => navigateSidebarMonth('prev')}
-
-                    style={{
-
-                      width: '32px',
-
-                      height: '32px',
-
-                      borderRadius: '9999px',
-
-                      border: 'none',
-
-                      backgroundColor: 'transparent',
-
-                      cursor: 'pointer',
-
-                      display: 'flex',
-
-                      alignItems: 'center',
-
-                      justifyContent: 'center'
-
-                    }}
-
-                    title="Mese precedente"
-
-                  >
-
-                    <ArrowLeft size={16} style={{ color: '#374151' }} />
-
-                  </button>
-
-                  <button
-
-                    onClick={() => navigateSidebarMonth('next')}
-
-                    style={{
-
-                      width: '32px',
-
-                      height: '32px',
-
-                      borderRadius: '9999px',
-
-                      border: 'none',
-
-                      backgroundColor: 'transparent',
-
-                      cursor: 'pointer',
-
-                      display: 'flex',
-
-                      alignItems: 'center',
-
-                      justifyContent: 'center'
-
-                    }}
-
-                    title="Mese successivo"
-
-                  >
-
-                    <ArrowRight size={16} style={{ color: '#374151' }} />
-
-                  </button>
-
-                </div>
-
-              </div>
-
-
-
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: '2px', marginBottom: '0.5rem' }}>
-
-                {['L', 'M', 'M', 'G', 'V', 'S', 'D'].map((d, idx) => (
-
-                  <div key={idx} style={{ textAlign: 'center', fontSize: '0.75rem', color: '#6b7280', fontWeight: '700', padding: '4px 0' }}>
-
-                    {d}
-
-                  </div>
-
-                ))}
-
-              </div>
-
-
-
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: '2px' }}>
-
-                {miniCalendarDays().map((d, idx) => {
-
-                  const inMonth = d.getMonth() === sidebarMonth.getMonth()
-
-                  const isToday = isSameDay(d, new Date())
-
-                  const isSelected = isSameDay(d, view.date)
-
-                  const bg = isToday ? '#1a73e8' : isSelected ? '#e8f0fe' : 'transparent'
-
-                  const fg = isToday ? 'white' : isSelected ? '#1a73e8' : inMonth ? '#111827' : '#9ca3af'
-
-                  return (
-
-                    <button
-
-                      key={idx}
-
-                      onClick={() => setView({ ...view, date: new Date(d) })}
-
-                      style={{
-
-                        height: '32px',
-
-                        borderRadius: '9999px',
-
-                        border: 'none',
-
-                        backgroundColor: bg,
-
-                        cursor: 'pointer',
-
-                        color: fg,
-
-                        fontWeight: isToday || isSelected ? '700' : '500'
-
-                      }}
-
-                      title={d.toLocaleDateString('it-IT', { weekday: 'long', day: '2-digit', month: 'long', year: 'numeric' })}
-
-                    >
-
-                      {d.getDate()}
-
-                    </button>
-
-                  )
-
-                })}
-
-              </div>
-
-            </div>
-
-
-
-            <div style={{ marginTop: '1.5rem', borderTop: '1px solid #f3f4f6', paddingTop: '1rem' }}>
-
-              <div style={{ fontWeight: '800', color: '#111827', marginBottom: '0.75rem' }}>Calendari</div>
-
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-
-                {agents.map(agent => (
-
-                  <label key={agent.id} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.875rem', color: '#374151', cursor: 'pointer' }}>
-
-                    <input
-
-                      type="checkbox"
-
-                      checked={visibleAgentIds[agent.id] !== false}
-
-                      onChange={(e) => {
-
-                        const checked = e.target.checked
-
-                        setVisibleAgentIds(prev => ({ ...prev, [agent.id]: checked }))
-
-                      }}
-
-                    />
-
-                    <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{agent.name}</span>
-
-                  </label>
-
-                ))}
-
-                <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.875rem', color: '#374151', cursor: 'pointer' }}>
-
-                  <input
-
-                    type="checkbox"
-
-                    checked={showUnassigned}
-
-                    onChange={(e) => setShowUnassigned(e.target.checked)}
-
-                  />
-
-                  <span>Non assegnati</span>
-
-                </label>
-
-              </div>
-
-            </div>
-
-
-
-            <div style={{ marginTop: '1.25rem', borderTop: '1px solid #f3f4f6', paddingTop: '1rem' }}>
-
-              <div style={{ fontWeight: '800', color: '#111827', marginBottom: '0.75rem' }}>Stato</div>
-
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-
-                {[
-
-                  { key: 'SCHEDULED', label: 'Programmato', color: '#3b82f6' },
-
-                  { key: 'CONFIRMED', label: 'Confermato', color: '#10b981' },
-
-                  { key: 'COMPLETED', label: 'Completato', color: '#6b7280' },
-
-                  { key: 'CANCELLED', label: 'Annullato', color: '#ef4444' }
-
-                ].map(s => (
-
-                  <label key={s.key} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.875rem', color: '#374151', cursor: 'pointer' }}>
-
-                    <input
-
-                      type="checkbox"
-
-                      checked={visibleStatuses[s.key] !== false}
-
-                      onChange={(e) => setVisibleStatuses(prev => ({ ...prev, [s.key]: e.target.checked }))}
-
-                    />
-
-                    <span style={{ width: '10px', height: '10px', borderRadius: '9999px', backgroundColor: s.color }} />
-
-                    <span>{s.label}</span>
-
-                  </label>
-
-                ))}
-
-              </div>
-
-            </div>
-
-          </div>
-
+            {desktopSidebarContent}
+          </aside>
         )}
-
-
-
-        <div style={{ flex: 1, minWidth: 0, padding: '1rem', overflow: 'hidden' }}>
-
-          <div style={{
-
-            height: '100%',
-
-            backgroundColor: 'white',
-
-            border: '1px solid #e5e7eb',
-
-            borderRadius: '0.75rem',
-
-            overflow: 'hidden'
-
-          }}>
-
-            {view.type === 'month' && (
-
-              <CalendarMonthView
-
-                events={calendarEvents}
-
-                currentDate={view.date}
-
-                onEventClick={handleEventClick}
-
-                onDateClick={handleDateClick}
-
-                onDragStart={handleDragStart}
-
-                onDrop={handleDrop}
-
-              />
-
-            )}
-
-            {view.type === 'week' && (
-
-              <CalendarWeekView
-
-                events={calendarEvents}
-
-                currentDate={view.date}
-
-                onEventClick={handleEventClick}
-
-                onDateClick={handleDateClick}
-
-                onDragStart={handleDragStart}
-
-                onDrop={handleDrop}
-
-              />
-
-            )}
-
-            {view.type === 'day' && (
-
-              <CalendarDayView
-
-                events={calendarEvents}
-
-                currentDate={view.date}
-
-                onEventClick={handleEventClick}
-
-                onDateClick={handleDateClick}
-
-                onDragStart={handleDragStart}
-
-                onDrop={handleDrop}
-
-              />
-
-            )}
-
-            {view.type === 'agenda' && (
-
-              <CalendarAgendaView
-
-                events={calendarEvents}
-
-                onEventClick={handleEventClick}
-
-              />
-
-            )}
-
+        <section className="calendar-main-section" style={{ minWidth: 0, display: 'flex', flexDirection: 'column' }}>
+                  <div className="calendar-main-panel calendar-scrollbar" style={{
+                    background: '#ffffff',
+                    border: isMobile ? 'none' : '1px solid #e2e8f0',
+                    borderRadius: isMobile ? 0 : 24,
+                    padding: isMobile ? 0 : 18,
+                    overflow: isMobile ? 'visible' : 'hidden'
+                  }}>
+            <BigCalendar
+              localizer={calendarLocalizer}
+              culture="it"
+              events={rbcEvents}
+              date={view.date}
+              view={view.type as BigCalendarView}
+              views={['month', 'week', 'day', 'agenda']}
+              selectable
+              popup
+              toolbar={false}
+              dayLayoutAlgorithm="no-overlap"
+              style={{ height: isMobile ? 720 : 760 }}
+              messages={{
+                month: 'Mese',
+                week: 'Settimana',
+                day: 'Giorno',
+                agenda: 'Agenda',
+                date: 'Data',
+                time: 'Ora',
+                event: 'Evento',
+                allDay: 'Tutto il giorno',
+                noEventsInRange: 'Nessun appuntamento nel periodo',
+                showMore: total => `+${total} altri`,
+                today: 'Oggi',
+                previous: 'Precedente',
+                next: 'Successivo'
+              }}
+              formats={{
+                weekdayFormat: (date, culture, localizer) => localizer?.format(date, isMobile ? 'EEEEE' : 'EEEEEE', culture) ?? '',
+                dayFormat: (date, culture, localizer) => localizer?.format(date, 'EEE d', culture) ?? '',
+                agendaDateFormat: (date, culture, localizer) => localizer?.format(date, 'EEE d MMM', culture) ?? '',
+                monthHeaderFormat: (date, culture, localizer) => localizer?.format(date, 'MMMM yyyy', culture) ?? ''
+              }}
+              eventPropGetter={(event) => ({
+                style: {
+                  background: event.color || '#3b82f6',
+                  borderRadius: isMobile ? 8 : 10,
+                  border: 'none',
+                  color: '#ffffff',
+                  fontWeight: 700,
+                  fontSize: isMobile ? 10 : 12,
+                  padding: isMobile ? '1px 4px' : '2px 6px'
+                }
+              })}
+              onNavigate={(date) => setView(prev => ({ ...prev, date }))}
+              onView={(nextView) => setView(prev => ({ ...prev, type: nextView as CalendarView['type'] }))}
+              onSelectEvent={(event) => handleEventClick(event.resource)}
+              onSelectSlot={(slotInfo) => handleDateClick(slotInfo.start)}
+            />
           </div>
-
-        </div>
-
+        </section>
       </div>
-
-
-
-      {/* Modal Evento */}
 
       {showEventModal && (
-
         <CalendarEventModal
-
           event={selectedEvent}
-
           selectedDate={selectedDate}
-
           initialMode={eventModalMode}
-
           onSave={handleCreateEvent}
-
           onDelete={selectedEvent ? () => onDeleteAppointment(selectedEvent.id) : undefined}
-
-          onClose={() => {
-
-            setShowEventModal(false)
-
-            setEventModalMode('edit')
-
-            setSelectedEvent(null)
-
-            setSelectedDate(null)
-
-          }}
-
+          onClose={closeModal}
           agents={agents}
-
           contacts={contacts}
-
           properties={properties}
-
           onCreateContact={onCreateContact}
-
           onCreateProperty={onCreateProperty}
-
+          onOpenProperty={onOpenProperty}
           currentUserRole={currentUserRole}
-
           currentUserId={currentUserId}
-
         />
-
       )}
-
     </div>
-
   )
-
 }
-
-
-
-// ===== COMPONENTI VISTE CALENDARIO =====
-
-
-
-// Vista Mese - Clone Google Calendar
-
-function CalendarMonthView({
-
-  events,
-
-  currentDate,
-
-  onEventClick,
-
-  onDateClick,
-
-  onDragStart,
-
-  onDrop
-
-}: {
-
-  events: CalendarEvent[]
-
-  currentDate: Date
-
-  onEventClick: (event: CalendarEvent) => void
-
-  onDateClick: (date: Date) => void
-
-  onDragStart: (event: CalendarEvent, e: React.DragEvent) => void
-
-  onDrop: (date: Date, e: React.DragEvent) => void
-
-}) {
-
-  const startOfMonth = new Date(currentDate.getFullYear(), currentDate.getMonth(), 1)
-
-  const startOfCalendar = new Date(startOfMonth)
-
-  startOfCalendar.setDate(startOfCalendar.getDate() - ((startOfCalendar.getDay() + 6) % 7))
-
-
-
-  const days = []
-
-  const currentDay = new Date(startOfCalendar)
-
-
-
-  // Genera 42 giorni (6 settimane)
-
-  for (let i = 0; i < 42; i++) {
-
-    days.push(new Date(currentDay))
-
-    currentDay.setDate(currentDay.getDate() + 1)
-
-  }
-
-
-
-  const dayNames = ['Lun', 'Mar', 'Mer', 'Gio', 'Ven', 'Sab', 'Dom']
-
-  const today = new Date()
-
-
-
-  const getEventsForDate = (date: Date) => {
-
-    return events.filter(event => {
-
-      const eventDate = new Date(event.startTime)
-
-      return eventDate.toDateString() === date.toDateString()
-
-    })
-
-  }
-
-
-
-  const isToday = (date: Date) => {
-
-    return date.toDateString() === today.toDateString()
-
-  }
-
-
-
-  const isCurrentMonth = (date: Date) => {
-
-    return date.getMonth() === currentDate.getMonth()
-
-  }
-
-
-
-  return (
-
-    <div className="manus-contact-modal-overlay" style={{
-
-      backgroundColor: 'white',
-
-      borderRadius: '0.5rem',
-
-      boxShadow: '0 1px 3px rgba(0,0,0,0.1)',
-
-      overflow: 'hidden',
-
-      height: '100%'
-
-    }}>
-
-      {/* Header giorni della settimana */}
-
-      <div style={{
-
-        display: 'grid',
-
-        gridTemplateColumns: 'repeat(7, minmax(0, 1fr))',
-
-        borderBottom: '1px solid #e5e7eb',
-
-        backgroundColor: '#f9fafb'
-
-      }}>
-
-        {dayNames.map(day => (
-
-          <div
-
-            key={day}
-
-            style={{
-
-              padding: '0.75rem',
-
-              textAlign: 'center',
-
-              fontWeight: '700',
-
-              fontSize: '0.8125rem',
-
-              color: '#6b7280',
-
-              borderRight: '1px solid #e5e7eb',
-
-              minWidth: 0,
-
-              whiteSpace: 'nowrap',
-
-              overflow: 'hidden',
-
-              textOverflow: 'ellipsis',
-
-              letterSpacing: '0.02em'
-
-            }}
-
-          >
-
-            {day}
-
-          </div>
-
-        ))}
-
-      </div>
-
-
-
-      {/* Griglia calendario */}
-
-      <div style={{
-
-        display: 'grid',
-
-        gridTemplateColumns: 'repeat(7, minmax(0, 1fr))',
-
-        gridTemplateRows: 'repeat(6, 1fr)',
-
-        height: 'calc(100% - 60px)'
-
-      }}>
-
-        {days.map((date, index) => {
-
-          const dayEvents = getEventsForDate(date)
-
-          const isCurrentMonthDay = isCurrentMonth(date)
-
-          const isTodayDay = isToday(date)
-
-
-
-          return (
-
-            <div
-
-              key={index}
-
-              onClick={() => onDateClick(date)}
-
-              onDrop={(e) => onDrop(date, e)}
-
-              onDragOver={(e) => e.preventDefault()}
-
-              style={{
-
-                border: '1px solid #e5e7eb',
-
-                padding: '0.5rem',
-
-                cursor: 'pointer',
-
-                backgroundColor: isTodayDay ? '#eff6ff' :
-
-                  isCurrentMonthDay ? 'white' : '#f9fafb',
-
-                minHeight: '120px',
-
-                display: 'flex',
-
-                flexDirection: 'column',
-
-                position: 'relative',
-
-                minWidth: 0
-
-              }}
-
-            >
-
-              {/* Numero del giorno */}
-
-              <div style={{
-
-                fontSize: '0.875rem',
-
-                fontWeight: isTodayDay ? '600' : '500',
-
-                color: isTodayDay ? '#3b82f6' :
-
-                  isCurrentMonthDay ? '#374151' : '#9ca3af',
-
-                marginBottom: '0.25rem'
-
-              }}>
-
-                {date.getDate()}
-
-              </div>
-
-
-
-              {/* Eventi del giorno */}
-
-              <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '2px' }}>
-
-                {dayEvents.slice(0, 3).map((event) => (
-
-                  <div
-
-                    key={event.id}
-
-                    draggable
-
-                    onDragStart={(e) => onDragStart(event, e)}
-
-                    onClick={(e) => {
-
-                      e.stopPropagation()
-
-                      onEventClick(event)
-
-                    }}
-
-                    style={{
-
-                      backgroundColor: event.color + '20',
-
-                      color: event.color,
-
-                      padding: '2px 6px',
-
-                      borderRadius: '3px',
-
-                      fontSize: '0.75rem',
-
-                      fontWeight: '500',
-
-                      cursor: 'pointer',
-
-                      border: `1px solid ${event.color}30`,
-
-                      overflow: 'hidden',
-
-                      textOverflow: 'ellipsis',
-
-                      whiteSpace: 'nowrap',
-
-                      minWidth: 0,
-
-                      maxWidth: '100%'
-
-                    }}
-
-                  >
-
-                    {new Date(event.startTime).toLocaleTimeString('it-IT', {
-
-                      hour: '2-digit',
-
-                      minute: '2-digit'
-
-                    })} {event.title}
-
-                  </div>
-
-                ))}
-
-
-
-                {/* Indicatore eventi aggiuntivi */}
-
-                {dayEvents.length > 3 && (
-
-                  <div style={{
-
-                    fontSize: '0.75rem',
-
-                    color: '#6b7280',
-
-                    fontWeight: '500',
-
-                    padding: '2px 6px'
-
-                  }}>
-
-                    +{dayEvents.length - 3} altri
-
-                  </div>
-
-                )}
-
-              </div>
-
-            </div>
-
-          )
-
-        })}
-
-      </div>
-
-    </div>
-
-  )
-
-}
-
-
-
-// Vista Settimana - Clone Google Calendar
-
-function CalendarWeekView({
-
-  events,
-
-  currentDate,
-
-  onEventClick,
-
-  onDateClick,
-
-  onDragStart,
-
-  onDrop
-
-}: {
-
-  events: CalendarEvent[]
-
-  currentDate: Date
-
-  onEventClick: (event: CalendarEvent) => void
-
-  onDateClick: (date: Date) => void
-
-  onDragStart: (event: CalendarEvent, e: React.DragEvent) => void
-
-  onDrop: (date: Date, e: React.DragEvent) => void
-
-}) {
-
-  const startOfWeek = new Date(currentDate)
-
-  startOfWeek.setDate(currentDate.getDate() - ((currentDate.getDay() + 6) % 7))
-
-
-
-  const weekDays: Date[] = []
-
-  for (let i = 0; i < 7; i++) {
-
-    const day = new Date(startOfWeek)
-
-    day.setDate(startOfWeek.getDate() + i)
-
-    weekDays.push(day)
-
-  }
-
-
-
-  const dayNames = ['Lun', 'Mar', 'Mer', 'Gio', 'Ven', 'Sab', 'Dom']
-
-  const hours = Array.from({ length: 24 }, (_, i) => i)
-
-  const today = new Date()
-
-
-
-  const getEventsForDateTime = (date: Date, hour: number) => {
-
-    return events.filter(event => {
-
-      const eventStart = new Date(event.startTime)
-
-      return eventStart.toDateString() === date.toDateString() &&
-
-        eventStart.getHours() === hour
-
-    })
-
-  }
-
-
-
-  const isToday = (date: Date) => {
-
-    return date.toDateString() === today.toDateString()
-
-  }
-
-
-
-  return (
-
-    <div style={{
-
-      backgroundColor: 'white',
-
-      borderRadius: '0.5rem',
-
-      boxShadow: '0 1px 3px rgba(0,0,0,0.1)',
-
-      overflow: 'hidden',
-
-      height: '100%',
-
-      display: 'flex',
-
-      flexDirection: 'column'
-
-    }}>
-
-      {/* Header giorni della settimana */}
-
-      <div style={{
-
-        display: 'grid',
-
-        gridTemplateColumns: '80px repeat(7, minmax(0, 1fr))',
-
-        borderBottom: '1px solid #e5e7eb',
-
-        backgroundColor: '#f9fafb'
-
-      }}>
-
-        <div style={{ padding: '0.75rem' }}></div>
-
-        {weekDays.map((day, index) => (
-
-          <div
-
-            key={index}
-
-            style={{
-
-              padding: '0.75rem',
-
-              textAlign: 'center',
-
-              borderRight: '1px solid #e5e7eb',
-
-              backgroundColor: isToday(day) ? '#eff6ff' : 'transparent',
-
-              minWidth: 0
-
-            }}
-
-          >
-
-            <div style={{
-
-              fontSize: '0.8125rem',
-
-              fontWeight: '700',
-
-              color: '#6b7280',
-
-              marginBottom: '0.25rem',
-
-              whiteSpace: 'nowrap',
-
-              overflow: 'hidden',
-
-              textOverflow: 'ellipsis',
-
-              letterSpacing: '0.02em'
-
-            }}>
-
-              {dayNames[index]}
-
-            </div>
-
-            <div style={{
-
-              fontSize: '1.25rem',
-
-              fontWeight: isToday(day) ? '600' : '500',
-
-              color: isToday(day) ? '#3b82f6' : '#374151'
-
-            }}>
-
-              {day.getDate()}
-
-            </div>
-
-          </div>
-
-        ))}
-
-      </div>
-
-
-
-      {/* Griglia oraria */}
-
-      <div style={{ flex: 1, overflow: 'auto' }}>
-
-        <div style={{
-
-          display: 'grid',
-
-          gridTemplateColumns: '80px repeat(7, minmax(0, 1fr))'
-
-        }}>
-
-          {hours.map(hour => (
-
-            <React.Fragment key={hour}>
-
-              {/* Colonna ore */}
-
-              <div style={{
-
-                padding: '0.5rem',
-
-                textAlign: 'right',
-
-                fontSize: '0.75rem',
-
-                color: '#6b7280',
-
-                borderRight: '1px solid #e5e7eb',
-
-                borderBottom: '1px solid #f3f4f6',
-
-                backgroundColor: '#f9fafb'
-
-              }}>
-
-                {hour.toString().padStart(2, '0')}:00
-
-              </div>
-
-
-
-              {/* Celle giorni */}
-
-              {weekDays.map((day, dayIndex) => {
-
-                const hourEvents = getEventsForDateTime(day, hour)
-
-                const cellDate = new Date(day)
-
-                cellDate.setHours(hour)
-
-
-
-                return (
-
-                  <div
-
-                    key={`${hour}-${dayIndex}`}
-
-                    onClick={() => onDateClick(cellDate)}
-
-                    onDrop={(e) => onDrop(cellDate, e)}
-
-                    onDragOver={(e) => e.preventDefault()}
-
-                    style={{
-
-                      borderRight: '1px solid #e5e7eb',
-
-                      borderBottom: '1px solid #f3f4f6',
-
-                      minHeight: '60px',
-
-                      cursor: 'pointer',
-
-                      position: 'relative',
-
-                      backgroundColor: isToday(day) ? '#eff6ff10' : 'white',
-
-                      minWidth: 0
-
-                    }}
-
-                  >
-
-                    {hourEvents.map(event => (
-
-                      <div
-
-                        key={event.id}
-
-                        draggable
-
-                        onDragStart={(e) => onDragStart(event, e)}
-
-                        onClick={(e) => {
-
-                          e.stopPropagation()
-
-                          onEventClick(event)
-
-                        }}
-
-                        style={{
-
-                          backgroundColor: event.color,
-
-                          color: 'white',
-
-                          padding: '4px 8px',
-
-                          margin: '2px',
-
-                          borderRadius: '4px',
-
-                          fontSize: '0.75rem',
-
-                          fontWeight: '500',
-
-                          cursor: 'pointer',
-
-                          overflow: 'hidden',
-
-                          textOverflow: 'ellipsis',
-
-                          whiteSpace: 'nowrap',
-
-                          minWidth: 0,
-
-                          maxWidth: '100%'
-
-                        }}
-
-                      >
-
-                        {event.title}
-
-                      </div>
-
-                    ))}
-
-                  </div>
-
-                )
-
-              })}
-
-            </React.Fragment>
-
-          ))}
-
-        </div>
-
-      </div>
-
-    </div>
-
-  )
-
-}
-
-
-
-// Vista Giorno - Clone Google Calendar
-
-function CalendarDayView({
-
-  events,
-
-  currentDate,
-
-  onEventClick,
-
-  onDateClick,
-
-  onDragStart,
-
-  onDrop
-
-}: {
-
-  events: CalendarEvent[]
-
-  currentDate: Date
-
-  onEventClick: (event: CalendarEvent) => void
-
-  onDateClick: (date: Date) => void
-
-  onDragStart: (event: CalendarEvent, e: React.DragEvent) => void
-
-  onDrop: (date: Date, e: React.DragEvent) => void
-
-}) {
-
-  const hours = Array.from({ length: 24 }, (_, i) => i)
-
-  const today = new Date()
-
-
-
-  const getEventsForHour = (hour: number) => {
-
-    return events.filter(event => {
-
-      const eventStart = new Date(event.startTime)
-
-      return eventStart.toDateString() === currentDate.toDateString() &&
-
-        eventStart.getHours() === hour
-
-    })
-
-  }
-
-
-
-  const isToday = currentDate.toDateString() === today.toDateString()
-
-
-
-  return (
-
-    <div style={{
-
-      backgroundColor: 'white',
-
-      borderRadius: '0.5rem',
-
-      boxShadow: '0 1px 3px rgba(0,0,0,0.1)',
-
-      overflow: 'hidden',
-
-      height: '100%',
-
-      display: 'flex',
-
-      flexDirection: 'column'
-
-    }}>
-
-      {/* Header giorno */}
-
-      <div style={{
-
-        padding: '1.5rem',
-
-        borderBottom: '1px solid #e5e7eb',
-
-        backgroundColor: isToday ? '#eff6ff' : '#f9fafb',
-
-        textAlign: 'center'
-
-      }}>
-
-        <h2 style={{
-
-          fontSize: '1.5rem',
-
-          fontWeight: '600',
-
-          color: isToday ? '#3b82f6' : '#374151',
-
-          margin: 0,
-
-          marginBottom: '0.5rem'
-
-        }}>
-
-          {currentDate.toLocaleDateString('it-IT', {
-
-            weekday: 'long',
-
-            day: '2-digit',
-
-            month: 'long',
-
-            year: 'numeric'
-
-          })}
-
-        </h2>
-
-        <p style={{ color: '#6b7280', margin: 0 }}>
-
-          {events.filter(e => new Date(e.startTime).toDateString() === currentDate.toDateString()).length} eventi programmati
-
-        </p>
-
-      </div>
-
-
-
-      {/* Griglia oraria */}
-
-      <div style={{ flex: 1, overflow: 'auto' }}>
-
-        <div style={{ display: 'flex', flexDirection: 'column' }}>
-
-          {hours.map(hour => {
-
-            const hourEvents = getEventsForHour(hour)
-
-            const cellDate = new Date(currentDate)
-
-            cellDate.setHours(hour)
-
-
-
-            return (
-
-              <div
-
-                key={hour}
-
-                style={{ display: 'flex', borderBottom: '1px solid #f3f4f6' }}
-
-              >
-
-                {/* Colonna ora */}
-
-                <div style={{
-
-                  width: '100px',
-
-                  padding: '1rem',
-
-                  textAlign: 'right',
-
-                  fontSize: '0.875rem',
-
-                  color: '#6b7280',
-
-                  borderRight: '1px solid #e5e7eb',
-
-                  backgroundColor: '#f9fafb',
-
-                  fontWeight: '500'
-
-                }}>
-
-                  {hour.toString().padStart(2, '0')}:00
-
-                </div>
-
-
-
-                {/* Area eventi */}
-
-                <div
-
-                  onClick={() => onDateClick(cellDate)}
-
-                  onDrop={(e) => onDrop(cellDate, e)}
-
-                  onDragOver={(e) => e.preventDefault()}
-
-                  style={{
-
-                    flex: 1,
-
-                    minHeight: '80px',
-
-                    cursor: 'pointer',
-
-                    position: 'relative',
-
-                    padding: '0.5rem'
-
-                  }}
-
-                >
-
-                  {hourEvents.map(event => (
-
-                    <div
-
-                      key={event.id}
-
-                      draggable
-
-                      onDragStart={(e) => onDragStart(event, e)}
-
-                      onClick={(e) => {
-
-                        e.stopPropagation()
-
-                        onEventClick(event)
-
-                      }}
-
-                      style={{
-
-                        backgroundColor: event.color,
-
-                        color: 'white',
-
-                        padding: '0.75rem 1rem',
-
-                        margin: '0.25rem 0',
-
-                        borderRadius: '0.5rem',
-
-                        cursor: 'pointer',
-
-                        boxShadow: '0 1px 3px rgba(0,0,0,0.1)'
-
-                      }}
-
-                    >
-
-                      <div style={{ fontWeight: '600', marginBottom: '0.25rem' }}>
-
-                        {event.title}
-
-                      </div>
-
-                      <div style={{ fontSize: '0.875rem', opacity: 0.9 }}>
-
-                        {new Date(event.startTime).toLocaleTimeString('it-IT', {
-
-                          hour: '2-digit',
-
-                          minute: '2-digit'
-
-                        })} - {new Date(event.endTime).toLocaleTimeString('it-IT', {
-
-                          hour: '2-digit',
-
-                          minute: '2-digit'
-
-                        })}
-
-                      </div>
-
-                      {event.location && (
-
-                        <div style={{ fontSize: '0.875rem', opacity: 0.8, marginTop: '0.25rem' }}>
-
-                          📍 {event.location}
-
-                        </div>
-
-                      )}
-
-                    </div>
-
-                  ))}
-
-                </div>
-
-              </div>
-
-            )
-
-          })}
-
-        </div>
-
-      </div>
-
-    </div>
-
-  )
-
-}
-
-
-
-// Vista Agenda - Lista eventi
-
-function CalendarAgendaView({
-
-  events,
-
-  onEventClick
-
-}: {
-
-  events: CalendarEvent[]
-
-  onEventClick: (event: CalendarEvent) => void
-
-}) {
-
-  // Raggruppa eventi per giorno
-
-  const eventsByDate = events.reduce((acc, event) => {
-
-    const dateKey = new Date(event.startTime).toDateString()
-
-    if (!acc[dateKey]) {
-
-      acc[dateKey] = []
-
-    }
-
-    acc[dateKey].push(event)
-
-    return acc
-
-  }, {} as Record<string, CalendarEvent[]>)
-
-
-
-  const sortedDates = Object.keys(eventsByDate).sort((a, b) =>
-
-    new Date(a).getTime() - new Date(b).getTime()
-
-  )
-
-
-
-  const today = new Date()
-
-
-
-  const isToday = (dateString: string) => {
-
-    return new Date(dateString).toDateString() === today.toDateString()
-
-  }
-
-
-
-  const getStatusIcon = (status: string) => {
-
-    switch (status) {
-
-      case 'CONFIRMED': return 'â⬦'
-
-      case 'COMPLETED': return 'â⬝️'
-
-      case 'CANCELLED': return 'â'
-
-      default: return 'ðŸS️'
-
-    }
-
-  }
-
-
-
-  return (
-
-    <div style={{
-
-      backgroundColor: 'white',
-
-      borderRadius: '0.5rem',
-
-      boxShadow: '0 1px 3px rgba(0,0,0,0.1)',
-
-      overflow: 'hidden',
-
-      height: '100%'
-
-    }}>
-
-      <div style={{ padding: '1.5rem', borderBottom: '1px solid #e5e7eb' }}>
-
-        <h2 style={{ fontSize: '1.5rem', fontWeight: '600', margin: 0, marginBottom: '0.5rem' }}>
-
-          🗓️ Agenda Eventi
-
-        </h2>
-
-        <p style={{ color: '#6b7280', margin: 0, fontSize: '0.875rem' }}>
-
-          {events.length} eventi totali • {sortedDates.length} giorni con eventi
-
-        </p>
-
-      </div>
-
-
-
-      <div style={{ flex: 1, overflow: 'auto', padding: '1rem' }}>
-
-        {sortedDates.length === 0 ? (
-
-          <div style={{
-
-            textAlign: 'center',
-
-            padding: '3rem',
-
-            color: '#6b7280'
-
-          }}>
-
-            <Calendar size={48} style={{ margin: '0 auto 1rem', color: '#d1d5db' }} />
-
-            <h3 style={{ fontSize: '1.125rem', fontWeight: '500', marginBottom: '0.5rem' }}>
-
-              Nessun evento programmato
-
-            </h3>
-
-            <p>Gli eventi che crei appariranno qui</p>
-
-          </div>
-
-        ) : (
-
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
-
-            {sortedDates.map(dateKey => {
-
-              const date = new Date(dateKey)
-
-              const dayEvents = eventsByDate[dateKey].sort((a, b) =>
-
-                new Date(a.startTime).getTime() - new Date(b.startTime).getTime()
-
-              )
-
-
-
-              return (
-
-                <div key={dateKey}>
-
-                  {/* Header giorno */}
-
-                  <div style={{
-
-                    padding: '1rem',
-
-                    backgroundColor: isToday(dateKey) ? '#eff6ff' : '#f9fafb',
-
-                    borderRadius: '0.5rem',
-
-                    marginBottom: '1rem',
-
-                    border: isToday(dateKey) ? '1px solid #3b82f6' : '1px solid #e5e7eb'
-
-                  }}>
-
-                    <h3 style={{
-
-                      fontSize: '1.125rem',
-
-                      fontWeight: '600',
-
-                      color: isToday(dateKey) ? '#3b82f6' : '#374151',
-
-                      margin: 0,
-
-                      marginBottom: '0.25rem'
-
-                    }}>
-
-                      {date.toLocaleDateString('it-IT', {
-
-                        weekday: 'long',
-
-                        day: '2-digit',
-
-                        month: 'long',
-
-                        year: 'numeric'
-
-                      })}
-
-                    </h3>
-
-                    <p style={{
-
-                      color: '#6b7280',
-
-                      margin: 0,
-
-                      fontSize: '0.875rem'
-
-                    }}>
-
-                      {dayEvents.length} {dayEvents.length === 1 ? 'evento' : 'eventi'}
-
-                    </p>
-
-                  </div>
-
-
-
-                  {/* Lista eventi del giorno */}
-
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-
-                    {dayEvents.map(event => (
-
-                      <div
-
-                        key={event.id}
-
-                        onClick={() => onEventClick(event)}
-
-                        style={{
-
-                          backgroundColor: 'white',
-
-                          border: `2px solid ${event.color}30`,
-
-                          borderLeft: `4px solid ${event.color}`,
-
-                          borderRadius: '0.5rem',
-
-                          padding: '1rem',
-
-                          cursor: 'pointer',
-
-                          transition: 'all 0.2s',
-
-                          boxShadow: '0 1px 3px rgba(0,0,0,0.1)'
-
-                        }}
-
-                        onMouseEnter={(e) => {
-
-                          e.currentTarget.style.boxShadow = '0 4px 12px rgba(0,0,0,0.15)'
-
-                          e.currentTarget.style.transform = 'translateY(-2px)'
-
-                        }}
-
-                        onMouseLeave={(e) => {
-
-                          e.currentTarget.style.boxShadow = '0 1px 3px rgba(0,0,0,0.1)'
-
-                          e.currentTarget.style.transform = 'translateY(0)'
-
-                        }}
-
-                      >
-
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '0.75rem' }}>
-
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-
-                            <span style={{ fontSize: '1.25rem' }}>
-
-                              {getStatusIcon(event.status)}
-
-                            </span>
-
-                            <h4 style={{ fontSize: '1.125rem', fontWeight: '600', margin: 0 }}>
-
-                              {event.title}
-
-                            </h4>
-
-                          </div>
-
-                          <span style={{
-
-                            backgroundColor: event.color + '20',
-
-                            color: event.color,
-
-                            padding: '0.25rem 0.75rem',
-
-                            borderRadius: '9999px',
-
-                            fontSize: '0.75rem',
-
-                            fontWeight: '500'
-
-                          }}>
-
-                            {event.status === 'SCHEDULED' ? 'Programmato' :
-
-                              event.status === 'CONFIRMED' ? 'Confermato' :
-
-                                event.status === 'COMPLETED' ? 'Completato' : 'Annullato'}
-
-                          </span>
-
-                        </div>
-
-
-
-                        <p style={{ color: '#6b7280', marginBottom: '1rem', fontSize: '0.875rem' }}>
-
-                          {event.description}
-
-                        </p>
-
-
-
-                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1rem' }}>
-
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-
-                            <Clock size={16} style={{ color: '#6b7280' }} />
-
-                            <span style={{ fontSize: '0.875rem' }}>
-
-                              {new Date(event.startTime).toLocaleTimeString('it-IT', {
-
-                                hour: '2-digit',
-
-                                minute: '2-digit'
-
-                              })} - {new Date(event.endTime).toLocaleTimeString('it-IT', {
-
-                                hour: '2-digit',
-
-                                minute: '2-digit'
-
-                              })}
-
-                            </span>
-
-                          </div>
-
-
-
-                          {event.location && (
-
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-
-                              <MapPin size={16} style={{ color: '#6b7280' }} />
-
-                              <span style={{ fontSize: '0.875rem' }}>{event.location}</span>
-
-                            </div>
-
-                          )}
-
-
-
-                          {event.contactName && (
-
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-
-                              <Users size={16} style={{ color: '#6b7280' }} />
-
-                              <span style={{ fontSize: '0.875rem' }}>{event.contactName}</span>
-
-                            </div>
-
-                          )}
-
-                        </div>
-
-                      </div>
-
-                    ))}
-
-                  </div>
-
-                </div>
-
-              )
-
-            })}
-
-          </div>
-
-        )}
-
-      </div>
-
-    </div>
-
-  )
-
-}
-
-
-
-// ===== MODAL EVENTO - Clone Google Calendar =====
 
 function CalendarEventModal({
 
@@ -30831,6 +30333,7 @@ function CalendarEventModal({
   onCreateContact,
 
   onCreateProperty,
+  onOpenProperty,
 
   currentUserRole,
 
@@ -30844,7 +30347,7 @@ function CalendarEventModal({
 
   initialMode?: 'view' | 'edit'
 
-  onSave: (eventData: any) => void
+  onSave: (eventData: any) => Promise<void>
 
   onDelete?: () => void
 
@@ -30859,16 +30362,19 @@ function CalendarEventModal({
   onCreateContact?: (contact: Omit<Contact, 'id' | 'createdAt'>) => Promise<any>
 
   onCreateProperty?: (property: Omit<Property, 'id' | 'createdAt'>) => Promise<any>
+  onOpenProperty?: (propertyId: string) => void
 
   currentUserRole?: 'SUPER_ADMIN' | 'AGENCY_ADMIN' | 'AGENT' | 'COLLABORATOR' | null
 
   currentUserId?: string | null
 
 }) {
+  const { token, user } = useAuthStore()
 
   const [mode, setMode] = useState<'view' | 'edit'>(initialMode ?? 'edit')
 
   const isAdmin = currentUserRole === 'SUPER_ADMIN' || currentUserRole === 'AGENCY_ADMIN'
+  const [availableAgents, setAvailableAgents] = useState<Agent[]>(Array.isArray(agents) ? agents : [])
 
   const initialSelectedAgentId =
 
@@ -30915,6 +30421,11 @@ function CalendarEventModal({
     color: event?.color || '#3b82f6',
 
     assignedAgents: event?.assignedAgents || (event?.assignedToId ? [event.assignedToId] : []),
+
+    selectedAgentIds:
+      currentUserRole === 'AGENT' && currentUserId
+        ? [currentUserId]
+        : (event?.assignedAgents || (event?.assignedToId ? [event.assignedToId] : [])),
 
     selectedAgentId: initialSelectedAgentId
 
@@ -31182,6 +30693,43 @@ function CalendarEventModal({
 
   const [isSavingProperty, setIsSavingProperty] = useState(false)
 
+  useEffect(() => {
+    setAvailableAgents(Array.isArray(agents) ? agents : [])
+  }, [agents])
+
+  useEffect(() => {
+    if (!isAdmin) return
+    if (!token) return
+    if (availableAgents.length > 0) return
+
+    let isMounted = true
+
+    const loadAgentsFallback = async () => {
+      try {
+        const response = await fetch('/api/agents?isActive=true', {
+          headers: {
+            Authorization: `Bearer ${token}`
+          }
+        })
+        if (!response.ok) return
+        const payload = await response.json().catch(() => null)
+        const list = Array.isArray(payload?.data) ? payload.data : []
+        if (!isMounted) return
+        setAvailableAgents(
+          list.filter((agent: Agent | undefined | null) => agent && agent.isActive !== false)
+        )
+      } catch (error) {
+        console.warn('Fallback load agents failed in CalendarEventModal:', error)
+      }
+    }
+
+    loadAgentsFallback()
+
+    return () => {
+      isMounted = false
+    }
+  }, [isAdmin, token, availableAgents.length])
+
 
 
   useEffect(() => {
@@ -31235,6 +30783,11 @@ function CalendarEventModal({
       color: event?.color || '#3b82f6',
 
       assignedAgents: event?.assignedAgents || (event?.assignedToId ? [event.assignedToId] : []),
+
+      selectedAgentIds:
+        currentUserRole === 'AGENT' && currentUserId
+          ? [currentUserId]
+          : (event?.assignedAgents || (event?.assignedToId ? [event.assignedToId] : [])),
 
       selectedAgentId: nextSelectedAgentId
 
@@ -31368,7 +30921,7 @@ function CalendarEventModal({
 
 
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
 
     e.preventDefault()
 
@@ -31394,34 +30947,51 @@ function CalendarEventModal({
 
 
 
-      const effectiveSelectedAgentId =
+      const selectedAgentIds =
+        currentUserRole === 'AGENT' && currentUserId
+          ? [currentUserId]
+          : (Array.isArray(formData.selectedAgentIds)
+              ? formData.selectedAgentIds.filter(Boolean)
+              : [])
+      const uniqueSelectedAgentIds = Array.from(new Set(selectedAgentIds))
+      const effectiveSelectedAgentId = uniqueSelectedAgentIds[0] || ''
 
-        currentUserRole === 'AGENT' && currentUserId ? currentUserId : formData.selectedAgentId
 
 
-
-      const eventData = {
-
-        
-      selectedAgentId: effectiveSelectedAgentId,
-
-        assignedAgents: effectiveSelectedAgentId ? [effectiveSelectedAgentId] : [],
-
-        startTime: start.toISOString(),
-
-        endTime: end.toISOString()
-
+      if (!formData.title?.trim()) {
+        alert('Titolo obbligatorio')
+        return
+      }
+      if (isAdmin && uniqueSelectedAgentIds.length === 0) {
+        alert("Seleziona almeno un agente destinatario")
+        return
       }
 
+      const eventData = {
+        title: formData.title.trim(),
+        description: formData.description?.trim() || '',
+        location: formData.location?.trim() || '',
+        status: formData.status || 'SCHEDULED',
+        notes: formData.notes?.trim() || '',
+        contactId: formData.contactId || '',
+        propertyId: formData.propertyId || '',
+        color: formData.color || '#3b82f6',
+        allDay: !!formData.allDay,
+        selectedAgentId: effectiveSelectedAgentId,
+        selectedAgentIds: uniqueSelectedAgentIds,
+        assignedToId: effectiveSelectedAgentId,
+        assignedAgents: uniqueSelectedAgentIds,
+        startTime: start.toISOString(),
+        endTime: end.toISOString()
+      }
 
-
-      onSave(eventData)
+      await onSave(eventData)
 
     } catch (error) {
 
       console.error('Errore durante la creazione dell\'evento:', error)
 
-      alert('Si è verificato un errore durante la creazione dell\'evento.')
+      alert("Si  verificato un errore durante la creazione dell'evento.")
 
     }
 
@@ -31484,6 +31054,14 @@ function CalendarEventModal({
     const selectedContact = contacts.find(c => c.id === event.contactId)
 
     const selectedProperty = properties.find(p => p.id === event.propertyId)
+    const locationText = (event.location || `${selectedProperty?.address || ''}${selectedProperty?.city ? `, ${selectedProperty.city}` : ''}`).trim()
+    const locationMapsUrl = locationText
+      ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(locationText)}`
+      : ''
+    const contactPhone = String((selectedContact as any)?.phone || (event as any)?.contactPhone || '').trim()
+    const contactEmail = String((selectedContact as any)?.email || (event as any)?.contactEmail || '').trim()
+    const normalizedPhone = contactPhone.replace(/[^\d+]/g, '')
+    const propertyIdForOpen = String(selectedProperty?.id || (event as any)?.propertyId || '').trim()
 
     const agentIds =
 
@@ -31503,7 +31081,7 @@ function CalendarEventModal({
 
     return (
 
-      <div style={{
+      <div className="manus-contact-modal-overlay calendar-event-modal-overlay" style={{
 
         position: 'fixed',
 
@@ -31525,15 +31103,20 @@ function CalendarEventModal({
         zIndex: 1100,
         padding: '1rem'
       }}>
-        <div className="manus-contact-modal-panel" style={{
+        <div className="manus-contact-modal-panel calendar-event-modal-panel" style={{
           width: '100%',
           maxWidth: '640px',
           maxHeight: 'calc(100vh - 16px)',
           overflow: 'hidden',
           display: 'flex',
           flexDirection: 'column',
-          padding: '0.95rem 1rem 0.8rem'
-        }}>
+        padding: '0.95rem 1rem 0.8rem',
+        backgroundColor: '#ffffff',
+        color: '#111827',
+        border: '1px solid #e5e7eb',
+        borderRadius: '14px',
+        boxShadow: '0 20px 45px rgba(15, 23, 42, 0.2)'
+      }}>
           <div className="manus-contact-modal-header" style={{
             borderBottom: '1px solid rgba(148, 163, 184, 0.16)',
             display: 'flex',
@@ -31615,14 +31198,14 @@ function CalendarEventModal({
 
 
 
-          <div className="manus-contact-form" style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem', paddingRight: '0.2rem' }}>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '0.75rem' }}>
+          <div className="manus-contact-form calendar-event-modal-form calendar-event-view-body" style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem', paddingRight: '0.2rem' }}>
+            <div className="calendar-event-view-primary" style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '0.75rem' }}>
 
-              <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+              <div className="calendar-event-view-line" style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
 
                 <Clock size={18} style={{ color: '#6b7280' }} />
 
-                <div style={{ display: 'flex', flexDirection: 'column' }}>
+                <div className="calendar-event-view-text" style={{ display: 'flex', flexDirection: 'column' }}>
 
                   <span style={{ fontWeight: '600' }}>
 
@@ -31632,7 +31215,7 @@ function CalendarEventModal({
 
                   <span style={{ color: '#6b7280', fontSize: '0.9rem' }}>
 
-                    {new Date(event.startTime).toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' })} – {new Date(event.endTime).toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' })}
+                    {new Date(event.startTime).toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' })} - {new Date(event.endTime).toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' })}
 
                   </span>
 
@@ -31642,21 +31225,24 @@ function CalendarEventModal({
 
 
 
-              {(event.location || selectedProperty?.address) && (
+              {locationText && (
 
-                <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                <div className="calendar-event-view-line" style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
 
                   <MapPin size={18} style={{ color: '#6b7280' }} />
 
-                  <div style={{ display: 'flex', flexDirection: 'column' }}>
+                  <div className="calendar-event-view-text" style={{ display: 'flex', flexDirection: 'column' }}>
 
                     <span style={{ fontWeight: '600' }}>Luogo</span>
 
-                    <span style={{ color: '#6b7280', fontSize: '0.9rem' }}>
-
-                      {event.location || `${selectedProperty?.address || ''}${selectedProperty?.city ? `, ${selectedProperty.city}` : ''}`}
-
-                    </span>
+                    <a
+                      href={locationMapsUrl}
+                      target="_blank"
+                      rel="noreferrer"
+                      style={{ color: '#2563eb', fontSize: '0.92rem', fontWeight: 600, textDecoration: 'underline' }}
+                    >
+                      {locationText}
+                    </a>
 
                   </div>
 
@@ -31668,11 +31254,11 @@ function CalendarEventModal({
 
               {assignedAgents.length > 0 && (
 
-                <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                <div className="calendar-event-view-line" style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
 
                   <User size={18} style={{ color: '#6b7280' }} />
 
-                  <div style={{ display: 'flex', flexDirection: 'column' }}>
+                  <div className="calendar-event-view-text" style={{ display: 'flex', flexDirection: 'column' }}>
 
                     <span style={{ fontWeight: '600' }}>Agenti</span>
 
@@ -31694,7 +31280,7 @@ function CalendarEventModal({
 
             {(selectedContact || event.contactName) && (
 
-              <div style={{
+              <div className="calendar-event-view-card" style={{
 
                 border: '1px solid #e5e7eb',
 
@@ -31714,7 +31300,7 @@ function CalendarEventModal({
 
                 </div>
 
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '0.5rem' }}>
+                <div className="calendar-event-view-text" style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '0.5rem' }}>
 
                   <div style={{ fontWeight: '600' }}>
 
@@ -31722,28 +31308,63 @@ function CalendarEventModal({
 
                   </div>
 
-                  {selectedContact?.phone && (
+                  {contactPhone && (
 
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: '#374151' }}>
+                    <div className="calendar-event-view-line" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: '#374151' }}>
 
                       <Phone size={16} style={{ color: '#6b7280' }} />
 
-                      <span>{selectedContact.phone}</span>
+                      <a href={`tel:${normalizedPhone || contactPhone}`} style={{ color: '#0f172a', textDecoration: 'underline', fontWeight: 600 }}>
+                        {contactPhone}
+                      </a>
 
                     </div>
 
                   )}
 
-                  {selectedContact?.email && (
+                  {contactEmail && (
 
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: '#374151' }}>
+                    <div className="calendar-event-view-line" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: '#374151' }}>
 
                       <Mail size={16} style={{ color: '#6b7280' }} />
 
-                      <span>{selectedContact.email}</span>
+                      <a href={`mailto:${contactEmail}`} style={{ color: '#0f172a', textDecoration: 'underline', fontWeight: 600, wordBreak: 'break-word' }}>
+                        {contactEmail}
+                      </a>
 
                     </div>
 
+                  )}
+
+                  {(contactPhone || contactEmail) && (
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.45rem', marginTop: '0.2rem' }}>
+                      {contactPhone && (
+                        <a
+                          href={`tel:${normalizedPhone || contactPhone}`}
+                          style={{ border: '1px solid #cbd5e1', borderRadius: '0.5rem', padding: '0.32rem 0.6rem', textDecoration: 'none', color: '#0f172a', fontWeight: 700, fontSize: '0.82rem' }}
+                        >
+                          Chiama
+                        </a>
+                      )}
+                      {contactPhone && (
+                        <a
+                          href={`https://wa.me/${(normalizedPhone || contactPhone).replace(/^\+/, '')}`}
+                          target="_blank"
+                          rel="noreferrer"
+                          style={{ border: '1px solid #86efac', background: '#f0fdf4', borderRadius: '0.5rem', padding: '0.32rem 0.6rem', textDecoration: 'none', color: '#166534', fontWeight: 700, fontSize: '0.82rem' }}
+                        >
+                          WhatsApp
+                        </a>
+                      )}
+                      {contactEmail && (
+                        <a
+                          href={`mailto:${contactEmail}`}
+                          style={{ border: '1px solid #cbd5e1', borderRadius: '0.5rem', padding: '0.32rem 0.6rem', textDecoration: 'none', color: '#0f172a', fontWeight: 700, fontSize: '0.82rem' }}
+                        >
+                          Email
+                        </a>
+                      )}
+                    </div>
                   )}
 
                   {(selectedContact?.city || selectedContact?.address) && (
@@ -31766,7 +31387,7 @@ function CalendarEventModal({
 
             {(selectedProperty || event.propertyTitle) && (
 
-              <div style={{
+              <div className="calendar-event-view-card" style={{
 
                 border: '1px solid #e5e7eb',
 
@@ -31786,13 +31407,34 @@ function CalendarEventModal({
 
                 </div>
 
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '0.5rem' }}>
+                <div className="calendar-event-view-text" style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '0.5rem' }}>
 
-                  <div style={{ fontWeight: '600' }}>
-
-                    {selectedProperty?.title || event.propertyTitle}
-
-                  </div>
+                  {propertyIdForOpen && onOpenProperty ? (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        onClose()
+                        onOpenProperty(propertyIdForOpen)
+                      }}
+                      style={{
+                        border: 'none',
+                        background: 'transparent',
+                        padding: 0,
+                        margin: 0,
+                        color: '#1d4ed8',
+                        textDecoration: 'underline',
+                        textAlign: 'left',
+                        cursor: 'pointer',
+                        fontWeight: 700
+                      }}
+                    >
+                      {selectedProperty?.title || event.propertyTitle}
+                    </button>
+                  ) : (
+                    <div style={{ fontWeight: '600' }}>
+                      {selectedProperty?.title || event.propertyTitle}
+                    </div>
+                  )}
 
                   {(selectedProperty?.address || selectedProperty?.city) && (
 
@@ -31810,7 +31452,7 @@ function CalendarEventModal({
 
                     <div style={{ color: '#374151' }}>
 
-                      € {(selectedProperty?.salePrice ?? selectedProperty?.rentPrice)!.toLocaleString('it-IT')}
+                      ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ {(selectedProperty?.salePrice ?? selectedProperty?.rentPrice)!.toLocaleString('it-IT')}
 
                     </div>
 
@@ -31820,7 +31462,7 @@ function CalendarEventModal({
 
                     <div style={{ color: '#6b7280', fontSize: '0.9rem' }}>
 
-                      {selectedProperty.surface} m²
+                      {selectedProperty.surface} mÃƒâ€šÃ‚Â²
 
                     </div>
 
@@ -31836,7 +31478,7 @@ function CalendarEventModal({
 
             {(event.notes || event.description) && (
 
-              <div style={{
+              <div className="calendar-event-view-card" style={{
 
                 border: '1px solid #e5e7eb',
 
@@ -31858,7 +31500,7 @@ function CalendarEventModal({
 
                 {event.notes && (
 
-                  <div style={{ whiteSpace: 'pre-wrap', color: '#374151' }}>
+                  <div className="calendar-event-view-text" style={{ whiteSpace: 'pre-wrap', color: '#374151' }}>
 
                     {event.notes}
 
@@ -31868,7 +31510,7 @@ function CalendarEventModal({
 
                 {!event.notes && event.description && (
 
-                  <div style={{ whiteSpace: 'pre-wrap', color: '#374151' }}>
+                  <div className="calendar-event-view-text" style={{ whiteSpace: 'pre-wrap', color: '#374151' }}>
 
                     {event.description}
 
@@ -31884,7 +31526,7 @@ function CalendarEventModal({
 
 
 
-          <div className="manus-contact-footer" style={{
+          <div className="manus-contact-footer calendar-event-view-footer" style={{
             display: 'flex',
             justifyContent: 'flex-end',
             gap: '0.6rem',
@@ -31968,7 +31610,7 @@ function CalendarEventModal({
 
   return (
 
-    <div className="manus-contact-modal-overlay" style={{
+    <div className="manus-contact-modal-overlay calendar-event-modal-overlay" style={{
 
       position: 'fixed',
 
@@ -31994,7 +31636,7 @@ function CalendarEventModal({
 
     }}>
 
-      <div className="manus-contact-modal-panel" style={{
+      <div className="manus-contact-modal-panel calendar-event-modal-panel" style={{
 
         width: '100%',
 
@@ -32122,7 +31764,7 @@ function CalendarEventModal({
 
               <div>
 
-                <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: '500' }}>Città</label>
+                <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: '500' }}>CittÃ </label>
 
                 <div style={{ position: 'relative' }}>
 
@@ -32218,7 +31860,7 @@ function CalendarEventModal({
 
                           <div style={{ fontSize: '0.75rem', color: '#6b7280' }}>
 
-                            {city.provinceCode} · {city.regionName}
+                            {city.provinceCode} Ãƒâ€šÃ‚Â· {city.regionName}
 
                           </div>
 
@@ -32550,7 +32192,7 @@ function CalendarEventModal({
 
                 <div>
 
-                    <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: '500' }}>Città</label>
+                    <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: '500' }}>CittÃ </label>
 
                     <input
 
@@ -32696,13 +32338,11 @@ function CalendarEventModal({
 
         }}>
 
-          <h2 className="manus-contact-title" style={{ margin: 0 }}>
-
-            {event ? 'âï¸ Modifica Evento' : '⨠Nuovo Evento'}
-
+          <h2 className="manus-contact-title" style={{ margin: 0, color: '#111827' }}>
+            {event ? 'Modifica evento' : 'Nuovo evento'}
           </h2>
 
-          <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+          <div className="calendar-event-edit-header-actions" style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
 
             <button
 
@@ -32722,11 +32362,9 @@ function CalendarEventModal({
 
                 padding: '0.5rem 1rem',
 
-                backgroundColor: '#8b5cf6',
-
-                color: 'white',
-
-                border: 'none',
+                backgroundColor: '#ffffff',
+                color: '#1f2937',
+                border: '1px solid #d1d5db',
 
                 borderRadius: '0.375rem',
 
@@ -32778,21 +32416,59 @@ function CalendarEventModal({
 
 
 
-        <div className="manus-contact-tabs" style={{ display: 'flex', gap: '0.9rem', marginBottom: '0.72rem', padding: '0 0.08rem 0.45rem', borderBottom: '1px solid rgba(148, 163, 184, 0.16)' }}>
-
-          <button type="button" onClick={() => setActiveCalendarTab('details')} className={`manus-contact-tab ${activeCalendarTab === 'details' ? 'is-active' : ''}`}>Dettagli</button>
-
-          <button type="button" onClick={() => setActiveCalendarTab('timing')} className={`manus-contact-tab ${activeCalendarTab === 'timing' ? 'is-active' : ''}`}>Timing</button>
-
-          <button type="button" onClick={() => setActiveCalendarTab('links')} className={`manus-contact-tab ${activeCalendarTab === 'links' ? 'is-active' : ''}`}>Collegamenti</button>
-
+        <div className="calendar-event-edit-tabs" style={{ display: 'flex', gap: '0.9rem', marginBottom: '0.72rem', padding: '0 0.08rem 0.45rem', borderBottom: '1px solid #e5e7eb' }}>
+          <button
+            type="button"
+            onClick={() => setActiveCalendarTab('details')}
+            style={{
+              background: 'transparent',
+              border: 'none',
+              borderBottom: activeCalendarTab === 'details' ? '2px solid #2563eb' : '2px solid transparent',
+              color: activeCalendarTab === 'details' ? '#111827' : '#6b7280',
+              fontWeight: activeCalendarTab === 'details' ? 600 : 500,
+              padding: '0.1rem 0 0.42rem',
+              cursor: 'pointer'
+            }}
+          >
+            Dettagli
+          </button>
+          <button
+            type="button"
+            onClick={() => setActiveCalendarTab('timing')}
+            style={{
+              background: 'transparent',
+              border: 'none',
+              borderBottom: activeCalendarTab === 'timing' ? '2px solid #2563eb' : '2px solid transparent',
+              color: activeCalendarTab === 'timing' ? '#111827' : '#6b7280',
+              fontWeight: activeCalendarTab === 'timing' ? 600 : 500,
+              padding: '0.1rem 0 0.42rem',
+              cursor: 'pointer'
+            }}
+          >
+            Timing
+          </button>
+          <button
+            type="button"
+            onClick={() => setActiveCalendarTab('links')}
+            style={{
+              background: 'transparent',
+              border: 'none',
+              borderBottom: activeCalendarTab === 'links' ? '2px solid #2563eb' : '2px solid transparent',
+              color: activeCalendarTab === 'links' ? '#111827' : '#6b7280',
+              fontWeight: activeCalendarTab === 'links' ? 600 : 500,
+              padding: '0.1rem 0 0.42rem',
+              cursor: 'pointer'
+            }}
+          >
+            Collegamenti
+          </button>
         </div>
 
 
 
         {/* Form */}
 
-        <form className="manus-contact-form" onSubmit={handleSubmit} style={{ flex: 1, overflow: 'auto', paddingRight: '0.2rem' }}>
+        <form className="calendar-event-edit-form" onSubmit={handleSubmit} style={{ flex: 1, overflow: 'auto', paddingRight: '0.2rem' }}>
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
 
@@ -32814,7 +32490,7 @@ function CalendarEventModal({
 
               }}>
 
-                📝 Titolo *
+                Titolo *
 
               </label>
 
@@ -32854,7 +32530,7 @@ function CalendarEventModal({
 
 
             {/* Data e ora */}
-            {activeCalendarTab === 'timing' && <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+            {activeCalendarTab === 'timing' && <div className="calendar-event-edit-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
               <div>
 
                 <label style={{
@@ -32871,7 +32547,7 @@ function CalendarEventModal({
 
                 }}>
 
-                  ▶️ Inizio
+                  Inizio
 
                 </label>
 
@@ -32921,7 +32597,7 @@ function CalendarEventModal({
 
                 }}>
 
-                  ⏹️ Fine
+                  Fine
 
                 </label>
 
@@ -32978,7 +32654,7 @@ function CalendarEventModal({
 
               <label htmlFor="allDay" style={{ fontSize: '0.875rem', fontWeight: '500', color: '#374151' }}>
 
-                ☀️ Tutto il giorno
+                Tutto il giorno
 
               </label>
 
@@ -33001,7 +32677,7 @@ function CalendarEventModal({
 
               }}>
 
-                💬 Descrizione
+                Descrizione
 
               </label>
 
@@ -33056,7 +32732,7 @@ function CalendarEventModal({
 
               }}>
 
-                📍 Luogo
+                Luogo
 
               </label>
 
@@ -33094,7 +32770,7 @@ function CalendarEventModal({
 
 
             {/* Status e Colore */}
-            {activeCalendarTab === 'timing' && <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+            {activeCalendarTab === 'timing' && <div className="calendar-event-edit-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
               <div>
 
                 <label style={{
@@ -33111,7 +32787,7 @@ function CalendarEventModal({
 
                 }}>
 
-                  📊 Stato
+                  Stato
 
                 </label>
 
@@ -33177,7 +32853,7 @@ function CalendarEventModal({
 
                 }}>
 
-                  🎨 Colore
+                  Colore
 
                 </label>
 
@@ -33256,7 +32932,7 @@ function CalendarEventModal({
 
               >
 
-                {showAdvanced ? 'ðŸ⬝½' : 'â¶ï¸'} Opzioni Avanzate
+                {showAdvanced ? 'Nascondi' : 'Mostra'} opzioni avanzate
 
               </button>
 
@@ -33300,7 +32976,7 @@ function CalendarEventModal({
 
                     }}>
 
-                      👤 Cliente (Opzionale)
+                      Cliente (opzionale)
 
                     </label>
 
@@ -33488,7 +33164,7 @@ function CalendarEventModal({
 
                     }}>
 
-                      🏠 Immobile (Opzionale)
+                      Immobile (opzionale)
 
                     </label>
 
@@ -33660,7 +33336,7 @@ function CalendarEventModal({
 
 
 
-                  {/* Assegnazione Agente */}
+                  {/* Assegnazione Agenti */}
 
                   {currentUserRole !== 'AGENT' && (
 
@@ -33680,63 +33356,92 @@ function CalendarEventModal({
 
                       }}>
 
-                        🧑‍💼 Assegna Agente
+                        Assegna agenti {isAdmin ? '*' : ''}
 
                       </label>
 
-                      <select
+                      <div style={{ border: '1px solid #d1d5db', borderRadius: '0.6rem', backgroundColor: 'white', maxHeight: 180, overflowY: 'auto', padding: '0.35rem 0.45rem' }}>
 
-                        value={formData.selectedAgentId}
+                        {availableAgents
 
-                        onChange={(e) => setFormData({
+                          .filter(agent => agent?.isActive !== false)
+
+                          .map(agent => {
+
+                            const isChecked = Array.isArray(formData.selectedAgentIds) && formData.selectedAgentIds.includes(agent.id)
+
+                            return (
+
+                              <label key={agent.id} style={{ display: 'flex', alignItems: 'center', gap: '0.55rem', padding: '0.4rem 0.25rem', cursor: 'pointer' }}>
+
+                                <input
+
+                                  type="checkbox"
+
+                                  checked={isChecked}
+
+                                  onChange={(e) => {
+
+                                    const current = Array.isArray(formData.selectedAgentIds) ? formData.selectedAgentIds : []
+
+                                    const nextSelectedAgentIds = e.target.checked
+
+                                      ? Array.from(new Set([...current, agent.id]))
+
+                                      : current.filter((id: string) => id !== agent.id)
+
+                                    setFormData({
       ...formData,
-      selectedAgentId: e.target.value })}
+      selectedAgentIds: nextSelectedAgentIds,
+      selectedAgentId: nextSelectedAgentIds[0] || '' })
 
-                        style={{
+                                  }}
 
-                          width: '100%',
+                                />
 
-                          padding: '0.75rem',
+                                <span style={{ fontSize: '0.875rem', color: '#111827' }}>
 
-                          border: '1px solid #d1d5db',
+                                  {(agent.name || agent.email || 'Agente')} - {agent.specialization || agent.role}
 
-                          borderRadius: '0.375rem',
+                                </span>
 
-                          fontSize: '0.875rem',
+                              </label>
 
-                          boxSizing: 'border-box',
+                            )
 
-                          backgroundColor: 'white'
+                          })}
 
-                        }}
+                        {availableAgents.length === 0 && (
 
-                      >
+                          <div style={{ padding: '0.65rem 0.35rem', fontSize: '0.85rem', color: '#6b7280' }}>
 
-                        <option value="">Seleziona un agente (opzionale)...</option>
+                            Nessun agente disponibile
 
-                        {agents.filter(agent => agent.isActive).map(agent => (
+                          </div>
 
-                          <option key={agent.id} value={agent.id}>
+                        )}
 
-                            {agent.name} - {agent.specialization || agent.role}
-
-                          </option>
-
-                        ))}
-
-                      </select>
+                      </div>
 
                       <p style={{ fontSize: '0.75rem', color: '#6b7280', marginTop: '0.25rem' }}>
 
-                        Seleziona l'agente responsabile per questo evento
+                        {isAdmin
+
+                          ? "Obbligatorio: seleziona almeno un agente. Verranno creati appuntamenti e notifiche per tutti i selezionati."
+
+                          : "Seleziona uno o piu agenti responsabili per questo evento"}
+
+                      </p>
+
+                      <p style={{ fontSize: '0.75rem', color: '#334155', marginTop: '0.15rem', fontWeight: 600 }}>
+
+                        Selezionati: {Array.isArray(formData.selectedAgentIds) ? formData.selectedAgentIds.length : 0}
 
                       </p>
 
                     </div>
 
                   )}
-
-
 
                   {/* Note */}
 
@@ -33756,7 +33461,7 @@ function CalendarEventModal({
 
                     }}>
 
-                      ðŸ"️ Note Private
+                      Note private
 
                     </label>
 
@@ -33804,12 +33509,13 @@ function CalendarEventModal({
 
 
           {/* Footer */}
-          <div className="manus-contact-footer" style={{
+          <div className="manus-contact-footer calendar-event-edit-footer" style={{
             display: 'flex',
             justifyContent: 'space-between',
             gap: '0.6rem',
             marginTop: '0.5rem',
-            paddingTop: '0.85rem'
+            paddingTop: '0.85rem',
+            borderTop: '1px solid #e5e7eb'
           }}>
             <div>
 
@@ -33818,17 +33524,18 @@ function CalendarEventModal({
                 <button
                   type="button"
                   onClick={handleDelete}
-                  className="manus-contact-btn-secondary"
                   style={{
                     display: 'flex',
                     alignItems: 'center',
                     gap: '0.5rem',
                     padding: '0.66rem 1.1rem',
-                    borderColor: 'rgba(239, 68, 68, 0.45)',
-                    color: '#fecaca'
+                    border: '1px solid #fecaca',
+                    color: '#b91c1c',
+                    backgroundColor: '#fef2f2',
+                    borderRadius: '0.5rem'
                   }}
                 >
-                  ðŸ️ Elimina
+                  Elimina
                 </button>
               )}
 
@@ -33836,29 +33543,36 @@ function CalendarEventModal({
 
 
 
-            <div style={{ display: 'flex', gap: '1rem' }}>
+            <div className="calendar-event-edit-footer-actions" style={{ display: 'flex', gap: '1rem' }}>
 
               <button
                 type="button"
                 onClick={onClose}
-                className="manus-contact-btn-secondary"
                 style={{
-                  padding: '0.66rem 1.1rem'
+                  padding: '0.66rem 1.1rem',
+                  border: '1px solid #d1d5db',
+                  color: '#111827',
+                  backgroundColor: '#ffffff',
+                  borderRadius: '0.5rem'
                 }}
               >
                 Annulla
               </button>
               <button
                 type="submit"
-                className="manus-contact-btn-primary"
                 style={{
                   display: 'flex',
                   alignItems: 'center',
                   gap: '0.5rem',
-                  padding: '0.66rem 1.1rem'
+                  padding: '0.66rem 1.1rem',
+                  border: '1px solid #1d4ed8',
+                  color: '#ffffff',
+                  backgroundColor: '#2563eb',
+                  borderRadius: '0.5rem',
+                  fontWeight: 600
                 }}
               >
-                {event ? 'ðŸ\"¾ Salva Modifiche' : 'âž⬢ Crea Evento'}
+                {event ? 'Salva modifiche' : 'Crea evento'}
 
               </button>
 
@@ -33882,13 +33596,17 @@ function CalendarEventModal({
 
 
 
-// Pagina AttivitÒ 
+// Pagina AttivitÃ’Â 
 
 function ActivitiesPage({
 
   activities,
+  contacts,
+  properties,
 
   dataLoading,
+
+  agents,
 
   onCompleteActivity,
 
@@ -33897,16 +33615,24 @@ function ActivitiesPage({
   onUpdateActivity,
 
   onDeleteActivity,
+  onOpenProperty,
 
   currentUserRole,
 
-  currentUserId
+  currentUserId,
+  openCreateNonce,
+  focusActivityId,
+  onFocusActivityHandled
 
 }: {
 
   activities: Activity[]
+  contacts: Contact[]
+  properties: Property[]
 
   dataLoading: boolean
+
+  agents: Agent[]
 
   onCompleteActivity: (id: string, report?: string) => void
 
@@ -33915,10 +33641,14 @@ function ActivitiesPage({
   onUpdateActivity: (id: string, activity: any) => Promise<any>
 
   onDeleteActivity: (id: string) => Promise<void>
+  onOpenProperty?: (propertyId: string) => void
 
   currentUserRole: string | null
 
   currentUserId: string | null
+  openCreateNonce?: number
+  focusActivityId?: string | null
+  onFocusActivityHandled?: () => void
 
 }) {
 
@@ -33942,6 +33672,14 @@ function ActivitiesPage({
 
   
 
+  const nextDay = new Date(Date.now() + 24 * 60 * 60 * 1000)
+  const defaultStart = new Date(nextDay.getFullYear(), nextDay.getMonth(), nextDay.getDate(), 9, 0, 0)
+  const defaultEnd = new Date(defaultStart.getTime() + 30 * 60 * 1000)
+  const toDateInput = (value: Date) => value.toISOString().split('T')[0]
+  const toDateTimeLocalInput = (value: Date) => {
+    const tzOffset = value.getTimezoneOffset() * 60_000
+    return new Date(value.getTime() - tzOffset).toISOString().slice(0, 16)
+  }
   const [activityFormData, setActivityFormData] = useState({
 
     title: '',
@@ -33950,11 +33688,14 @@ function ActivitiesPage({
 
     type: 'CALL',
 
-    dueDate: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+    dueDate: toDateInput(defaultStart),
+    startTime: toDateTimeLocalInput(defaultStart),
+    endTime: toDateTimeLocalInput(defaultEnd),
 
     priority: 2,
 
-        assignedToId: ''
+        assignedToId: '',
+        assignedToIds: [] as string[]
 
       })
 
@@ -33984,21 +33725,24 @@ function ActivitiesPage({
 
         type: 'CALL',
 
-        dueDate: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+        dueDate: toDateInput(defaultStart),
+        startTime: toDateTimeLocalInput(defaultStart),
+        endTime: toDateTimeLocalInput(defaultEnd),
 
         priority: 2,
 
-        assignedToId: ''
+        assignedToId: '',
+        assignedToIds: []
 
       })
 
     }
 
-  }, [showCreateModal])
+  }, [showCreateModal, isAdmin, currentUserId])
 
 
 
-  // Popola il form quando si modifica un'attivitÒ 
+  // Popola il form quando si modifica un'attivitÃ 
 
   useEffect(() => {
 
@@ -34014,9 +33758,14 @@ function ActivitiesPage({
 
         type: editingActivity.type,
 
-        dueDate: new Date(editingActivity.dueDate).toISOString().split('T')[0],
+        dueDate: toDateInput(new Date(editingActivity.dueDate)),
+        startTime: toDateTimeLocalInput(new Date(editingActivity.dueDate)),
+        endTime: toDateTimeLocalInput(new Date(new Date(editingActivity.dueDate).getTime() + 30 * 60 * 1000)),
 
-        priority: editingActivity.priority
+        priority: editingActivity.priority,
+
+        assignedToId: editingActivity.assignedToId || '',
+        assignedToIds: editingActivity.assignedToId ? [editingActivity.assignedToId] : []
 
       })
 
@@ -34032,25 +33781,46 @@ function ActivitiesPage({
 
     if (!activityFormData.title) return
 
-    
+    const selectedAssignees = isAdmin
+      ? (editingActivity
+          ? (activityFormData.assignedToId ? [activityFormData.assignedToId] : [])
+          : (Array.isArray(activityFormData.assignedToIds) && activityFormData.assignedToIds.length
+              ? activityFormData.assignedToIds
+              : (activityFormData.assignedToId ? [activityFormData.assignedToId] : [])))
+      : [currentUserId || activityFormData.assignedToId].filter(Boolean) as string[]
+
+    if (isAdmin && !selectedAssignees.length) {
+      alert("Seleziona almeno un agente a cui assegnare l'attivitÃ ")
+      return
+    }
+
+    if (activityFormData.startTime && activityFormData.endTime) {
+      const startMs = new Date(activityFormData.startTime).getTime()
+      const endMs = new Date(activityFormData.endTime).getTime()
+      if (Number.isFinite(startMs) && Number.isFinite(endMs) && endMs <= startMs) {
+        alert('La data/ora di fine deve essere successiva all\'inizio')
+        return
+      }
+    }
+
+    const payload = {
+      ...activityFormData,
+      dueDate: activityFormData.startTime || activityFormData.dueDate,
+      assignedToId: selectedAssignees[0] || '',
+      assignedToIds: selectedAssignees,
+      completed: false,
+      tags: []
+    }
 
     if (editingActivity) {
 
-      await onUpdateActivity(editingActivity.id, activityFormData)
+      await onUpdateActivity(editingActivity.id, payload)
 
       setEditingActivity(null)
 
     } else {
 
-      await onCreateActivity({
-
-        ...activityFormData,
-
-        completed: false,
-
-        tags: []
-
-      })
+      await onCreateActivity(payload)
 
       setShowCreateModal(false)
 
@@ -34062,7 +33832,7 @@ function ActivitiesPage({
 
   if (dataLoading) {
 
-    return <div>Caricamento attivitÒ ...</div>
+    return <div>Caricamento attivitÃ ...</div>
 
   }
 
@@ -34081,6 +33851,25 @@ function ActivitiesPage({
     return matchesCompleted && matchesType
 
   })
+
+  useEffect(() => {
+    if (!focusActivityId) return
+    const target = activities.find((activity) => activity.id === focusActivityId)
+    if (!target) return
+    setViewActivity(target)
+    setShowCreateModal(false)
+    setEditingActivity(null)
+    setCompletingActivity(null)
+    onFocusActivityHandled?.()
+  }, [focusActivityId, activities, onFocusActivityHandled])
+
+  useEffect(() => {
+    if (!openCreateNonce) return
+    setEditingActivity(null)
+    setViewActivity(null)
+    setCompletingActivity(null)
+    setShowCreateModal(true)
+  }, [openCreateNonce])
 
 
 
@@ -34150,6 +33939,79 @@ function ActivitiesPage({
 
   }
 
+  const normalizePhoneForLink = (value?: string | null) => String(value || '').replace(/[^\d+]/g, '')
+  const formatReadableJson = (value?: string | null) => {
+    const raw = String(value || '').trim()
+    if (!raw) return ''
+    try {
+      const parsed = JSON.parse(raw)
+      return JSON.stringify(parsed, null, 2)
+    } catch {
+      return raw
+    }
+  }
+  const extractContactInfoFromText = (value?: string | null) => {
+    const text = String(value || '')
+    const phone = (text.match(/telefono cliente:\s*([+()\d\s-]{6,})/i)?.[1] || '').trim()
+    const email = (text.match(/email cliente:\s*([^\s,;]+)/i)?.[1] || '').trim()
+    return { phone, email }
+  }
+  const formatActivityReportForAgent = (value?: string | null) => {
+    const raw = String(value || '').trim()
+    if (!raw) return { human: '', technical: '' }
+    try {
+      const parsed = JSON.parse(raw)
+      if (parsed && typeof parsed === 'object') {
+        const source = String((parsed as any).source || '').toUpperCase()
+        if (source === 'LINKED_REQUEST') {
+          return {
+            human: 'AttivitÃ  generata automaticamente da una richiesta cliente collegata a questo immobile.',
+            technical: formatReadableJson(raw)
+          }
+        }
+        if (source) {
+          return {
+            human: `AttivitÃ  generata automaticamente dal sistema (origine: ${source.replace(/_/g, ' ').toLowerCase()}).`,
+            technical: formatReadableJson(raw)
+          }
+        }
+        return {
+          human: 'AttivitÃ  generata automaticamente dal sistema.',
+          technical: formatReadableJson(raw)
+        }
+      }
+    } catch {}
+    return { human: raw, technical: '' }
+  }
+
+  const selectedActivityContact = viewActivity
+    ? contacts.find((contact) => contact.id === viewActivity.contactId)
+    : null
+  const selectedActivityProperty = viewActivity
+    ? properties.find((property) => property.id === viewActivity.propertyId)
+    : null
+  const extractedFromDescription = extractContactInfoFromText(viewActivity?.description)
+  const extractedFromReport = extractContactInfoFromText(viewActivity?.report)
+  const activityContactPhone =
+    String(
+      selectedActivityContact?.phone ||
+      extractedFromDescription.phone ||
+      extractedFromReport.phone ||
+      ''
+    ).trim()
+  const activityContactEmail =
+    String(
+      selectedActivityContact?.email ||
+      extractedFromDescription.email ||
+      extractedFromReport.email ||
+      ''
+    ).trim()
+  const normalizedActivityPhone = normalizePhoneForLink(activityContactPhone)
+  const activityPropertyId = String(viewActivity?.propertyId || selectedActivityProperty?.id || '').trim()
+  const activityReportData = formatActivityReportForAgent(viewActivity?.report)
+  const activityReportText = activityReportData.human
+  const activityReportTechnical = activityReportData.technical
+
 
 
   return (
@@ -34162,13 +34024,13 @@ function ActivitiesPage({
 
           <h1 style={{ fontSize: '2rem', fontWeight: 'bold', marginBottom: '0.5rem' }}>
 
-            â⬦ AttivitÒ  ({activities.length})
+            AttivitÃ  ({activities.length})
 
           </h1>
 
           <p style={{ color: '#6b7280' }}>
 
-            Gestisci le tue attivitÒ  e follow-up
+            Gestisci le tue attivitÃ  e follow-up
 
           </p>
 
@@ -34202,7 +34064,7 @@ function ActivitiesPage({
 
           <Plus size={20} style={{ marginRight: '0.5rem' }} />
 
-          Nuova AttivitÒ 
+          Nuova AttivitÃ 
 
         </button>
 
@@ -34316,7 +34178,7 @@ function ActivitiesPage({
 
 
 
-      {/* Lista attivitÒ  */}
+      {/* Lista attivitÃ  */}
 
       <div style={{ display: 'grid', gap: '1rem' }}>
 
@@ -34501,6 +34363,22 @@ function ActivitiesPage({
                       </p>
 
                       <p style={{ fontWeight: '500' }}>{activity.contactName}</p>
+
+                    </div>
+
+                  )}
+
+                  {isAdmin && (activity.assignedToName || activity.assignedToId) && (
+
+                    <div>
+
+                      <p style={{ fontSize: '0.875rem', color: '#6b7280', marginBottom: '0.25rem' }}>
+
+                        Agente assegnato
+
+                      </p>
+
+                      <p style={{ fontWeight: '500' }}>{activity.assignedToName || `ID ${activity.assignedToId}`}</p>
 
                     </div>
 
@@ -34722,13 +34600,13 @@ function ActivitiesPage({
 
           <h3 style={{ fontSize: '1.125rem', fontWeight: '500', marginBottom: '0.5rem' }}>
 
-            Nessuna attivitÒ  trovata
+            Nessuna attivitÃ  trovata
 
           </h3>
 
           <p style={{ color: '#6b7280' }}>
 
-            Crea la tua prima attivitÒ  per iniziare
+            Crea la tua prima attivitÃ  per iniziare
 
           </p>
 
@@ -34768,7 +34646,7 @@ function ActivitiesPage({
 
         }}>
 
-          <div className="manus-contact-modal-panel" style={{
+          <div className="manus-contact-modal-panel activity-light-modal" style={{
 
             width: '100%',
 
@@ -34782,55 +34660,104 @@ function ActivitiesPage({
 
             overflow: 'hidden',
 
-            padding: '0.95rem 1rem 0.8rem'
+            padding: '0.95rem 1rem 0.8rem',
+            backgroundColor: '#ffffff',
+            color: '#111827',
+            border: '1px solid #e5e7eb',
+            borderRadius: '14px',
+            boxShadow: '0 20px 45px rgba(15, 23, 42, 0.2)'
 
           }}>
 
-            <div className="manus-contact-modal-header" style={{ marginBottom: '0.8rem', borderBottom: '1px solid rgba(148, 163, 184, 0.16)', paddingBottom: '0.8rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <div className="manus-contact-modal-header" style={{ marginBottom: '0.8rem', borderBottom: '1px solid #e5e7eb', paddingBottom: '0.8rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
 
-              <h2 className="manus-contact-title" style={{ margin: 0 }}>
+              <h2 className="manus-contact-title" style={{ margin: 0, color: '#111827' }}>
 
-                {editingActivity ? 'Modifica AttivitÒ ' : 'Nuova AttivitÒ '}
+                {editingActivity ? 'Modifica AttivitÃ ' : 'Nuova AttivitÃ '}
 
               </h2>
 
-              {editingActivity && (
-
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+                {editingActivity && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (confirm('Sei sicuro di voler eliminare questa attivitÃ ?')) {
+                        onDeleteActivity(editingActivity.id)
+                        setEditingActivity(null)
+                      }
+                    }}
+                    style={{ color: '#ef4444', background: 'none', border: 'none', cursor: 'pointer', borderRadius: '0.45rem', padding: '0.32rem' }}
+                    aria-label="Elimina attivitÃ "
+                    title="Elimina attivitÃ "
+                  >
+                    <Trash2 size={20} />
+                  </button>
+                )}
                 <button
-
                   type="button"
-
                   onClick={() => {
-
-                    if (confirm('Sei sicuro di voler eliminare questa attivitÒ ?')) {
-
-                      onDeleteActivity(editingActivity.id)
-
-                      setEditingActivity(null)
-
-                    }
-
+                    setEditingActivity(null)
+                    setShowCreateModal(false)
                   }}
-
-                  style={{ color: '#ef4444', background: 'none', border: 'none', cursor: 'pointer', borderRadius: '0.45rem', padding: '0.32rem' }}
-
+                  style={{
+                    width: '32px',
+                    height: '32px',
+                    borderRadius: '9999px',
+                    border: '1px solid #cbd5e1',
+                    background: '#ffffff',
+                    color: '#334155',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    cursor: 'pointer'
+                  }}
+                  aria-label="Chiudi modale"
+                  title="Chiudi"
                 >
-
-                  <Trash2 size={20} />
-
+                  <X size={18} />
                 </button>
-
-              )}
+              </div>
 
             </div>
 
 
 
-            <div className="manus-contact-tabs" style={{ display: 'flex', gap: '0.9rem', marginBottom: '0.72rem', padding: '0 0.08rem 0.45rem', borderBottom: '1px solid rgba(148, 163, 184, 0.16)' }}>
+            <div className="manus-contact-tabs" style={{ display: 'flex', gap: '0.9rem', marginBottom: '0.72rem', padding: '0 0.08rem 0.45rem', borderBottom: '1px solid #e5e7eb' }}>
 
-              <button type="button" onClick={() => setActiveActivityModalTab('details')} className={`manus-contact-tab ${activeActivityModalTab === 'details' ? 'is-active' : ''}`}>Dettagli</button>
+              <button
+                type="button"
+                onClick={() => setActiveActivityModalTab('details')}
+                className={`manus-contact-tab ${activeActivityModalTab === 'details' ? 'is-active' : ''}`}
+                style={{
+                  border: 'none',
+                  background: 'transparent',
+                  color: activeActivityModalTab === 'details' ? '#111827' : '#6b7280',
+                  fontWeight: activeActivityModalTab === 'details' ? 700 : 600,
+                  borderBottom: activeActivityModalTab === 'details' ? '2px solid #2563eb' : '2px solid transparent',
+                  paddingBottom: '0.2rem',
+                  cursor: 'pointer'
+                }}
+              >
+                Dettagli
+              </button>
 
-              <button type="button" onClick={() => setActiveActivityModalTab('planning')} className={`manus-contact-tab ${activeActivityModalTab === 'planning' ? 'is-active' : ''}`}>Pianificazione</button>
+              <button
+                type="button"
+                onClick={() => setActiveActivityModalTab('planning')}
+                className={`manus-contact-tab ${activeActivityModalTab === 'planning' ? 'is-active' : ''}`}
+                style={{
+                  border: 'none',
+                  background: 'transparent',
+                  color: activeActivityModalTab === 'planning' ? '#111827' : '#6b7280',
+                  fontWeight: activeActivityModalTab === 'planning' ? 700 : 600,
+                  borderBottom: activeActivityModalTab === 'planning' ? '2px solid #2563eb' : '2px solid transparent',
+                  paddingBottom: '0.2rem',
+                  cursor: 'pointer'
+                }}
+              >
+                Pianificazione
+              </button>
 
             </div>
 
@@ -34888,6 +34815,67 @@ function ActivitiesPage({
 
               </div>
 
+              {isAdmin ? (
+                <div style={{ marginBottom: '1rem' }}>
+                  <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: '500' }}>
+                    {editingActivity ? 'Assegna agente *' : 'Assegna agenti *'}
+                  </label>
+                  {editingActivity ? (
+                    <select
+                      value={activityFormData.assignedToId}
+                      onChange={e => setActivityFormData({ ...activityFormData, assignedToId: e.target.value, assignedToIds: e.target.value ? [e.target.value] : [] })}
+                      style={{ width: '100%', padding: '0.5rem', border: '1px solid #d1d5db', borderRadius: '0.375rem', backgroundColor: '#fff', color: '#111827' }}
+                    >
+                      <option value="">Seleziona agente...</option>
+                      {agents
+                        .filter(agent => agent?.isActive !== false)
+                        .map(agent => (
+                          <option key={agent.id} value={agent.id}>
+                            {agent.name || `${agent.firstName || ''} ${agent.lastName || ''}`.trim() || agent.email}
+                          </option>
+                        ))}
+                    </select>
+                  ) : (
+                    <div style={{ border: '1px solid #d1d5db', borderRadius: '0.5rem', backgroundColor: '#fff', color: '#111827', padding: '0.5rem', maxHeight: '180px', overflowY: 'auto' }}>
+                      {agents
+                        .filter(agent => agent?.isActive !== false)
+                        .map(agent => {
+                          const agentLabel = agent.name || `${agent.firstName || ''} ${agent.lastName || ''}`.trim() || agent.email
+                          const isChecked = activityFormData.assignedToIds.includes(agent.id)
+                          return (
+                            <label key={agent.id} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.35rem 0.25rem', cursor: 'pointer' }}>
+                              <input
+                                type="checkbox"
+                                checked={isChecked}
+                                onChange={(e) => {
+                                  const nextAssignedToIds = e.target.checked
+                                    ? Array.from(new Set([...activityFormData.assignedToIds, agent.id]))
+                                    : activityFormData.assignedToIds.filter((id) => id !== agent.id)
+                                  setActivityFormData({
+                                    ...activityFormData,
+                                    assignedToIds: nextAssignedToIds,
+                                    assignedToId: nextAssignedToIds[0] || ''
+                                  })
+                                }}
+                              />
+                              <span>{agentLabel}</span>
+                            </label>
+                          )
+                        })}
+                    </div>
+                  )}
+                  {!editingActivity && (
+                    <div style={{ marginTop: '0.4rem', fontSize: '0.82rem', color: '#374151' }}>
+                      Selezionati: {activityFormData.assignedToIds.length}
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <div style={{ marginBottom: '1rem', fontSize: '0.85rem', color: '#374151' }}>
+                  L'attivitÃ  verrÃ  assegnata automaticamente al tuo utente.
+                </div>
+              )}
+
               <div style={{ marginBottom: '1rem' }}>
 
                 <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: '500' }}>Descrizione</label>
@@ -34912,7 +34900,7 @@ function ActivitiesPage({
 
               <div style={{ marginBottom: '1rem' }}>
 
-                <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: '500' }}>PrioritÒ </label>
+                <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: '500' }}>PrioritÃ </label>
 
                 <select
 
@@ -34936,15 +34924,33 @@ function ActivitiesPage({
 
               <div style={{ marginBottom: '1rem' }}>
 
-                <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: '500' }}>Scadenza</label>
+                <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: '500' }}>Inizio</label>
 
                 <input
 
-                  type="date"
+                  type="datetime-local"
 
-                  value={activityFormData.dueDate}
+                  value={activityFormData.startTime}
 
-                  onChange={e => setActivityFormData({ ...activityFormData, dueDate: e.target.value })}
+                  onChange={e => setActivityFormData({ ...activityFormData, startTime: e.target.value, dueDate: e.target.value ? e.target.value.split('T')[0] : activityFormData.dueDate })}
+
+                  style={{ width: '100%', padding: '0.5rem', border: '1px solid #d1d5db', borderRadius: '0.375rem' }}
+
+                />
+
+              </div>
+
+              <div style={{ marginBottom: '1rem' }}>
+
+                <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: '500' }}>Fine</label>
+
+                <input
+
+                  type="datetime-local"
+
+                  value={activityFormData.endTime}
+
+                  onChange={e => setActivityFormData({ ...activityFormData, endTime: e.target.value })}
 
                   style={{ width: '100%', padding: '0.5rem', border: '1px solid #d1d5db', borderRadius: '0.375rem' }}
 
@@ -34986,7 +34992,7 @@ function ActivitiesPage({
 
                 >
 
-                  {editingActivity ? 'Salva Modifiche' : 'Crea AttivitÒ '}
+                  {editingActivity ? 'Salva Modifiche' : 'Crea AttivitÃ '}
 
                 </button>
 
@@ -35032,7 +35038,7 @@ function ActivitiesPage({
 
         }}>
 
-          <div className="manus-contact-modal-panel" style={{
+          <div className="manus-contact-modal-panel activity-light-modal" style={{
 
             width: '100%',
 
@@ -35052,7 +35058,7 @@ function ActivitiesPage({
 
             <div className="manus-contact-modal-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.8rem', borderBottom: '1px solid rgba(148, 163, 184, 0.16)', paddingBottom: '0.8rem' }}>
 
-              <h2 className="manus-contact-title" style={{ margin: 0 }}>Dettaglio AttivitÒ </h2>
+              <h2 className="manus-contact-title" style={{ margin: 0 }}>Dettaglio AttivitÃ </h2>
 
               <button
 
@@ -35146,13 +35152,64 @@ function ActivitiesPage({
 
                 <p style={{ color: '#4b5563', whiteSpace: 'pre-wrap' }}>{viewActivity.description || 'Nessuna descrizione'}</p>
 
+                {(activityContactPhone || activityContactEmail || activityPropertyId) && (
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem', marginTop: '0.8rem' }}>
+                    {activityContactPhone && (
+                      <a
+                        href={`tel:${normalizedActivityPhone || activityContactPhone}`}
+                        style={{ border: '1px solid #cbd5e1', borderRadius: '0.5rem', padding: '0.3rem 0.65rem', textDecoration: 'none', color: '#0f172a', fontWeight: 700, fontSize: '0.82rem' }}
+                      >
+                        Chiama
+                      </a>
+                    )}
+                    {activityContactPhone && (
+                      <a
+                        href={`https://wa.me/${(normalizedActivityPhone || activityContactPhone).replace(/^\+/, '')}`}
+                        target="_blank"
+                        rel="noreferrer"
+                        style={{ border: '1px solid #86efac', backgroundColor: '#f0fdf4', borderRadius: '0.5rem', padding: '0.3rem 0.65rem', textDecoration: 'none', color: '#166534', fontWeight: 700, fontSize: '0.82rem' }}
+                      >
+                        WhatsApp
+                      </a>
+                    )}
+                    {activityContactEmail && (
+                      <a
+                        href={`mailto:${activityContactEmail}`}
+                        style={{ border: '1px solid #cbd5e1', borderRadius: '0.5rem', padding: '0.3rem 0.65rem', textDecoration: 'none', color: '#0f172a', fontWeight: 700, fontSize: '0.82rem' }}
+                      >
+                        Email
+                      </a>
+                    )}
+                    {activityPropertyId && onOpenProperty && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setViewActivity(null)
+                          onOpenProperty(activityPropertyId)
+                        }}
+                        style={{ border: '1px solid #bfdbfe', backgroundColor: '#eff6ff', borderRadius: '0.5rem', padding: '0.3rem 0.65rem', color: '#1d4ed8', fontWeight: 700, fontSize: '0.82rem', cursor: 'pointer' }}
+                      >
+                        Apri immobile
+                      </button>
+                    )}
+                  </div>
+                )}
+
                 {viewActivity.report && (
 
                   <div style={{ marginTop: '1rem' }}>
 
-                    <p style={{ fontSize: '0.875rem', color: '#6b7280', marginBottom: '0.25rem' }}>Report attivitÒ </p>
+                    <p style={{ fontSize: '0.875rem', color: '#6b7280', marginBottom: '0.25rem' }}>Report attivitÃ </p>
 
-                    <p style={{ color: '#4b5563', whiteSpace: 'pre-wrap' }}>{viewActivity.report}</p>
+                    <p style={{ color: '#4b5563', whiteSpace: 'pre-wrap', wordBreak: 'break-word', lineHeight: 1.5 }}>{activityReportText}</p>
+                    {isAdmin && activityReportTechnical && (
+                      <details style={{ marginTop: '0.5rem' }}>
+                        <summary style={{ cursor: 'pointer', color: '#64748b', fontSize: '0.82rem' }}>Mostra dettagli tecnici</summary>
+                        <pre style={{ marginTop: '0.45rem', color: '#4b5563', whiteSpace: 'pre-wrap', wordBreak: 'break-word', fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace', fontSize: '0.82rem' }}>
+                          {activityReportTechnical}
+                        </pre>
+                      </details>
+                    )}
 
                   </div>
 
@@ -35196,6 +35253,24 @@ function ActivitiesPage({
 
                 )}
 
+                {activityContactPhone && (
+                  <div>
+                    <p style={{ fontSize: '0.875rem', color: '#6b7280', marginBottom: '0.25rem' }}>Telefono cliente</p>
+                    <a href={`tel:${normalizedActivityPhone || activityContactPhone}`} style={{ fontWeight: 600, color: '#1d4ed8', textDecoration: 'underline' }}>
+                      {activityContactPhone}
+                    </a>
+                  </div>
+                )}
+
+                {activityContactEmail && (
+                  <div>
+                    <p style={{ fontSize: '0.875rem', color: '#6b7280', marginBottom: '0.25rem' }}>Email cliente</p>
+                    <a href={`mailto:${activityContactEmail}`} style={{ fontWeight: 600, color: '#1d4ed8', textDecoration: 'underline', wordBreak: 'break-word' }}>
+                      {activityContactEmail}
+                    </a>
+                  </div>
+                )}
+
                 {viewActivity.assignedToName && (
 
                    <div>
@@ -35208,13 +35283,26 @@ function ActivitiesPage({
 
                 )}
 
-                {viewActivity.propertyTitle && (
+                {(viewActivity.propertyTitle || selectedActivityProperty?.title) && (
 
                    <div>
 
                     <p style={{ fontSize: '0.875rem', color: '#6b7280', marginBottom: '0.25rem' }}>Immobile</p>
 
-                    <p style={{ fontWeight: '500' }}>{viewActivity.propertyTitle}</p>
+                    {activityPropertyId && onOpenProperty ? (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setViewActivity(null)
+                          onOpenProperty(activityPropertyId)
+                        }}
+                        style={{ border: 'none', background: 'transparent', padding: 0, margin: 0, fontWeight: 600, color: '#1d4ed8', textDecoration: 'underline', cursor: 'pointer', textAlign: 'left' }}
+                      >
+                        {viewActivity.propertyTitle || selectedActivityProperty?.title}
+                      </button>
+                    ) : (
+                      <p style={{ fontWeight: '500' }}>{viewActivity.propertyTitle || selectedActivityProperty?.title}</p>
+                    )}
 
                   </div>
 
@@ -35348,7 +35436,7 @@ function ActivitiesPage({
 
             <div style={{ padding: '1.5rem', borderBottom: '1px solid #e5e7eb', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
 
-              <h2 style={{ fontSize: '1.25rem', fontWeight: '600', margin: 0 }}>Completa attivitÒ </h2>
+              <h2 style={{ fontSize: '1.25rem', fontWeight: '600', margin: 0 }}>Completa attivitÃ </h2>
 
               <button
 
@@ -35382,7 +35470,7 @@ function ActivitiesPage({
 
                 <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: '500' }}>
 
-                  Report attivitÒ {isAgent ? ' *' : ''}
+                  Report attivitÃ {isAgent ? ' *' : ''}
 
                 </label>
 
@@ -35424,7 +35512,7 @@ function ActivitiesPage({
 
                   if (isAgent && !value) {
 
-                    alert('Inserisci un report per completare l\'attivitÒ ')
+                    alert('Inserisci un report per completare l\'attivitÃ ')
 
                     return
 
@@ -35464,7 +35552,7 @@ function ActivitiesPage({
 
 // Pagina Report
 
-function ReportPage({ stats, properties, contacts: _contacts }: {
+function ReportPage({ stats, properties, contacts: _contacts, agents, userRole }: {
 
   stats: DashboardStats | null
 
@@ -35472,7 +35560,42 @@ function ReportPage({ stats, properties, contacts: _contacts }: {
 
   contacts: Contact[]
 
+  agents: User[]
+
+  userRole: string
+
 }) {
+  return <div style={{ display: 'none' }} aria-hidden="true" />
+
+  const { token, user } = useAuthStore()
+  const [activityReports, setActivityReports] = useState<Array<{
+    id: string
+    title: string
+    report: string
+    completedAt?: string
+    assignedTo?: { id: string; name: string; email?: string; role?: string } | null
+    property?: { id: string; title: string; reference?: string | null } | null
+    request?: { id: string; title: string } | null
+    contact?: { id: string; name: string } | null
+  }>>([])
+  const [reportsLoading, setReportsLoading] = useState(false)
+
+  useEffect(() => {
+    if (!token) return
+    setReportsLoading(true)
+    const headers: HeadersInit = { Authorization: `Bearer ${token}` }
+    fetch('/api/reports/activity?limit=1000', { headers })
+      .then((res) => res.json())
+      .then((payload) => {
+        if (payload?.success && Array.isArray(payload.data)) {
+          setActivityReports(payload.data)
+        } else {
+          setActivityReports([])
+        }
+      })
+      .catch(() => setActivityReports([]))
+      .finally(() => setReportsLoading(false))
+  }, [token])
 
   if (!stats) {
 
@@ -35502,6 +35625,44 @@ function ReportPage({ stats, properties, contacts: _contacts }: {
 
   }, {} as Record<string, number>)
 
+  const reportAgentOptions = (() => {
+    const byId = new Map<string, { id: string; name: string }>()
+    agents
+      .filter((agent) => ['AGENT', 'COLLABORATOR'].includes(String(agent.role || '').toUpperCase()) && agent.isActive !== false)
+      .forEach((agent) => {
+        byId.set(String(agent.id), {
+          id: String(agent.id),
+          name: `${agent.firstName || ''} ${agent.lastName || ''}`.trim() || agent.email || 'Agente'
+        })
+      })
+    activityReports.forEach((row) => {
+      const id = row.assignedTo?.id
+      if (!id || byId.has(id)) return
+      byId.set(id, { id, name: row.assignedTo?.name || `Agente ${id.slice(0, 6)}` })
+    })
+    return Array.from(byId.values())
+  })()
+
+  const reportsByAgent = reportAgentOptions.map((agent) => ({
+    agent,
+    reports: activityReports.filter((row) => row.assignedTo?.id === agent.id)
+  }))
+
+  useEffect(() => {
+    if (!focusAppointmentId) return
+    const target = calendarEventsAll.find((evt) => evt.id === focusAppointmentId)
+    if (!target) return
+    setSelectedEvent(target)
+    setSelectedDate(null)
+    setEventModalMode('view')
+    setShowEventModal(true)
+    const startDate = new Date(target.startTime)
+    if (!Number.isNaN(startDate.getTime())) {
+      setView((prev) => ({ ...prev, date: startDate }))
+    }
+    onFocusAppointmentHandled?.()
+  }, [focusAppointmentId, calendarEventsAll, onFocusAppointmentHandled])
+
 
 
   return (
@@ -35512,7 +35673,7 @@ function ReportPage({ stats, properties, contacts: _contacts }: {
 
         <h1 style={{ fontSize: '2rem', fontWeight: 'bold', marginBottom: '0.5rem' }}>
 
-          ðŸS  Report e Analisi
+          S  Report e Analisi
 
         </h1>
 
@@ -35578,7 +35739,7 @@ function ReportPage({ stats, properties, contacts: _contacts }: {
 
           <p style={{ fontSize: '2rem', fontWeight: 'bold', color: '#3b82f6' }}>
 
-            âa¬{Math.round(properties.reduce((sum, prop) => sum + (prop.salePrice || prop.rentPrice || 0), 0) / 1000)}K
+            a{Math.round(properties.reduce((sum, prop) => sum + (prop.salePrice || prop.rentPrice || 0), 0) / 1000)}K
 
           </p>
 
@@ -35598,7 +35759,7 @@ function ReportPage({ stats, properties, contacts: _contacts }: {
 
             <BarChart3 size={24} style={{ color: '#f59e0b', marginRight: '0.5rem' }} />
 
-            <h3 style={{ fontSize: '1rem', fontWeight: '600' }}>Efficienza AttivitÒ </h3>
+            <h3 style={{ fontSize: '1rem', fontWeight: '600' }}>Efficienza AttivitÃ’Â </h3>
 
           </div>
 
@@ -35610,7 +35771,7 @@ function ReportPage({ stats, properties, contacts: _contacts }: {
 
           <p style={{ fontSize: '0.875rem', color: '#6b7280' }}>
 
-            AttivitÒ  completate
+            AttivitÃ’Â  completate
 
           </p>
 
@@ -35792,15 +35953,15 @@ function ReportPage({ stats, properties, contacts: _contacts }: {
 
             <div style={{ fontSize: '0.875rem', color: '#6b7280' }}>
 
-              <p>🏠 Totali: {stats.totalProperties}</p>
+              <p>Ã°Å¸ÂÂ  Totali: {stats.totalProperties}</p>
 
-              <p>â⬦ Disponibili: {stats.availableProperties}</p>
+              <p>? Disponibili: {stats.availableProperties}</p>
 
-              <p>⏳ Prenotati: {stats.reservedProperties}</p>
+              <p>Ã¢ÂÂ³ Prenotati: {stats.reservedProperties}</p>
 
-              <p>ðŸ\"° Venduti: {stats.soldProperties}</p>
+              <p>\" Venduti: {stats.soldProperties}</p>
 
-              <p>ðŸS  Prezzo medio: âa¬{stats.averagePropertyPrice.toLocaleString()}</p>
+              <p>S  Prezzo medio: a{stats.averagePropertyPrice.toLocaleString()}</p>
 
             </div>
 
@@ -35812,13 +35973,13 @@ function ReportPage({ stats, properties, contacts: _contacts }: {
 
             <div style={{ fontSize: '0.875rem', color: '#6b7280' }}>
 
-              <p>🥠Totali: {stats.totalContacts}</p>
+              <p> Totali: {stats.totalContacts}</p>
 
-              <p>🟢 Attivi: {stats.activeContacts}</p>
+              <p>Ã°Å¸Å¸Â¢ Attivi: {stats.activeContacts}</p>
 
-              <p>ðŸ⬺\" Acquirenti: {stats.buyers}</p>
+              <p>?\" Acquirenti: {stats.buyers}</p>
 
-              <p>🤝 Venditori: {stats.sellers}</p>
+              <p>Ã°Å¸Â¤Â Venditori: {stats.sellers}</p>
 
             </div>
 
@@ -35826,19 +35987,19 @@ function ReportPage({ stats, properties, contacts: _contacts }: {
 
           <div>
 
-            <h4 style={{ fontSize: '1rem', fontWeight: '600', marginBottom: '0.5rem' }}>OperativitÒ </h4>
+            <h4 style={{ fontSize: '1rem', fontWeight: '600', marginBottom: '0.5rem' }}>OperativitÃ’Â </h4>
 
             <div style={{ fontSize: '0.875rem', color: '#6b7280' }}>
 
-              <p>ðŸS️ Appuntamenti: {stats.totalAppointments}</p>
+              <p>SÃ¯Â¸Â Appuntamenti: {stats.totalAppointments}</p>
 
-              <p>ðŸS Programmati: {stats.scheduledAppointments}</p>
+              <p>S Programmati: {stats.scheduledAppointments}</p>
 
-              <p>⢠AttivitҠ totali: {stats.totalActivities}</p>
+              <p>  AttivitÃ’Â  totali: {stats.totalActivities}</p>
 
-              <p>â⬝️ Completate: {stats.completedActivities}</p>
+              <p>?Ã¯Â¸Â Completate: {stats.completedActivities}</p>
 
-              <p>⏳ Pendenti: {stats.pendingActivities}</p>
+              <p>Ã¢ÂÂ³ Pendenti: {stats.pendingActivities}</p>
 
             </div>
 
@@ -35846,6 +36007,56 @@ function ReportPage({ stats, properties, contacts: _contacts }: {
 
         </div>
 
+      </div>
+
+      <div style={{ backgroundColor: 'white', padding: '1.5rem', borderRadius: '0.5rem', boxShadow: '0 1px 3px rgba(0,0,0,0.1)', marginTop: '1.5rem' }}>
+        <h3 style={{ fontSize: '1.25rem', fontWeight: 'bold', margin: 0 }}>Report attivit agenti</h3>
+        <p style={{ color: '#64748b', marginTop: '0.35rem', marginBottom: '1rem' }}>
+          Una pagina dedicata per ogni agente attivo.
+        </p>
+
+        {reportsLoading ? (
+          <div style={{ color: '#64748b' }}>Caricamento report attivit...</div>
+        ) : reportAgentOptions.length === 0 ? (
+          <div style={{ color: '#64748b' }}>Nessun agente disponibile.</div>
+        ) : (
+          <div style={{ display: 'grid', gap: '1rem' }}>
+            {reportsByAgent.map(({ agent, reports }) => (
+              <section
+                key={`agent-report-page-${agent.id}`}
+                style={{ border: '1px solid #dbe3ef', borderRadius: '0.7rem', padding: '0.9rem', background: '#f8fbff' }}
+              >
+                <h4 style={{ fontSize: '1.08rem', margin: 0, color: '#0f172a', fontWeight: 800 }}>
+                  {agent.name}
+                </h4>
+                <div style={{ marginTop: '0.3rem', color: '#334155', fontSize: '0.86rem' }}>
+                  Report totali: <strong>{reports.length}</strong>
+                </div>
+                <div style={{ marginTop: '0.7rem', display: 'grid', gap: '0.6rem' }}>
+                  {reports.length === 0 ? (
+                    <div style={{ color: '#64748b' }}>Nessun report per questo agente.</div>
+                  ) : (
+                    reports.map((row) => (
+                      <div key={`agent-report-${row.id}`} style={{ background: '#fff', border: '1px solid #e5e7eb', borderRadius: '0.55rem', padding: '0.65rem' }}>
+                        <div style={{ fontWeight: 700, color: '#111827' }}>{row.title}</div>
+                        <div style={{ marginTop: '0.2rem', color: '#475569', fontSize: '0.82rem' }}>
+                          {[
+                            row.property?.title ? `Immobile: ${row.property.title}` : null,
+                            row.request?.title ? `Richiesta: ${row.request.title}` : null,
+                            row.completedAt ? `Completata: ${new Date(row.completedAt).toLocaleString('it-IT')}` : null
+                          ].filter(Boolean).join('  ')}
+                        </div>
+                        <div style={{ marginTop: '0.35rem', color: '#0f172a', whiteSpace: 'pre-wrap', fontSize: '0.88rem' }}>
+                          {row.report}
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </section>
+            ))}
+          </div>
+        )}
       </div>
 
     </div>
@@ -35858,9 +36069,24 @@ function ReportPage({ stats, properties, contacts: _contacts }: {
 
 // Pagina dettagliata per singolo immobile
 
+const getOneClickData = (property: Partial<Property>) => ((property as any)?.oneClickData || {}) as Record<string, any>
+
+const toFiniteNumber = (value: any): number | null => {
+  if (value === undefined || value === null || value === '') return null
+  const normalized = typeof value === 'string' ? value.replace(',', '.').trim() : value
+  const parsed = Number(normalized)
+  return Number.isFinite(parsed) ? parsed : null
+}
+
+const getPropertyNumberWithFallback = (property: Partial<Property>, coreValue: any, oneClickKey: string): number | null => {
+  const core = toFiniteNumber(coreValue)
+  if (core != null && core > 0) return core
+  return toFiniteNumber(getOneClickData(property)?.[oneClickKey])
+}
+
 const getPropertyDisplayPrice = (property: Partial<Property>) => {
-  const sale = typeof property.salePrice === 'number' ? property.salePrice : Number(property.salePrice || 0)
-  const rent = typeof property.rentPrice === 'number' ? property.rentPrice : Number(property.rentPrice || 0)
+  const sale = getPropertyNumberWithFallback(property, property.salePrice, 'prezzo') || 0
+  const rent = getPropertyNumberWithFallback(property, property.rentPrice, 'prezzo') || 0
   if ((property.contractType || '').toUpperCase() === 'RENT') return rent || sale || 0
   return sale || rent || 0
 }
@@ -35880,7 +36106,9 @@ function PropertyDetailPage({
 
   onRefreshData,
 
-  navigateToPublicProperty
+  navigateToPublicProperty,
+
+  onOpenCrossRequest: _onOpenCrossRequest
 
 }: {
 
@@ -35891,6 +36119,8 @@ function PropertyDetailPage({
   onRefreshData: () => void
 
   navigateToPublicProperty: (propertyId: string) => void
+
+  onOpenCrossRequest: (requestId: string, contactId: string) => void
 
 }) {
 
@@ -35924,6 +36154,107 @@ function PropertyDetailPage({
     createdAt: string
     createdByName?: string
   }>>([])
+  const [requestReportHistory, setRequestReportHistory] = useState<Array<{
+    id: string
+    title: string
+    report: string
+    completedAt: string
+    assignedToName?: string | null
+    requestTitle?: string | null
+    contactName?: string | null
+  }>>([])
+  const [crossCalls, setCrossCalls] = useState<Array<{
+    id: string
+    score: number
+    createdAt: string
+    request: {
+      id: string
+      title: string
+      status: string
+      priority: number
+      notePreset?: string
+      noteText?: string
+      description?: string
+      notes?: string
+      apartmentSubtype?: string
+      minPrice: number | null
+      maxPrice: number | null
+      minSurface: number | null
+      maxSurface: number | null
+      minRooms: number | null
+      maxRooms: number | null
+      minBathrooms: number | null
+      maxBathrooms: number | null
+      minFloor: number | null
+      maxFloor: number | null
+      cities: string[]
+      provinces: string[]
+      type: string | null
+      contractType: string | null
+    }
+    contact: {
+      id: string
+      name: string
+      firstName: string
+      lastName: string
+      type: string | null
+      city: string | null
+      province: string | null
+      address: string | null
+      zipCode: string | null
+      birthPlace: string | null
+      notes: string | null
+      isActive: boolean
+      phone: string | null
+      email: string | null
+    }
+    assignedAgent: {
+      id: string | null
+      name: string | null
+    }
+    property: {
+      id: string
+      title: string
+      reference: string | null
+      type: string
+      contractType: string
+      city: string
+      province: string
+      salePrice: number | null
+      rentPrice: number | null
+      surface: number | null
+      rooms: number | null
+      bathrooms: number | null
+    }
+    checks: {
+      type: boolean
+      contractType: boolean
+      city: boolean
+      province: boolean
+      minPrice: boolean
+      maxPrice: boolean
+      minSurface: boolean
+      maxSurface: boolean
+      minRooms: boolean
+      maxRooms: boolean
+      minBathrooms: boolean
+      maxBathrooms: boolean
+    }
+  }>>([])
+  const [selectedCrossCall, setSelectedCrossCall] = useState<null | any>(null)
+  const [selectedLinkedRequest, setSelectedLinkedRequest] = useState<{
+    id: string
+    contactId: string
+    contactName: string
+    contactPhone?: string
+    contactEmail?: string
+    agentId: string
+    agentName: string
+    notePreset?: string
+    noteText?: string
+    createdAt: string
+    createdByName?: string
+  } | null>(null)
   const [showRequestComposer, setShowRequestComposer] = useState(false)
   const [showContactPicker, setShowContactPicker] = useState(false)
   const [contactSearch, setContactSearch] = useState('')
@@ -35943,8 +36274,69 @@ function PropertyDetailPage({
     'Proporre visita'
   ]
   const isAdminUser = user?.role === 'SUPER_ADMIN' || user?.role === 'AGENCY_ADMIN'
+  const resolvePublicFrontendOrigin = () => {
+    const currentOrigin = (typeof window !== 'undefined' ? window.location.origin : '').replace(/\/$/, '')
+    const configured = String(publicBaseUrl || '').trim().replace(/\/$/, '')
+    if (!configured) return currentOrigin
+    try {
+      const url = new URL(configured)
+      const isBackendVercel = /backend/i.test(url.hostname) && /\.vercel\.app$/i.test(url.hostname)
+      const looksLikeApiBase = /\/api(\/|$)/i.test(url.pathname)
+      if (isBackendVercel || looksLikeApiBase) return currentOrigin
+      return url.origin.replace(/\/$/, '')
+    } catch {
+      return currentOrigin
+    }
+  }
 
   const selectedRequestContact = availableContacts.find((contact) => contact.id === requestDraft.contactId)
+  const fallbackAgentCandidates = [
+    property?.agentId ? String(property.agentId) : '',
+    property?.ownerId ? String(property.ownerId) : '',
+    linkedRequests.find((request) => request.agentId)?.agentId ? String(linkedRequests.find((request) => request.agentId)?.agentId) : '',
+    user?.id ? String(user.id) : ''
+  ].filter(Boolean)
+  const effectiveAgentOptions = (() => {
+    const map = new Map<string, { id: string; name: string; email?: string }>()
+    for (const agent of availableAgents) {
+      if (!agent?.id) continue
+      map.set(String(agent.id), {
+        id: String(agent.id),
+        name: String(agent.name || `Agente ${String(agent.id).slice(0, 6)}`),
+        email: agent.email ? String(agent.email) : undefined
+      })
+    }
+    for (const request of linkedRequests) {
+      if (!request?.agentId) continue
+      const id = String(request.agentId)
+      if (map.has(id)) continue
+      map.set(id, {
+        id,
+        name: String(request.agentName || `Agente ${id.slice(0, 6)}`)
+      })
+    }
+    if (map.size === 0 && fallbackAgentCandidates.length > 0) {
+      const id = fallbackAgentCandidates[0]
+      map.set(id, {
+        id,
+        name:
+          String(property?.agentName || '').trim() ||
+          [user?.firstName, user?.lastName].filter(Boolean).join(' ').trim() ||
+          user?.email ||
+          `Agente ${id.slice(0, 6)}`
+      })
+    }
+    return Array.from(map.values())
+  })()
+  const responsibleAgentName = (() => {
+    const primaryId = property?.agentId ? String(property.agentId) : (property?.ownerId ? String(property.ownerId) : '')
+    const byId = primaryId ? effectiveAgentOptions.find((agent) => agent.id === primaryId) : null
+    if (byId?.name) return byId.name
+    if (property?.agentName) return String(property.agentName)
+    if (linkedRequests.length > 0 && linkedRequests[0]?.agentName) return linkedRequests[0].agentName
+    if (effectiveAgentOptions.length > 0) return effectiveAgentOptions[0].name
+    return 'Non assegnato'
+  })()
   const filteredContacts = availableContacts.filter((contact) => {
     const needle = contactSearch.trim().toLowerCase()
     if (!needle) return true
@@ -36006,25 +36398,42 @@ function PropertyDetailPage({
     const headers: HeadersInit = token ? { Authorization: `Bearer ${token}` } : {}
     const loadMeta = async () => {
       try {
-        const [agentsRes, contactsRes] = await Promise.all([
-          fetch('/api/agents?isActive=true', { headers }),
-          fetch('/api/contacts', { headers })
+        const [agentsResult, contactsResult] = await Promise.allSettled([
+          fetch('/api/agents', { headers }),
+          fetch('/api/contacts?limit=5000', { headers })
         ])
-        const agentsData = await agentsRes.json().catch(() => null)
-        const contactsData = await contactsRes.json().catch(() => null)
+        const agentsData =
+          agentsResult.status === 'fulfilled'
+            ? await agentsResult.value.json().catch(() => null)
+            : null
+        const contactsData =
+          contactsResult.status === 'fulfilled'
+            ? await contactsResult.value.json().catch(() => null)
+            : null
 
         const rawAgents = Array.isArray(agentsData)
           ? agentsData
-          : (agentsData?.success && Array.isArray(agentsData.data) ? agentsData.data : [])
-        setAvailableAgents(
-          rawAgents
-            .filter((agent: any) => agent && agent.isActive !== false)
-            .map((agent: any) => ({
-              id: String(agent.id),
-              name: String(agent.name || [agent.firstName, agent.lastName].filter(Boolean).join(' ') || agent.email || 'Agente'),
-              email: agent.email ? String(agent.email) : undefined
-            }))
-        )
+          : Array.isArray(agentsData?.data)
+            ? agentsData.data
+            : Array.isArray(agentsData?.data?.agents)
+              ? agentsData.data.agents
+              : []
+        const normalizedAgents = rawAgents
+          .filter((agent: any) => agent && agent.id && agent.isActive !== false)
+          .map((agent: any) => ({
+            id: String(agent.id),
+            role: String(agent.role || '').toUpperCase(),
+            name: String(agent.name || [agent.firstName, agent.lastName].filter(Boolean).join(' ') || agent.email || 'Agente'),
+            email: agent.email ? String(agent.email) : undefined
+          }))
+        const agentsForRequests = normalizedAgents
+          .filter((agent: any) => ['AGENT', 'AGENTE', 'REAL_ESTATE_AGENT'].includes(agent.role))
+          .map(({ id, name, email }: any) => ({ id, name, email }))
+        const finalAgents =
+          agentsForRequests.length > 0
+            ? agentsForRequests
+            : normalizedAgents.map(({ id, name, email }: any) => ({ id, name, email }))
+        setAvailableAgents(finalAgents)
 
         if (contactsData?.success && Array.isArray(contactsData.data)) {
           setAvailableContacts(
@@ -36044,33 +36453,116 @@ function PropertyDetailPage({
 
     loadMeta()
 
-    fetch(`/api/properties/${propertyId}/linked-requests`, { headers })
-      .then((response) => response.json())
-      .then((payload) => {
-        if (payload?.success && Array.isArray(payload.data)) {
-          setLinkedRequests(payload.data)
+    Promise.allSettled([
+      fetch(`/api/properties/${propertyId}/linked-requests`, { headers }),
+      fetch(`/api/matching/for-property/${propertyId}`, { headers }),
+      fetch(`/api/properties/${propertyId}/request-report-history`, { headers })
+    ])
+      .then(async ([linkedRes, crossRes, reportsRes]) => {
+        const linkedPayload =
+          linkedRes.status === 'fulfilled'
+            ? await linkedRes.value.json().catch(() => null)
+            : null
+        const crossPayload =
+          crossRes.status === 'fulfilled'
+            ? await crossRes.value.json().catch(() => null)
+            : null
+        const reportsPayload =
+          reportsRes.status === 'fulfilled'
+            ? await reportsRes.value.json().catch(() => null)
+            : null
+
+        if (linkedPayload?.success && Array.isArray(linkedPayload.data)) {
+          setLinkedRequests(linkedPayload.data)
         } else {
           setLinkedRequests([])
         }
+
+        if (crossPayload?.success && Array.isArray(crossPayload.data)) {
+          setCrossCalls(crossPayload.data)
+        } else {
+          setCrossCalls([])
+        }
+
+        if (reportsPayload?.success && Array.isArray(reportsPayload.data)) {
+          setRequestReportHistory(reportsPayload.data)
+        } else {
+          setRequestReportHistory([])
+        }
       })
       .catch((error) => {
-        console.error('Errore caricamento richieste immobile:', error)
+        console.error('Errore caricamento dati incroci immobile:', error)
         setLinkedRequests([])
+        setCrossCalls([])
+        setRequestReportHistory([])
       })
   }, [token, propertyId])
 
   useEffect(() => {
+    if (availableAgents.length > 0) return
+    if (linkedRequests.length === 0) return
+    const fromRequests = linkedRequests
+      .filter((item) => item.agentId)
+      .map((item) => ({
+        id: String(item.agentId),
+        name: String(item.agentName || `Agente ${String(item.agentId).slice(0, 6)}`)
+      }))
+      .filter((agent, index, arr) => arr.findIndex((a) => a.id === agent.id) === index)
+    if (fromRequests.length > 0) {
+      setAvailableAgents(fromRequests)
+      setRequestDraft((prev) => ({
+        ...prev,
+        agentId: prev.agentId || fromRequests[0].id
+      }))
+    }
+  }, [availableAgents.length, linkedRequests])
+
+  useEffect(() => {
+    if (availableAgents.length > 0) return
+    const fallbackAgentId =
+      property?.agentId
+        ? String(property.agentId)
+        : property?.ownerId
+          ? String(property.ownerId)
+          : ''
+    const fallbackAgentName =
+      property?.agentName
+        ? String(property.agentName)
+        : fallbackAgentId
+          ? `Agente ${fallbackAgentId.slice(0, 6)}`
+          : ''
+    if (fallbackAgentId) {
+      setAvailableAgents([{ id: fallbackAgentId, name: fallbackAgentName }])
+    } else if (user?.id) {
+      const ownName = [user.firstName, user.lastName].filter(Boolean).join(' ').trim() || user.email || 'Agente'
+      setAvailableAgents([{ id: String(user.id), name: ownName }])
+    }
+  }, [availableAgents.length, property, user])
+
+  useEffect(() => {
+    if (!isAdminUser) return
+    if (!effectiveAgentOptions.length) return
+    if (requestDraft.agentId) return
+    setRequestDraft((prev) => ({ ...prev, agentId: effectiveAgentOptions[0].id }))
+  }, [isAdminUser, effectiveAgentOptions, requestDraft.agentId])
+
+  useEffect(() => {
+    if (!isAdminUser) return
     const headers: HeadersInit = token ? { Authorization: `Bearer ${token}` } : {}
     fetch('/api/config/public-base-url', { headers })
-      .then((response) => response.json())
+      .then((response) => {
+        if (!response.ok) return null
+        return response.json().catch(() => null)
+      })
       .then((payload) => {
+        if (!payload) return
         const base = payload?.data?.publicBaseUrl
         if (payload?.success && typeof base === 'string' && base.trim().length > 0) {
           setPublicBaseUrl(base.trim().replace(/\/$/, ''))
         }
       })
       .catch(() => {})
-  }, [token])
+  }, [token, isAdminUser])
 
   useEffect(() => {
     if (selectedRequestContact) {
@@ -36086,7 +36578,7 @@ function PropertyDetailPage({
       return
     }
     const selectedContact = availableContacts.find((contact) => contact.id === requestDraft.contactId)
-    const selectedAgent = availableAgents.find((agent) => agent.id === requestDraft.agentId)
+    const selectedAgent = effectiveAgentOptions.find((agent) => agent.id === requestDraft.agentId)
     if (!selectedContact || !selectedAgent) {
       alert('Cliente o agente non validi.')
       return
@@ -36114,19 +36606,66 @@ function PropertyDetailPage({
         return
       }
 
-      const refreshResponse = await fetch(`/api/properties/${propertyId}/linked-requests`, { headers: token ? { Authorization: `Bearer ${token}` } : {} })
-      const refreshPayload = await refreshResponse.json().catch(() => null)
+      const refreshHeaders = token ? { Authorization: `Bearer ${token}` } : {}
+      const [refreshLinkedResponse, refreshCrossResponse] = await Promise.all([
+        fetch(`/api/properties/${propertyId}/linked-requests`, { headers: refreshHeaders }),
+        fetch(`/api/matching/for-property/${propertyId}`, { headers: refreshHeaders })
+      ])
+
+      const refreshPayload = await refreshLinkedResponse.json().catch(() => null)
       if (refreshPayload?.success && Array.isArray(refreshPayload.data)) {
         setLinkedRequests(refreshPayload.data)
       }
+      const refreshCrossPayload = await refreshCrossResponse.json().catch(() => null)
+      if (refreshCrossPayload?.success && Array.isArray(refreshCrossPayload.data)) {
+        setCrossCalls(refreshCrossPayload.data)
+      }
 
-      setRequestDraft({ contactId: '', agentId: '', notePreset: '', noteText: '' })
+      setRequestDraft((prev) => ({
+        contactId: '',
+        agentId: prev.agentId || (effectiveAgentOptions[0]?.id || ''),
+        notePreset: '',
+        noteText: ''
+      }))
       setContactSearch('')
       setShowContactPicker(false)
       setShowRequestComposer(false)
     } catch (error) {
       console.error('Errore salvataggio richiesta collegata:', error)
       alert('Errore di connessione')
+    }
+  }
+
+  const ensureAgentsForRequests = async () => {
+    if (availableAgents.length > 0) return
+    try {
+      const headers: HeadersInit = token ? { Authorization: `Bearer ${token}` } : {}
+      const response = await fetch('/api/agents', { headers })
+      const payload = await response.json().catch(() => null)
+      const source = Array.isArray(payload)
+        ? payload
+        : Array.isArray(payload?.data)
+          ? payload.data
+          : Array.isArray(payload?.data?.agents)
+            ? payload.data.agents
+            : []
+      const normalized = source
+        .filter((agent: any) => agent?.id)
+        .map((agent: any) => ({
+          id: String(agent.id),
+          name: String(agent.name || [agent.firstName, agent.lastName].filter(Boolean).join(' ') || agent.email || `Agente ${String(agent.id).slice(0, 6)}`),
+          email: agent.email ? String(agent.email) : undefined
+        }))
+      if (normalized.length > 0) {
+        setAvailableAgents(normalized)
+        setRequestDraft((prev) => ({ ...prev, agentId: prev.agentId || normalized[0].id }))
+      } else if (user?.id) {
+        const fallbackName = [user.firstName, user.lastName].filter(Boolean).join(' ').trim() || user.email || 'Utente'
+        setAvailableAgents([{ id: String(user.id), name: fallbackName, email: user.email || undefined }])
+        setRequestDraft((prev) => ({ ...prev, agentId: prev.agentId || String(user.id) }))
+      }
+    } catch (error) {
+      console.error('Errore fallback caricamento agenti richieste:', error)
     }
   }
 
@@ -36379,7 +36918,9 @@ function PropertyDetailPage({
         gap: '1.25rem'
       }
 
-  const mainColumnsStyle = isCompactLayout
+  const showRightSidebar = activeTab !== 'full_data'
+
+  const mainColumnsStyle = isCompactLayout || !showRightSidebar
     ? {
         display: 'grid',
         gridTemplateColumns: '1fr',
@@ -36396,6 +36937,10 @@ function PropertyDetailPage({
   const heroImage = imageList[0] || ''
   const thumbImages = imageList.slice(1, 5)
   const hasPortals = Array.isArray(property.portalTargets) && property.portalTargets.length > 0
+  const sidebarLinkedRequests = [...linkedRequests]
+    .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+    .slice(0, 2)
+  const hiddenLinkedRequestsCount = Math.max(0, linkedRequests.length - sidebarLinkedRequests.length)
 
   return (
     <>
@@ -36447,7 +36992,7 @@ function PropertyDetailPage({
 
           <button
             onClick={() => {
-              const publicOrigin = window.location.origin.replace(/\/$/, '')
+              const publicOrigin = resolvePublicFrontendOrigin()
               const publicUrl = `${publicOrigin}/public/property/${propertyId}`
               navigator.clipboard.writeText(publicUrl).then(() => {
                 alert('Link pubblico copiato negli appunti!\n' + publicUrl)
@@ -36473,7 +37018,7 @@ function PropertyDetailPage({
 
           <button
             onClick={() => {
-              const publicOrigin = window.location.origin.replace(/\/$/, '')
+              const publicOrigin = resolvePublicFrontendOrigin()
               const publicUrl = `${publicOrigin}/public/property/${propertyId}`
               window.open(publicUrl, '_blank', 'noopener,noreferrer')
             }}
@@ -36550,6 +37095,10 @@ function PropertyDetailPage({
           { id: 'images', label: 'Immagini', icon: <Image size={16} /> },
 
           { id: 'details', label: 'Dettagli', icon: <FileText size={16} /> },
+
+          { id: 'full_data', label: 'Dati completi', icon: <FileText size={16} /> },
+
+          { id: 'cross_calls', label: 'Incroci', icon: <Target size={16} /> },
 
           { id: 'portals', label: 'Portali', icon: <Target size={16} /> },
 
@@ -36660,11 +37209,11 @@ function PropertyDetailPage({
                   gap: '0.85rem 1.1rem'
                 }}>
                   <div><div style={{ color: '#1e3a8a', fontSize: '0.78rem', fontWeight: 700 }}>PREZZO</div><div style={{ fontWeight: 700, color: '#0f172a' }}>{formatPriceCompact(getPropertyDisplayPrice(property), property.contractType)}</div></div>
-                  <div><div style={{ color: '#1e3a8a', fontSize: '0.78rem', fontWeight: 700 }}>SUPERFICIE</div><div style={{ fontWeight: 700, color: '#0f172a' }}>{property.surface ? `${property.surface} m²` : '-'}</div></div>
-                  <div><div style={{ color: '#1e3a8a', fontSize: '0.78rem', fontWeight: 700 }}>LOCALI</div><div style={{ fontWeight: 700, color: '#0f172a' }}>{property.rooms ?? '-'}</div></div>
-                  <div><div style={{ color: '#1e3a8a', fontSize: '0.78rem', fontWeight: 700 }}>CAMERE</div><div style={{ fontWeight: 700, color: '#0f172a' }}>{property.bedrooms ?? '-'}</div></div>
-                  <div><div style={{ color: '#1e3a8a', fontSize: '0.78rem', fontWeight: 700 }}>BAGNI</div><div style={{ fontWeight: 700, color: '#0f172a' }}>{property.bathrooms ?? '-'}</div></div>
-                  <div><div style={{ color: '#1e3a8a', fontSize: '0.78rem', fontWeight: 700 }}>CLASSE ENERGETICA</div><div style={{ fontWeight: 700, color: '#0f172a' }}>{property.energyClass || '-'}</div></div>
+                  <div><div style={{ color: '#1e3a8a', fontSize: '0.78rem', fontWeight: 700 }}>SUPERFICIE</div><div style={{ fontWeight: 700, color: '#0f172a' }}>{(() => { const v = getPropertyNumberWithFallback(property, property.surface, 'mq'); return v != null ? `${v} m` : '-' })()}</div></div>
+                  <div><div style={{ color: '#1e3a8a', fontSize: '0.78rem', fontWeight: 700 }}>LOCALI</div><div style={{ fontWeight: 700, color: '#0f172a' }}>{(() => { const v = getPropertyNumberWithFallback(property, property.rooms, 'nr_locali'); return v != null ? `${Math.round(v)}` : '-' })()}</div></div>
+                  <div><div style={{ color: '#1e3a8a', fontSize: '0.78rem', fontWeight: 700 }}>CAMERE</div><div style={{ fontWeight: 700, color: '#0f172a' }}>{(() => { const v = getPropertyNumberWithFallback(property, property.bedrooms, 'nr_camere'); return v != null ? `${Math.round(v)}` : '-' })()}</div></div>
+                  <div><div style={{ color: '#1e3a8a', fontSize: '0.78rem', fontWeight: 700 }}>BAGNI</div><div style={{ fontWeight: 700, color: '#0f172a' }}>{(() => { const v = getPropertyNumberWithFallback(property, property.bathrooms, 'nr_servizi'); return v != null ? `${Math.round(v)}` : '-' })()}</div></div>
+                  <div><div style={{ color: '#1e3a8a', fontSize: '0.78rem', fontWeight: 700 }}>CLASSE ENERGETICA</div><div style={{ fontWeight: 700, color: '#0f172a' }}>{property.energyClass || String(getOneClickData(property)?.classe_energetica || '').trim() || '-'}</div></div>
                 </div>
               </div>
 
@@ -36693,6 +37242,182 @@ function PropertyDetailPage({
             />
           )}
 
+          {activeTab === 'full_data' && (
+            <div style={{ display: 'grid', gap: '1rem' }}>
+              {(() => {
+                const full = (property || {}) as any
+                const oneClick = (full?.oneClickData || {}) as Record<string, any>
+                const keyMeta: Record<string, { label: string; help?: string }> = {
+                  title: { label: 'Titolo', help: 'Nome commerciale dellimmobile.' },
+                  reference: { label: 'Riferimento', help: 'Codice univoco interno dellannuncio.' },
+                  description: { label: 'Descrizione', help: 'Testo descrittivo completo dellimmobile.' },
+                  type: { label: 'Tipologia immobile', help: 'Categoria dellimmobile (appartamento, villa, ufficio, ecc.).' },
+                  contractType: { label: 'Tipo contratto', help: 'Indica se limmobile  in vendita o in affitto.' },
+                  status: { label: 'Stato', help: 'Stato commerciale corrente (disponibile, venduto, riservato, ecc.).' },
+                  address: { label: 'Indirizzo', help: 'Via e numero civico dellimmobile.' },
+                  city: { label: 'Citt', help: 'Comune in cui si trova limmobile.' },
+                  province: { label: 'Provincia', help: 'Sigla della provincia del comune.' },
+                  zipCode: { label: 'CAP', help: 'Codice di avviamento postale.' },
+                  giComuneIstat: { label: 'Codice ISTAT comune', help: 'Codice ISTAT ufficiale del comune.' },
+                  latitude: { label: 'Latitudine', help: 'Coordinata geografica nord/sud della posizione.' },
+                  longitude: { label: 'Longitudine', help: 'Coordinata geografica est/ovest della posizione.' },
+                  salePrice: { label: 'Prezzo vendita', help: 'Prezzo richiesto per la vendita (in euro).' },
+                  rentPrice: { label: 'Canone affitto', help: 'Importo mensile richiesto per laffitto (in euro).' },
+                  expenses: { label: 'Spese', help: 'Spese accessorie/condominiali in euro.' },
+                  surface: { label: 'Superficie (mq)', help: 'Metri quadrati dellimmobile: indica la dimensione complessiva.' },
+                  rooms: { label: 'Locali', help: 'Numero totale dei locali principali.' },
+                  bedrooms: { label: 'Camere da letto', help: 'Numero delle camere da letto.' },
+                  bathrooms: { label: 'Bagni', help: 'Numero dei servizi igienici.' },
+                  floor: { label: 'Piano', help: 'Piano in cui si trova lunit immobiliare.' },
+                  totalFloors: { label: 'Piani edificio', help: 'Numero totale di piani del fabbricato.' },
+                  elevator: { label: 'Ascensore', help: 'Presenza o assenza dellascensore.' },
+                  furnished: { label: 'Arredato', help: 'Indica se limmobile  arredato.' },
+                  energyClass: { label: 'Classe energetica', help: 'Classe di efficienza energetica (A4, A3...G).' },
+                  ownerFirstName: { label: 'Nome proprietario' },
+                  ownerLastName: { label: 'Cognome proprietario' },
+                  ownerEmail: { label: 'Email proprietario' },
+                  ownerPhone: { label: 'Telefono proprietario' },
+                  ownerFiscalCode: { label: 'Codice fiscale proprietario' },
+                  images: { label: 'Immagini', help: 'Elenco immagini associate allimmobile.' },
+                  portalTargets: { label: 'Canali portali', help: 'Canali di pubblicazione associati allannuncio.' },
+                  notes: { label: 'Note interne', help: 'Note operative ad uso interno.' },
+                  isPublished: { label: 'Pubblicato', help: 'Indica se limmobile  pubblicato.' },
+                  createdAt: { label: 'Creato il' },
+                  updatedAt: { label: 'Aggiornato il' },
+                  prezzo: { label: 'Prezzo', help: 'Prezzo dellannuncio nel tracciato 1click.' },
+                  mq: { label: 'Metri quadrati (1click)', help: 'Superficie in mq usata per esportazione verso i portali.' },
+                  nr_locali: { label: 'Numero locali (1click)' },
+                  nr_camere: { label: 'Numero camere (1click)' },
+                  nr_servizi: { label: 'Numero bagni (1click)' },
+                  comune_istat: { label: 'Comune ISTAT (1click)' },
+                  descrizione: { label: 'Descrizione annuncio (1click)' },
+                  idtipologiaimmobile: { label: 'ID tipologia immobile (1click)' },
+                  idtipologiaannuncio: { label: 'ID tipologia annuncio (1click)' },
+                  data_inserimento: { label: 'Data inserimento (1click)' },
+                  data_aggiornamento: { label: 'Data aggiornamento (1click)' },
+                  selectedPortalCodes: { label: 'Portali selezionati', help: 'Codici portale su cui pubblicare lannuncio.' }
+                }
+                const fallbackLabel = (key: string) =>
+                  key
+                    .replace(/_/g, ' ')
+                    .replace(/([a-z])([A-Z])/g, '$1 $2')
+                    .replace(/\s+/g, ' ')
+                    .trim()
+                    .replace(/^./, (m) => m.toUpperCase())
+                const labelize = (key: string) => keyMeta[key]?.label || fallbackLabel(key)
+                const helpFor = (key: string) => keyMeta[key]?.help || ''
+                const formatValueByKey = (key: string, value: any) => {
+                  if (value === null || value === undefined || value === '') return '-'
+                  if (key === 'contractType') {
+                    const map: Record<string, string> = { SALE: 'Vendita', RENT: 'Affitto', BOTH: 'Vendita + Affitto' }
+                    return map[String(value).toUpperCase()] || String(value)
+                  }
+                  if (key === 'status') {
+                    const map: Record<string, string> = {
+                      AVAILABLE: 'Disponibile',
+                      RESERVED: 'Riservato',
+                      SOLD: 'Venduto',
+                      RENTED: 'Affittato',
+                      WITHDRAWN: 'Ritirato'
+                    }
+                    return map[String(value).toUpperCase()] || String(value)
+                  }
+                  if (typeof value === 'boolean') return value ? 'Si' : 'No'
+                  if (Array.isArray(value)) return value.length === 0 ? '[]' : JSON.stringify(value)
+                  if (typeof value === 'object') return JSON.stringify(value)
+                  return String(value)
+                }
+                const toDisplay = (value: any): string => {
+                  if (value === null || value === undefined || value === '') return '-'
+                  if (typeof value === 'boolean') return value ? 'Si' : 'No'
+                  if (Array.isArray(value)) return value.length === 0 ? '[]' : JSON.stringify(value)
+                  if (typeof value === 'object') return JSON.stringify(value)
+                  return String(value)
+                }
+                const coreKeys = [
+                  'title', 'reference', 'description', 'type', 'contractType', 'status',
+                  'address', 'city', 'province', 'zipCode', 'giComuneIstat', 'latitude', 'longitude',
+                  'salePrice', 'rentPrice', 'expenses', 'surface', 'rooms', 'bedrooms', 'bathrooms',
+                  'floor', 'totalFloors', 'elevator', 'furnished', 'energyClass',
+                  'ownerFirstName', 'ownerLastName', 'ownerEmail', 'ownerPhone', 'ownerFiscalCode',
+                  'buildingConstructionYear', 'buildingRenovationYear', 'buildingFloorsTotal',
+                  'buildingElevator', 'buildingConcierge', 'buildingGardenShared', 'buildingHeatingType', 'buildingCondition',
+                  'images', 'portalTargets', 'notes', 'isPublished', 'createdAt', 'updatedAt'
+                ]
+                const coreEntries = coreKeys
+                  .filter((k) => k in full)
+                  .map((k) => [k, full[k]] as const)
+                const oneClickEntries = Object.entries(oneClick).sort(([a], [b]) => a.localeCompare(b, 'it'))
+
+                const sectionStyle: React.CSSProperties = {
+                  border: '1px solid #d5deea',
+                  borderRadius: '0.85rem',
+                  background: '#eef5ff',
+                  padding: isCompactLayout ? '0.75rem' : '1rem'
+                }
+                const gridStyle: React.CSSProperties = {
+                  display: 'grid',
+                  gridTemplateColumns: isCompactLayout ? '1fr' : 'repeat(2, minmax(0, 1fr))',
+                  gap: '0.55rem 1rem'
+                }
+                const rowStyle: React.CSSProperties = {
+                  borderBottom: '1px dashed #d5deea',
+                  paddingBottom: '0.35rem'
+                }
+
+                return (
+                  <>
+                    <div style={sectionStyle}>
+                      <h3 style={{ margin: 0, marginBottom: '0.8rem', fontSize: '1.05rem', color: '#1e3a8a', fontWeight: 700 }}>
+                        Dati Core Immobile
+                      </h3>
+                      <div style={gridStyle}>
+                        {coreEntries.map(([k, v]) => (
+                          <div key={`core-${k}`} style={rowStyle}>
+                            <div style={{ color: '#1e3a8a', fontSize: '0.78rem', fontWeight: 700 }}>{labelize(k)}</div>
+                            {helpFor(k) ? <div style={{ color: '#64748b', fontSize: '0.72rem', marginBottom: '0.18rem' }}>{helpFor(k)}</div> : null}
+                            <div style={{ color: '#0f172a', fontWeight: 600, whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>{formatValueByKey(k, v)}</div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+
+                    <div style={sectionStyle}>
+                      <h3 style={{ margin: 0, marginBottom: '0.8rem', fontSize: '1.05rem', color: '#1e3a8a', fontWeight: 700 }}>
+                        Dati 1clickannunci (Tutte le voci)
+                      </h3>
+                      <div style={gridStyle}>
+                        {oneClickEntries.map(([k, v]) => (
+                          <div key={`oc-${k}`} style={rowStyle}>
+                            <div style={{ color: '#1e3a8a', fontSize: '0.78rem', fontWeight: 700 }}>{labelize(k)}</div>
+                            {helpFor(k) ? <div style={{ color: '#64748b', fontSize: '0.72rem', marginBottom: '0.18rem' }}>{helpFor(k)}</div> : null}
+                            <div style={{ color: '#0f172a', fontWeight: 600, whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>{formatValueByKey(k, v)}</div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+
+                    <div style={sectionStyle}>
+                      <h3 style={{ margin: 0, marginBottom: '0.8rem', fontSize: '1.05rem', color: '#1e3a8a', fontWeight: 700 }}>
+                        JSON Completo Salvataggio
+                      </h3>
+                      <pre style={{ margin: 0, background: '#0f172a', color: '#e2e8f0', borderRadius: 8, padding: '0.8rem', fontSize: '0.78rem', overflowX: 'auto' }}>
+                        {JSON.stringify(full, null, 2)}
+                      </pre>
+                    </div>
+                  </>
+                )
+              })()}
+            </div>
+          )}
+
+          {activeTab === 'cross_calls' && (
+            <PropertyCrossCallsTab
+              crossCalls={crossCalls}
+              onOpenRequest={(row) => setSelectedCrossCall(row)}
+            />
+          )}
+
           {activeTab === 'portals' && (
             <PropertyPortalsTab
               property={property}
@@ -36705,11 +37430,16 @@ function PropertyDetailPage({
           )}
 
           {activeTab === 'history' && (
-            <PropertyHistoryTab property={property} />
+            <PropertyHistoryTab
+              property={property}
+              linkedRequests={linkedRequests}
+              requestReports={requestReportHistory}
+              onOpenLinkedRequest={(request) => setSelectedLinkedRequest(request)}
+            />
           )}
         </div>
 
-        <aside style={{
+        {showRightSidebar && <aside style={{
           position: isCompactLayout ? 'static' : 'sticky',
           top: isCompactLayout ? undefined : '88px',
           display: 'grid',
@@ -36728,7 +37458,7 @@ function PropertyDetailPage({
                   <div style={{ color: '#1d4ed8', fontWeight: 700, fontSize: '0.82rem', letterSpacing: '0.03em' }}>AGENTE</div>
                   <button style={{ border: 'none', background: 'transparent', color: '#64748b', fontWeight: 700, cursor: 'pointer' }}>+</button>
                 </div>
-                <div style={{ marginTop: '0.3rem', color: '#0f172a', fontWeight: 600 }}>Responsabile: {property.agentName || 'Non assegnato'}</div>
+                <div style={{ marginTop: '0.3rem', color: '#0f172a', fontWeight: 600 }}>Responsabile: {responsibleAgentName}</div>
               </div>
               <div style={{ height: 1, background: '#d5deea' }} />
               <div>
@@ -36745,10 +37475,14 @@ function PropertyDetailPage({
                   <div style={{ color: '#1d4ed8', fontWeight: 700, fontSize: '0.82rem', letterSpacing: '0.03em' }}>RICHIESTE</div>
                   {isAdminUser ? (
                     <button
-                      onClick={() => setShowRequestComposer((prev) => !prev)}
-                      style={{ border: 'none', background: 'transparent', color: '#64748b', fontWeight: 700, cursor: 'pointer' }}
+                      onClick={() => {
+                        setShowRequestComposer((prev) => !prev)
+                        ensureAgentsForRequests()
+                      }}
+                      style={{ border: 'none', background: 'transparent', color: '#64748b', fontWeight: 700, cursor: 'pointer', display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}
+                      aria-label={showRequestComposer ? 'Chiudi compositore richieste' : 'Apri compositore richieste'}
                     >
-                      {showRequestComposer ? '' : '+'}
+                      {showRequestComposer ? <Minus size={14} /> : <Plus size={14} />}
                     </button>
                   ) : null}
                 </div>
@@ -36830,7 +37564,7 @@ function PropertyDetailPage({
                                 >
                                   <div style={{ color: '#0f172a', fontWeight: 700, fontSize: '0.8rem' }}>{label}</div>
                                   <div style={{ color: '#64748b', fontSize: '0.74rem' }}>
-                                    {contact.email || 'email non disponibile'}{contact.phone ? ` · ${contact.phone}` : ''}
+                                    {contact.email || 'email non disponibile'}{contact.phone ? `  ${contact.phone}` : ''}
                                   </div>
                                 </button>
                               )
@@ -36865,7 +37599,10 @@ function PropertyDetailPage({
                       style={{ width: '100%', border: '1px solid #cfd9ea', borderRadius: '0.5rem', padding: '0.45rem 0.55rem', fontSize: '0.82rem' }}
                     >
                       <option value="">Assegna ad agente</option>
-                      {availableAgents.map((agent) => (
+                      {effectiveAgentOptions.length === 0 ? (
+                        <option value="" disabled>Nessun agente disponibile</option>
+                      ) : null}
+                      {effectiveAgentOptions.map((agent) => (
                         <option key={agent.id} value={agent.id}>{agent.name}</option>
                       ))}
                     </select>
@@ -36904,22 +37641,65 @@ function PropertyDetailPage({
                   </div>
                 ) : null}
                 <div style={{ marginTop: '0.35rem', display: 'grid', gap: '0.35rem' }}>
-                  {linkedRequests.length > 0 ? (
-                    linkedRequests.slice(0, 3).map((request) => (
-                      <div key={request.id} style={{ border: '1px solid #d8e1ef', background: '#f8fbff', borderRadius: '0.5rem', padding: '0.42rem 0.5rem' }}>
+                  {sidebarLinkedRequests.length > 0 ? (
+                    sidebarLinkedRequests.map((request) => (
+                      <div
+                        key={request.id}
+                        role="button"
+                        onClick={() => setSelectedLinkedRequest(request)}
+                        style={{ border: '1px solid #d8e1ef', background: '#f8fbff', borderRadius: '0.5rem', padding: '0.42rem 0.5rem', cursor: 'pointer' }}
+                      >
                         <div style={{ color: '#0f172a', fontWeight: 700, fontSize: '0.8rem' }}>{request.contactName}</div>
                         <div style={{ color: '#334155', fontSize: '0.76rem' }}>
                           Agente: {request.agentName}
-                          {request.contactPhone ? ` · ${request.contactPhone}` : ''}
+                          {request.contactPhone ? `  ${request.contactPhone}` : ''}
                         </div>
                         {request.notePreset ? <div style={{ color: '#1d4ed8', fontSize: '0.74rem', fontWeight: 700 }}>{request.notePreset}</div> : null}
-                        {request.noteText ? <div style={{ color: '#334155', fontSize: '0.74rem' }}>{request.noteText}</div> : null}
                         <div style={{ color: '#64748b', fontSize: '0.7rem' }}>{new Date(request.createdAt).toLocaleString('it-IT')}</div>
+                        <button
+                          type="button"
+                          onClick={(event) => {
+                            event.stopPropagation()
+                            setSelectedLinkedRequest(request)
+                          }}
+                          style={{
+                            marginTop: '0.35rem',
+                            border: '1px solid #cddaf2',
+                            background: '#fff',
+                            color: '#1d4ed8',
+                            borderRadius: '0.4rem',
+                            padding: '0.22rem 0.45rem',
+                            fontSize: '0.72rem',
+                            fontWeight: 700,
+                            cursor: 'pointer'
+                          }}
+                        >
+                          Apri dettagli
+                        </button>
                       </div>
                     ))
                   ) : (
                     <div style={{ color: '#334155' }}>Nessuna richiesta collegata.</div>
                   )}
+                  {hiddenLinkedRequestsCount > 0 ? (
+                    <button
+                      type="button"
+                      onClick={() => setActiveTab('history')}
+                      style={{
+                        marginTop: '0.15rem',
+                        border: '1px solid #cddaf2',
+                        background: '#ffffff',
+                        color: '#1d4ed8',
+                        borderRadius: '0.45rem',
+                        padding: '0.35rem 0.55rem',
+                        fontSize: '0.75rem',
+                        fontWeight: 700,
+                        cursor: 'pointer'
+                      }}
+                    >
+                      Vedi di piu ({hiddenLinkedRequestsCount})
+                    </button>
+                  ) : null}
                 </div>
               </div>
               <div style={{ height: 1, background: '#d5deea' }} />
@@ -36964,15 +37744,15 @@ function PropertyDetailPage({
             <h3 style={{ margin: 0, marginBottom: '0.75rem', color: '#1e3a8a', fontSize: '1.08rem', fontWeight: 700 }}>Distribuzione</h3>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr auto', rowGap: '0.55rem', color: '#334155' }}>
               <span>Sito web</span>
-              <strong style={{ color: '#0f172a' }}>{property.status === 'PUBLISHED' ? 'S?' : 'No'}</strong>
+              <strong style={{ color: '#0f172a' }}>{property.status === 'PUBLISHED' ? 'S' : 'No'}</strong>
               <span>Portali</span>
-              <strong style={{ color: '#0f172a' }}>{hasPortals ? 'S?' : 'No'}</strong>
+              <strong style={{ color: '#0f172a' }}>{hasPortals ? 'S' : 'No'}</strong>
               <span>Anteprima pubblica</span>
               <strong style={{ color: '#0f172a' }}>{property.reference ? 'Disponibile' : 'No'}</strong>
             </div>
             <button
               onClick={() => {
-                const publicOrigin = window.location.origin.replace(/\/$/, '')
+                const publicOrigin = resolvePublicFrontendOrigin()
                 window.open(`${publicOrigin}/public/property/${propertyId}`, '_blank', 'noopener,noreferrer')
               }}
               style={{
@@ -36990,7 +37770,7 @@ function PropertyDetailPage({
               Apri anteprima pubblica
             </button>
           </div>
-        </aside>
+        </aside>}
       </div>
     </div>
     {showQuickClientModal ? (
@@ -37004,6 +37784,18 @@ function PropertyDetailPage({
         onUploadDocument={async () => null}
         onDeleteDocument={async () => false}
         canManageAssignments={false}
+      />
+    ) : null}
+    {selectedLinkedRequest ? (
+      <LinkedRequestDetailModal
+        request={selectedLinkedRequest}
+        onClose={() => setSelectedLinkedRequest(null)}
+      />
+    ) : null}
+    {selectedCrossCall ? (
+      <CrossClientProfileModal
+        row={selectedCrossCall}
+        onClose={() => setSelectedCrossCall(null)}
       />
     ) : null}
     </>
@@ -37085,7 +37877,7 @@ function PropertyOverviewTab({
 
               <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: '500' }}>
 
-                Prezzo Vendita (€)
+                Prezzo Vendita (ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬)
 
               </label>
 
@@ -37123,7 +37915,7 @@ function PropertyOverviewTab({
 
               <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: '500' }}>
 
-                Prezzo Affitto (€/mese)
+                Prezzo Affitto (ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬/mese)
 
               </label>
 
@@ -37163,9 +37955,9 @@ function PropertyOverviewTab({
 
           <div style={{ fontSize: '2rem', fontWeight: 'bold', color: '#059669' }}>
 
-            {property.salePrice && `€${property.salePrice.toLocaleString()}`}
+            {property.salePrice && `ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬${property.salePrice.toLocaleString()}`}
 
-            {property.rentPrice && `€${property.rentPrice.toLocaleString()}/mese`}
+            {property.rentPrice && `ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬${property.rentPrice.toLocaleString()}/mese`}
 
           </div>
 
@@ -37189,7 +37981,7 @@ function PropertyOverviewTab({
 
       }}>
 
-        <h3 style={{ fontSize: '1.25rem', fontWeight: '600', marginBottom: '1rem' }}>
+        <h3 style={{ display: 'none', fontSize: '1.25rem', fontWeight: '600', marginBottom: '1rem' }}>
 
           Informazioni principali
 
@@ -37821,7 +38613,7 @@ function PropertyImagesTab({
 
           <p style={{ color: '#6b7280', fontSize: '0.875rem' }}>
 
-            {uploadingImages ? 'Caricamento in corso...' : 'Seleziona una o piÒ¹ immagini (JPG, PNG, max 5MB ciascuna)'}
+            {uploadingImages ? 'Caricamento in corso...' : 'Seleziona una o piÃ’Â¹ immagini (JPG, PNG, max 5MB ciascuna)'}
 
           </p>
 
@@ -38185,7 +38977,7 @@ function PropertyDetailsTab({
 
                 <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: '500' }}>
 
-                  Città
+                  CittÃ 
 
                 </label>
 
@@ -38747,7 +39539,7 @@ function PublicCheckoutPage() {
 
           setCheckoutMessage(
 
-            nextMessage || 'La tua istanza Ò¨ pronta. Reindirizzamento in corso...'
+            nextMessage || 'La tua istanza Ã’Â¨ pronta. Reindirizzamento in corso...'
 
           )
 
@@ -38767,7 +39559,7 @@ function PublicCheckoutPage() {
 
           setCheckoutMessage(
 
-            nextMessage || 'Si Ò¨ verificato un errore durante il provisioning della tua istanza.'
+            nextMessage || 'Si Ã’Â¨ verificato un errore durante il provisioning della tua istanza.'
 
           )
 
@@ -38789,7 +39581,7 @@ function PublicCheckoutPage() {
 
               nextMessage ||
 
-                'Stiamo configurando la tua istanza. Questa operazione puÒ² richiedere alcuni minuti.'
+                'Stiamo configurando la tua istanza. Questa operazione puÃ’Â² richiedere alcuni minuti.'
 
             )
 
@@ -38799,7 +39591,7 @@ function PublicCheckoutPage() {
 
               nextMessage ||
 
-                'Stiamo preparando la tua agenzia. Questa operazione puÒ² richiedere alcuni minuti.'
+                'Stiamo preparando la tua agenzia. Questa operazione puÃ’Â² richiedere alcuni minuti.'
 
             )
 
@@ -38843,7 +39635,7 @@ function PublicCheckoutPage() {
 
         setCheckoutMessage(
 
-          'Il provisioning sta impiegando piÒ¹ tempo del previsto. Contatta il supporto per verificare lo stato della tua istanza.'
+          'Il provisioning sta impiegando piÃ’Â¹ tempo del previsto. Contatta il supporto per verificare lo stato della tua istanza.'
 
         )
 
@@ -38879,7 +39671,7 @@ function PublicCheckoutPage() {
 
       name: 'Base',
 
-      price: 'âa¬39/mese',
+      price: 'a39/mese',
 
       description: 'Per piccole agenzie che iniziano a digitalizzare il flusso',
 
@@ -38893,7 +39685,7 @@ function PublicCheckoutPage() {
 
       name: 'Pro',
 
-      price: 'âa¬69/mese',
+      price: 'a69/mese',
 
       description: 'Per agenzie strutturate che vogliono crescere',
 
@@ -39019,9 +39811,9 @@ function PublicCheckoutPage() {
 
       (effectiveStatus === 'PROVISIONING'
 
-        ? 'Stiamo configurando la tua istanza. Questa operazione puÒ² richiedere alcuni minuti.'
+        ? 'Stiamo configurando la tua istanza. Questa operazione puÃ’Â² richiedere alcuni minuti.'
 
-        : 'Stiamo preparando il tuo gestionale. Questa operazione puÒ² richiedere alcuni minuti.')
+        : 'Stiamo preparando il tuo gestionale. Questa operazione puÃ’Â² richiedere alcuni minuti.')
 
     const secondaryMessage =
 
@@ -39029,7 +39821,7 @@ function PublicCheckoutPage() {
 
         ? "Se il problema persiste, contatta il supporto indicando l'email utilizzata in fase di acquisto."
 
-        : 'Puoi tenere aperta questa pagina: verrai reindirizzato automaticamente non appena tutto sarÒ  pronto.'
+        : 'Puoi tenere aperta questa pagina: verrai reindirizzato automaticamente non appena tutto sarÃ’Â  pronto.'
 
     const badgeLabel =
 
@@ -39065,7 +39857,7 @@ function PublicCheckoutPage() {
 
     const iconBackground = effectiveStatus === 'ERROR' ? '#fee2e2' : '#dcfce7'
 
-    const iconSymbol = effectiveStatus === 'ERROR' ? '!' : 'âS'
+    const iconSymbol = effectiveStatus === 'ERROR' ? '!' : 'S'
 
 
 
@@ -39323,7 +40115,7 @@ function PublicCheckoutPage() {
 
             <p style={{ fontSize: '0.95rem', color: '#4b5563', marginBottom: '1.5rem' }}>
 
-              Scegli il piano più adatto alle tue esigenze, inserisci i dati principali della tua agenzia e vieni reindirizzato al checkout sicuro Stripe.
+              Scegli il piano piÃƒÆ’Ã‚Â¹ adatto alle tue esigenze, inserisci i dati principali della tua agenzia e vieni reindirizzato al checkout sicuro Stripe.
 
             </p>
 
@@ -39381,7 +40173,7 @@ function PublicCheckoutPage() {
 
                         <li key={feature} style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', marginBottom: '0.25rem' }}>
 
-                          <span style={{ fontSize: '0.9rem', color: '#16a34a' }}>•</span>
+                          <span style={{ fontSize: '0.9rem', color: '#16a34a' }}>ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¢</span>
 
                           <span>{feature}</span>
 
@@ -39609,13 +40401,9 @@ function PublicPropertyPage({
 
   propertyId,
 
-  onBack
-
 }: {
 
   propertyId: string
-
-  onBack?: () => void
 
 }) {
 
@@ -39639,7 +40427,7 @@ function PublicPropertyPage({
 
       try {
 
-        // Se l'utente è autenticato, prova prima l'endpoint protetto
+        // Se l'utente ÃƒÆ’Ã‚Â¨ autenticato, prova prima l'endpoint protetto
 
         if (token) {
 
@@ -39841,36 +40629,6 @@ function PublicPropertyPage({
 
               </button>
 
-              {onBack && (
-
-                <button
-
-                  onClick={onBack}
-
-                  style={{
-
-                    padding: '0.5rem 1rem',
-
-                    backgroundColor: '#f3f4f6',
-
-                    border: '1px solid #d1d5db',
-
-                    borderRadius: '0.375rem',
-
-                    cursor: 'pointer',
-
-                    fontSize: '0.875rem'
-
-                  }}
-
-                >
-
-                  <ArrowLeft size={16} /> Torna al CRM
-
-                </button>
-
-              )}
-
             </div>
 
           </div>
@@ -39939,9 +40697,7 @@ function PublicPropertyPage({
 
               }}>
 
-                {property.salePrice && `€${property.salePrice.toLocaleString()}`}
-
-                {property.rentPrice && `€${property.rentPrice.toLocaleString()}/mese`}
+                {formatPriceCompact(getPropertyDisplayPrice(property), property.contractType)}
 
               </div>
 
@@ -40258,393 +41014,110 @@ function PublicPropertyPage({
 // Dettagli tecnici completi (stile Cosmocasa)
 
 function PublicPropertyDetails({ property }: { property: Property }) {
+  const detailRows: Array<{ label: string; value: string }> = [];
+  const pushDetail = (label: string, value: unknown, transform?: (input: unknown) => string) => {
+    if (value == null) return;
+    if (typeof value === 'string' && !value.trim()) return;
+    if (typeof value === 'number' && !Number.isFinite(value)) return;
+    const rendered = transform ? transform(value) : String(value);
+    if (!rendered.trim()) return;
+    detailRows.push({ label, value: rendered });
+  };
+  const pushPositiveNumber = (label: string, value: unknown, suffix = '') => {
+    if (value == null) return;
+    const numeric = typeof value === 'number' ? value : Number(value);
+    if (!Number.isFinite(numeric) || numeric <= 0) return;
+    const display = Number.isInteger(numeric) ? String(Math.trunc(numeric)) : String(numeric);
+    detailRows.push({ label, value: suffix ? `${display} ${suffix}`.trim() : display });
+  };
+  const pushBooleanIfTrue = (label: string, value: unknown) => {
+    if (value === true) {
+      detailRows.push({ label, value: 'S' });
+    }
+  };
+
+  pushDetail('Rif.', property.reference);
+  pushDetail(
+    'Tipologia',
+    property.type,
+    (value) =>
+      value === 'APARTMENT'
+        ? 'Appartamento'
+        : value === 'VILLA'
+        ? 'Villa'
+        : value === 'HOUSE'
+        ? 'Casa'
+        : value === 'OFFICE'
+        ? 'Ufficio'
+        : value === 'SHOP'
+        ? 'Negozio'
+        : value === 'WAREHOUSE'
+        ? 'Magazzino'
+        : value === 'LAND'
+        ? 'Terreno'
+        : value === 'GARAGE'
+        ? 'Garage'
+        : String(value)
+  );
+  pushDetail('Contratto', property.contractType, (value) => (String(value).toUpperCase() === 'RENT' ? 'In Affitto' : 'In Vendita'));
+  if (property.city || property.province) {
+    pushDetail('Localit', `${property.city || ''}${property.province ? ` (${property.province})` : ''}`);
+  }
+  pushDetail('Classe Energetica', property.energyClass);
+  pushPositiveNumber('Locali', property.rooms);
+  pushPositiveNumber('Camere', property.bedrooms);
+  pushPositiveNumber('Bagni', property.bathrooms);
+  pushPositiveNumber('Superficie', property.surface, 'm');
+  pushPositiveNumber('Piano', property.floor);
+  pushPositiveNumber('Totale Piani', property.totalFloors);
+  pushBooleanIfTrue('Ascensore', property.elevator);
+  pushPositiveNumber('Posti Auto', property.parkingSpaces);
+  pushPositiveNumber('Terrazzo', property.terrace, 'm');
+  pushPositiveNumber('Balcone', property.balcony, 'm');
+  pushPositiveNumber('Giardino', property.garden, 'm');
+  pushDetail('Riscaldamento', property.heating);
+  pushBooleanIfTrue('Aria Condizionata', property.airConditioning);
+  pushBooleanIfTrue('Allarme', property.alarm);
+  pushBooleanIfTrue('Animali Ammessi', property.petsAllowed);
+  pushDetail('Condizioni', property.condition);
+  pushPositiveNumber('Anno Costruzione', property.yearBuilt);
+  pushPositiveNumber('Anno Ristrutturazione', property.yearRenovated);
 
   return (
+    <div
+      style={{
+        backgroundColor: 'white',
+        padding: '1.5rem',
+        borderRadius: '0.5rem',
+        boxShadow: '0 1px 3px rgba(0,0,0,0.1)'
+      }}
+    >
+      <h3 style={{ fontSize: '1.25rem', fontWeight: 600, marginBottom: '1rem' }}>Dati Principali</h3>
 
-    <div style={{
-
-      backgroundColor: 'white',
-
-      padding: '1.5rem',
-
-      borderRadius: '0.5rem',
-
-      boxShadow: '0 1px 3px rgba(0,0,0,0.1)'
-
-    }}>
-
-      <h3 style={{ fontSize: '1.25rem', fontWeight: '600', marginBottom: '1.5rem' }}>
-
-        Dati Principali
-
-      </h3>
-
-
-
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '2rem' }}>
-
-        {/* Colonna sinistra */}
-
-        <div>
-
-          <div style={{ marginBottom: '1rem' }}>
-
-            <strong>Rif.</strong><br />
-
-            <span>{property.reference}</span>
-
-          </div>
-
-          <div style={{ marginBottom: '1rem' }}>
-
-            <strong>Tipologia</strong><br />
-
-            <span>{property.type === 'APARTMENT' ? 'Appartamento' : property.type === 'VILLA' ? 'Villa' : property.type === 'HOUSE' ? 'Casa' : 'Commerciale'}</span>
-
-          </div>
-
-          <div style={{ marginBottom: '1rem' }}>
-
-            <strong>Contratto</strong><br />
-
-            <span>{property.contractType === 'SALE' ? 'In Vendita' : 'In Affitto'}</span>
-
-          </div>
-
-          <div style={{ marginBottom: '1rem' }}>
-
-            <strong>Località</strong><br />
-
-            <span>{property.city} ({property.province})</span>
-
-          </div>
-
-          <div style={{ marginBottom: '1rem' }}>
-
-            <strong>Classe Energetica</strong><br />
-
-            <span>{property.energyClass}</span>
-
-          </div>
-
-          <div style={{ marginBottom: '1rem' }}>
-
-            <strong>Vani</strong><br />
-
-            <span>{property.rooms}</span>
-
-          </div>
-
-          <div style={{ marginBottom: '1rem' }}>
-
-            <strong>Metri Quadri Commerciali</strong><br />
-
-            <span>{property.surface}</span>
-
-          </div>
-
-          {property.condition && (
-
-            <div style={{ marginBottom: '1rem' }}>
-
-              <strong>Condizioni</strong><br />
-
-              <span>{property.condition}</span>
-
+      {detailRows.length === 0 ? (
+        <div style={{ color: '#6b7280' }}>Nessun dettaglio disponibile.</div>
+      ) : (
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(210px, 1fr))', gap: '0.95rem 1.25rem' }}>
+          {detailRows.map((item) => (
+            <div key={item.label}>
+              <strong style={{ display: 'block', marginBottom: '0.2rem' }}>{item.label}</strong>
+              <span>{item.value}</span>
             </div>
-
-          )}
-
+          ))}
         </div>
+      )}
 
-
-
-        {/* Colonna destra */}
-
+      <div style={{ marginTop: '1.4rem', borderTop: '1px solid #e5e7eb', paddingTop: '1rem' }}>
+        <h4 style={{ fontSize: '1.05rem', fontWeight: 600, margin: '0 0 0.55rem 0' }}>Dettagli Economici</h4>
         <div>
-
-          <div style={{ marginBottom: '1rem' }}>
-
-            <strong>Piano</strong><br />
-
-            <span>{property.floor || 'N/A'}</span>
-
-          </div>
-
-          <div style={{ marginBottom: '1rem' }}>
-
-            <strong>Numero di Livelli</strong><br />
-
-            <span>{property.totalFloors || 'N/A'}</span>
-
-          </div>
-
-          <div style={{ marginBottom: '1rem' }}>
-
-            <strong>Posizione</strong><br />
-
-            <span>{property.view || 'N/A'}</span>
-
-          </div>
-
-          <div style={{ marginBottom: '1rem' }}>
-
-            <strong>Vista</strong><br />
-
-            <span>{property.orientation || 'N/A'}</span>
-
-          </div>
-
-          <div style={{ marginBottom: '1rem' }}>
-
-            <strong>Ascensore</strong><br />
-
-            <span>{property.elevator ? '?' : '?'}</span>
-
-          </div>
-
-          <div style={{ marginBottom: '1rem' }}>
-
-            <strong>Parcheggio (Posti auto)</strong><br />
-
-            <span>{property.parkingSpaces ? `n. ${property.parkingSpaces}` : 'N/A'}</span>
-
-          </div>
-
-          <div style={{ marginBottom: '1rem' }}>
-
-            <strong>Tende da sole</strong><br />
-
-            <span>{property.terrace ? '?' : 'N/A'}</span>
-
-          </div>
-
-          <div style={{ marginBottom: '1rem' }}>
-
-            <strong>Terrazzo/i</strong><br />
-
-            <span>{property.terrace ? `n. 1 mq ${property.terrace}` : 'N/A'}</span>
-
-          </div>
-
-          <div style={{ marginBottom: '1rem' }}>
-
-            <strong>Vicinanza spiaggia</strong><br />
-
-            <span>?</span>
-
-          </div>
-
-        </div>
-
-      </div>
-
-
-
-      {/* Sezione Dettagli Economici */}
-
-      <div style={{ marginTop: '2rem', borderTop: '1px solid #e5e7eb', paddingTop: '1.5rem' }}>
-
-        <h4 style={{ fontSize: '1.125rem', fontWeight: '600', marginBottom: '1rem' }}>
-
-          Dettagli Economici
-
-        </h4>
-
-        <div style={{ marginBottom: '1rem' }}>
-
-          <strong>Prezzo</strong><br />
-
-          <span style={{ fontSize: '1.25rem', color: '#059669', fontWeight: 'bold' }}>
-
-            {property.salePrice && `€ ${property.salePrice.toLocaleString()}`}
-
-            {property.rentPrice && `€ ${property.rentPrice.toLocaleString()}`}
-
+          <strong style={{ display: 'block', marginBottom: '0.25rem' }}>Prezzo</strong>
+          <span style={{ fontSize: '1.2rem', color: '#059669', fontWeight: 'bold' }}>
+            {formatPriceCompact(getPropertyDisplayPrice(property), property.contractType)}
           </span>
-
         </div>
-
       </div>
-
-
-
-      {/* Caratteristiche interne ed esterne */}
-
-      <div style={{ marginTop: '2rem', borderTop: '1px solid #e5e7eb', paddingTop: '1.5rem' }}>
-
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '2rem' }}>
-
-          <div>
-
-            <h4 style={{ fontSize: '1.125rem', fontWeight: '600', marginBottom: '1rem' }}>
-
-              Caratteristiche interne
-
-            </h4>
-
-            <div style={{ marginBottom: '0.5rem' }}>
-
-              <strong>Bagni:</strong> n. {property.bathrooms}
-
-            </div>
-
-            <div style={{ marginBottom: '0.5rem' }}>
-
-              <strong>Camere:</strong> n. {property.bedrooms}
-
-            </div>
-
-            <div style={{ marginBottom: '0.5rem' }}>
-
-              <strong>Cucina:</strong> n. 1 {property.furnished ? 'Arredata' : 'Abitabile'}
-
-            </div>
-
-            <div style={{ marginBottom: '0.5rem' }}>
-
-              <strong>Disimpegno:</strong> n. 1
-
-            </div>
-
-            <div style={{ marginBottom: '0.5rem' }}>
-
-              <strong>Doppi vetri:</strong> {property.furnished ? '?' : '?'}
-
-            </div>
-
-            <div style={{ marginBottom: '0.5rem' }}>
-
-              <strong>Ingresso:</strong> n. 1
-
-            </div>
-
-            <div style={{ marginBottom: '0.5rem' }}>
-
-              <strong>Studio:</strong> {property.rooms > 3 ? '?' : '?'}
-
-            </div>
-
-            <div style={{ marginBottom: '0.5rem' }}>
-
-              <strong>Zona giorno:</strong> n. 1 Salone
-
-            </div>
-
-          </div>
-
-
-
-          <div>
-
-            <h4 style={{ fontSize: '1.125rem', fontWeight: '600', marginBottom: '1rem' }}>
-
-              Caratteristiche esterne
-
-            </h4>
-
-            <div style={{ marginBottom: '0.5rem' }}>
-
-              <strong>Ascensore:</strong> {property.elevator ? '?' : '?'}
-
-            </div>
-
-            <div style={{ marginBottom: '0.5rem' }}>
-
-              <strong>Parcheggio (Posti auto):</strong> {property.parkingSpaces ? `n. ${property.parkingSpaces}` : 'N/A'}
-
-            </div>
-
-            <div style={{ marginBottom: '0.5rem' }}>
-
-              <strong>Tende da sole:</strong> ?
-
-            </div>
-
-            <div style={{ marginBottom: '0.5rem' }}>
-
-              <strong>Terrazzo/i:</strong> {property.terrace ? `n. 1 mq ${property.terrace}` : 'N/A'}
-
-            </div>
-
-            <div style={{ marginBottom: '0.5rem' }}>
-
-              <strong>Vicinanza spiaggia:</strong> ?
-
-            </div>
-
-          </div>
-
-        </div>
-
-      </div>
-
-
-
-      {/* Caratteristiche impianti */}
-
-      <div style={{ marginTop: '2rem', borderTop: '1px solid #e5e7eb', paddingTop: '1.5rem' }}>
-
-        <h4 style={{ fontSize: '1.125rem', fontWeight: '600', marginBottom: '1rem' }}>
-
-          Caratteristiche impianti
-
-        </h4>
-
-        <div style={{ marginBottom: '0.5rem' }}>
-
-          <strong>Citofono:</strong> {property.alarm ? '?' : '?'}
-
-        </div>
-
-        <div style={{ marginBottom: '0.5rem' }}>
-
-          <strong>Impianto di domotica:</strong> {property.internetFiber ? '?' : '?'}
-
-        </div>
-
-        <div style={{ marginBottom: '0.5rem' }}>
-
-          <strong>Impianto di riscaldamento:</strong> {property.heating || 'Radiatori'}
-
-        </div>
-
-        <div style={{ marginBottom: '0.5rem' }}>
-
-          <strong>Impianto elettrico:</strong> A norma
-
-        </div>
-
-        <div style={{ marginBottom: '0.5rem' }}>
-
-          <strong>Impianto fognario:</strong> Allacciato
-
-        </div>
-
-        <div style={{ marginBottom: '0.5rem' }}>
-
-          <strong>Impianto geotermico:</strong> {property.heating === 'geotermico' ? '?' : '?'}
-
-        </div>
-
-        <div style={{ marginBottom: '0.5rem' }}>
-
-          <strong>Porta blindata:</strong> {property.alarm ? '?' : '?'}
-
-        </div>
-
-        <div style={{ marginBottom: '0.5rem' }}>
-
-          <strong>Riscaldamento:</strong> {property.heating === 'centralizzato' ? 'Centralizzato' : 'Autonomo'}
-
-        </div>
-
-      </div>
-
     </div>
-
-  )
-
+  );
 }
 
 
@@ -40700,12 +41173,9 @@ function PublicPropertySidebar({
         headers: { 'Content-Type': 'application/json' },
 
         body: JSON.stringify({
-
-          
-      propertyId: property.id,
-
+          ...formData,
+          propertyId: property.id,
           propertyTitle: property.title
-
         })
 
       })
@@ -40778,9 +41248,7 @@ function PublicPropertySidebar({
 
         }}>
 
-          {property.salePrice && `€ ${property.salePrice.toLocaleString()}`}
-
-          {property.rentPrice && `€ ${property.rentPrice.toLocaleString()}`}
+          {formatPriceCompact(getPropertyDisplayPrice(property), property.contractType)}
 
         </div>
 
@@ -40843,64 +41311,6 @@ function PublicPropertySidebar({
       {/* Form prenotazione visita rapida */}
 
       <VisitBookingForm property={property} />
-
-
-
-      {/* Informazioni agenzia */}
-
-      <div style={{
-
-        backgroundColor: 'white',
-
-        padding: '1.5rem',
-
-        borderRadius: '0.5rem',
-
-        marginBottom: '1rem',
-
-        boxShadow: '0 1px 3px rgba(0,0,0,0.1)'
-
-      }}>
-
-        <h4 style={{ fontSize: '1.125rem', fontWeight: '600', marginBottom: '1rem', color: '#2563eb' }}>
-
-          CRM Immobiliare
-
-        </h4>
-
-        <div style={{ marginBottom: '0.5rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-
-          <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.25rem' }}><MapPin size={16} /></span>
-
-          <span style={{ fontSize: '0.875rem' }}>Via Roma 123, Milano</span>
-
-        </div>
-
-        <div style={{ marginBottom: '0.5rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-
-          <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.25rem' }}><Phone size={16} /></span>
-
-          <span style={{ fontSize: '0.875rem' }}>02 1234567</span>
-
-        </div>
-
-        <div style={{ marginBottom: '0.5rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-
-          <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.25rem' }}><Phone size={16} /></span>
-
-          <span style={{ fontSize: '0.875rem' }}>342 1234567</span>
-
-        </div>
-
-        <div style={{ marginBottom: '1rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-
-          <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.25rem' }}><Mail size={16} /></span>
-
-          <span style={{ fontSize: '0.875rem' }}>info@crmimmobiliare.it</span>
-
-        </div>
-
-      </div>
 
 
 
@@ -41180,7 +41590,8 @@ function VisitBookingForm({ property }: { property: Property }) {
 
 
 
-      if (response.ok) {
+      const payload = await response.json().catch(() => null)
+      if (response.ok && payload?.success !== false) {
 
         alert('Richiesta di visita inviata con successo! Ti contatteremo presto per confermare.')
 
@@ -41188,7 +41599,7 @@ function VisitBookingForm({ property }: { property: Property }) {
 
       } else {
 
-        alert('Errore nell\'invio della richiesta. Riprova.')
+        alert(payload?.message || 'Errore nell\'invio della richiesta. Riprova.')
 
       }
 
@@ -41274,13 +41685,13 @@ function VisitBookingForm({ property }: { property: Property }) {
 
       <form onSubmit={handleBookingSubmit}>
 
-        {/* Disponibilità */}
+        {/* Disponibilit */}
 
         <div style={{ marginBottom: '1rem' }}>
 
           <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: '500' }}>
 
-            Disponibilità
+            Disponibilit
 
           </label>
 
@@ -41380,7 +41791,7 @@ function VisitBookingForm({ property }: { property: Property }) {
 
         }}>
 
-          <strong>Questa non è una prenotazione:</strong> le tue disponibilità saranno inviate all'agenzia che si occuperҠ di ricontattarti.
+          <strong>Questa non  una prenotazione:</strong> le tue disponibilit saranno inviate all'agenzia che si occuper di ricontattarti.
 
         </p>
 
@@ -41684,7 +42095,7 @@ function PropertyPortalsTab({
 
 
 
-  const portalTargets = Array.isArray(property.portalTargets) ? property.portalTargets : []
+  const portalTargets = ['ONECLICKANNUNCI']
 
   const hasImage = Array.isArray(property.images) && property.images.some((u) => typeof u === 'string' && u.trim())
 
@@ -42006,7 +42417,7 @@ function PropertyPortalsTab({
 
           <h3 style={{ fontSize: '1.25rem', fontWeight: '600', margin: 0 }}>
 
-            Pubblicazione Portali
+            Integrazione 1clickannunci
 
           </h3>
 
@@ -42100,7 +42511,7 @@ function PropertyPortalsTab({
 
                 ) : (
 
-                  <span style={{ fontSize: '0.875rem', color: '#9ca3af' }}>—</span>
+                  <span style={{ fontSize: '0.875rem', color: '#9ca3af' }}>ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â</span>
 
                 )}
 
@@ -42220,7 +42631,7 @@ function PropertyPortalsTab({
 
             <div style={{ fontSize: '0.875rem', color: '#6b7280' }}>
 
-              Per i portali a feed il CRM invia gli immobili e controlla solo se sono inclusi nel feed e se mancano requisiti minimi; l'esito approvato/rifiutato dell'annuncio è sempre deciso dal portale e, senza API di ritorno, non è visibile nel gestionale.
+              Per i portali a feed il CRM invia gli immobili e controlla solo se sono inclusi nel feed e se mancano requisiti minimi; l'esito approvato/rifiutato dell'annuncio ÃƒÆ’Ã‚Â¨ sempre deciso dal portale e, senza API di ritorno, non ÃƒÆ’Ã‚Â¨ visibile nel gestionale.
 
             </div>
 
@@ -42228,9 +42639,9 @@ function PropertyPortalsTab({
 
               <div><strong>NON SELEZIONATO</strong>: l'immobile non viene inviato a quel portale.</div>
 
-              <div><strong>INCLUSO NEL FEED</strong>: l'immobile è presente nel file/feed inviato al portale.</div>
+              <div><strong>INCLUSO NEL FEED</strong>: l'immobile ÃƒÆ’Ã‚Â¨ presente nel file/feed inviato al portale.</div>
 
-              <div><strong>A RISCHIO RIFIUTO</strong>: l'immobile Ò¨ incluso nel feed ma manca almeno un requisito obbligatorio; il portale puÒ² rifiutarlo.</div>
+              <div><strong>A RISCHIO RIFIUTO</strong>: l'immobile Ã’Â¨ incluso nel feed ma manca almeno un requisito obbligatorio; il portale puÃ’Â² rifiutarlo.</div>
 
               <div><strong>PUBBLICATO</strong>: il portale ha confermato la pubblicazione tramite API di ritorno (quando disponibili).</div>
 
@@ -42264,184 +42675,521 @@ function PropertyPortalsTab({
 
 
 
-// Tab Cronologia
+function PropertyCrossCallsTab({
+  crossCalls,
+  onOpenRequest
+}: {
+  crossCalls: any[]
+  onOpenRequest: (row: any) => void
+}) {
+  return (
+    <div style={{ background: '#ffffff', border: '1px solid #d5deea', borderRadius: '0.85rem', padding: '1rem' }}>
+      <h3 style={{ margin: 0, marginBottom: '0.8rem', color: '#0f172a', fontSize: '1.08rem', fontWeight: 700 }}>
+        Incroci
+      </h3>
+      <p style={{ margin: 0, marginBottom: '0.9rem', color: '#475569', fontSize: '0.9rem' }}>
+        Clienti acquirenti/inquilini con richiesta attiva che fanno match con questo immobile.
+      </p>
 
-function PropertyHistoryTab({ property }: { property: Property }) {
+      {crossCalls.length === 0 ? (
+        <div style={{ padding: '1rem', border: '1px dashed #cbd5e1', borderRadius: '0.7rem', color: '#64748b' }}>
+          Nessun incrocio disponibile per questo immobile.
+        </div>
+      ) : (
+        <div style={{ display: 'grid', gap: '0.85rem' }}>
+          {crossCalls.map((row: any) => {
+            const fullName = `${row?.contact?.firstName || ''} ${row?.contact?.lastName || ''}`.trim() || row?.contact?.name || 'Cliente senza nome'
+            const reasons = Array.isArray(row?.reasons) ? row.reasons : []
+            const gaps = Array.isArray(row?.gaps) ? row.gaps : []
+            return (
+              <div key={row.matchId || row.id} style={{ border: '1px solid #d5deea', borderRadius: '0.75rem', background: '#f8fbff', padding: '0.75rem' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', gap: '0.75rem', flexWrap: 'wrap', marginBottom: '0.55rem' }}>
+                  <div>
+                    <div style={{ color: '#0f172a', fontWeight: 700 }}>{fullName}</div>
+                    <div style={{ color: '#334155', fontSize: '0.82rem' }}>
+                      {row?.contact?.phone || 'Telefono non disponibile'}
+                      {row?.contact?.email ? ` Â· ${row.contact.email}` : ''}
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => onOpenRequest(row)}
+                      style={{
+                        border: 'none',
+                        background: 'transparent',
+                        color: '#1d4ed8',
+                        fontSize: '0.8rem',
+                        fontWeight: 700,
+                        padding: 0,
+                        cursor: 'pointer',
+                        textDecoration: 'underline',
+                        textAlign: 'left'
+                      }}
+                    >
+                      {row?.request?.title || 'Richiesta cliente'}
+                    </button>
+                  </div>
+                  <div style={{ textAlign: 'right' }}>
+                    <div style={{ color: '#0f172a', fontWeight: 700 }}>Match: {Math.round(Number(row.score || 0))}%</div>
+                    <div style={{ color: '#64748b', fontSize: '0.78rem' }}>Livello: {row.label || row.status || 'n.d.'}</div>
+                  </div>
+                </div>
+
+                <div style={{ border: '1px solid #e2e8f0', borderRadius: '0.55rem', background: '#ffffff', padding: '0.55rem' }}>
+                  <div style={{ color: '#0f172a', fontWeight: 600, marginBottom: '0.3rem' }}>PerchÃ© Ã¨ compatibile</div>
+                  <ul style={{ margin: 0, paddingLeft: '1rem', color: '#334155', fontSize: '0.82rem' }}>
+                    {reasons.slice(0, 4).map((reason: string, idx: number) => (
+                      <li key={`reason-${idx}`}>{reason}</li>
+                    ))}
+                  </ul>
+                  {gaps.length > 0 ? (
+                    <>
+                      <div style={{ color: '#991b1b', fontWeight: 600, marginTop: '0.45rem', marginBottom: '0.2rem' }}>Gap</div>
+                      <ul style={{ margin: 0, paddingLeft: '1rem', color: '#b91c1c', fontSize: '0.8rem' }}>
+                        {gaps.slice(0, 3).map((gap: string, idx: number) => (
+                          <li key={`gap-${idx}`}>{gap}</li>
+                        ))}
+                      </ul>
+                    </>
+                  ) : null}
+                </div>
+              </div>
+            )
+          })}
+        </div>
+      )}
+    </div>
+  )
+}
+function CrossClientProfileModal({
+  row,
+  onClose
+}: {
+  row: any
+  onClose: () => void
+}) {
+  const request = row?.request || {}
+  const contact = row?.contact || {}
+  const budgetLabel =
+    request.minPrice != null || request.maxPrice != null
+      ? `${request.minPrice != null ? `EUR ${request.minPrice}` : 'min n/d'} - ${request.maxPrice != null ? `EUR ${request.maxPrice}` : 'max n/d'}`
+      : 'Non impostato'
+
+  const noteRichiesta =
+    request.noteText ||
+    request.description ||
+    request.notes ||
+    contact.notes ||
+    '-'
 
   return (
+    <div
+      style={{
+        position: 'fixed',
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
+        backgroundColor: 'rgba(15, 23, 42, 0.45)',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        zIndex: 1300,
+        padding: '1rem'
+      }}
+      onClick={onClose}
+    >
+      <div
+        style={{
+          width: '100%',
+          maxWidth: '920px',
+          maxHeight: 'calc(100vh - 24px)',
+          overflowY: 'auto',
+          background: '#ffffff',
+          border: '2px solid #000000',
+          borderRadius: '14px',
+          padding: '1rem'
+        }}
+        onClick={(event) => event.stopPropagation()}
+      >
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid #000000', paddingBottom: '0.5rem', marginBottom: '0.8rem' }}>
+          <h2 style={{ margin: 0, color: '#000000' }}>
+            Profilo cliente: {contact.name || `${contact.firstName || ''} ${contact.lastName || ''}`.trim() || 'N/D'}
+          </h2>
+          <button type="button" onClick={onClose} style={{ border: '1px solid #000000', background: '#ffffff', color: '#000000', borderRadius: '8px', padding: '0.35rem 0.6rem', cursor: 'pointer' }}>
+            Chiudi
+          </button>
+        </div>
 
+        <div style={{ display: 'grid', gap: '0.75rem' }}>
+          <div style={{ border: '1px solid #000000', borderRadius: '10px', padding: '0.75rem' }}>
+            <div style={{ fontWeight: 700, marginBottom: '0.45rem' }}>Contatti cliente</div>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0,1fr))', gap: '0.45rem 0.8rem' }}>
+              <div><strong>Email:</strong> {contact.email ? <a href={`mailto:${contact.email}`} style={{ color: '#000000', textDecoration: 'underline' }}>{contact.email}</a> : 'N/D'}</div>
+              <div><strong>Telefono:</strong> {contact.phone ? <a href={`tel:${contact.phone}`} style={{ color: '#000000', textDecoration: 'underline' }}>{contact.phone}</a> : 'N/D'}</div>
+              <div><strong>Citt:</strong> {contact.city || (Array.isArray(request.cities) && request.cities[0]) || 'N/D'}</div>
+              <div><strong>Provincia:</strong> {contact.province || (Array.isArray(request.provinces) && request.provinces[0]) || 'N/D'}</div>
+              <div><strong>Nazione:</strong> Italia</div>
+              <div><strong>Luogo di nascita:</strong> {contact.birthPlace || 'N/D'}</div>
+              <div><strong>Cliente attivo:</strong> {contact.isActive === false ? 'No' : 'Si'}</div>
+              <div><strong>Tipologia cliente:</strong> {contact.type || 'N/D'}</div>
+            </div>
+          </div>
+
+          <div style={{ border: '1px solid #000000', borderRadius: '10px', padding: '0.75rem' }}>
+            <div style={{ fontWeight: 700, marginBottom: '0.45rem' }}>Richiesta immobiliare</div>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0,1fr))', gap: '0.45rem 0.8rem' }}>
+              <div><strong>Tipologia appartamento richiesta:</strong> {request.apartmentSubtype || request.type || 'N/D'}</div>
+              <div><strong>Contratto:</strong> {request.contractType || 'N/D'}</div>
+              <div><strong>Camere richieste:</strong> {request.minRooms ?? request.maxRooms ?? 'N/D'}</div>
+              <div><strong>Bagni richiesti:</strong> {request.minBathrooms ?? request.maxBathrooms ?? 'N/D'}</div>
+              <div><strong>Piano richiesto:</strong> {request.minFloor ?? request.maxFloor ?? 'N/D'}</div>
+              <div><strong>Budget (EUR):</strong> {budgetLabel}</div>
+              <div style={{ gridColumn: '1 / -1' }}><strong>Preferenze/Richieste:</strong> {request.notePreset || '-'}</div>
+              <div style={{ gridColumn: '1 / -1' }}><strong>Note:</strong> {noteRichiesta}</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function LinkedRequestDetailModal({
+  request,
+  onClose
+}: {
+  request: {
+    id: string
+    contactName: string
+    contactPhone?: string
+    contactEmail?: string
+    agentName: string
+    notePreset?: string
+    noteText?: string
+    createdAt: string
+    createdByName?: string
+  }
+  onClose: () => void
+}) {
+  return (
+    <div
+      style={{
+        position: 'fixed',
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
+        backgroundColor: 'rgba(17, 24, 39, 0.45)',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        zIndex: 1200,
+        padding: '1rem'
+      }}
+      onClick={onClose}
+    >
+      <div
+        style={{
+          width: '100%',
+          maxWidth: '560px',
+          backgroundColor: '#ffffff',
+          backgroundImage: 'none',
+          color: '#000000',
+          border: '2px solid #000000',
+          borderRadius: '14px',
+          boxShadow: '0 20px 45px rgba(0, 0, 0, 0.2)',
+          padding: '1rem'
+        }}
+        onClick={(event) => event.stopPropagation()}
+      >
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem', borderBottom: '1px solid #000000', paddingBottom: '0.55rem' }}>
+          <h2 style={{ margin: 0, fontSize: '1.1rem', fontWeight: 700, color: '#000000' }}>Dettaglio richiesta</h2>
+          <button
+            type="button"
+            onClick={onClose}
+            style={{
+              border: '1px solid #000000',
+              background: '#ffffff',
+              color: '#000000',
+              borderRadius: '8px',
+              padding: '0.35rem 0.55rem',
+              cursor: 'pointer'
+            }}
+          >
+            Chiudi
+          </button>
+        </div>
+
+        <div style={{ display: 'grid', gap: '0.45rem', color: '#000000' }}>
+          <div style={{ borderBottom: '1px solid #000000', paddingBottom: '0.35rem' }}><strong>Cliente:</strong> {request.contactName}</div>
+          <div style={{ borderBottom: '1px solid #000000', paddingBottom: '0.35rem' }}><strong>Agente:</strong> {request.agentName}</div>
+          {request.contactPhone ? (
+            <div style={{ borderBottom: '1px solid #000000', paddingBottom: '0.35rem' }}>
+              <strong>Telefono:</strong>{' '}
+              <a
+                href={`tel:${request.contactPhone}`}
+                style={{ color: '#000000', textDecoration: 'underline', fontWeight: 600 }}
+              >
+                {request.contactPhone}
+              </a>
+            </div>
+          ) : null}
+          {request.contactEmail ? (
+            <div style={{ borderBottom: '1px solid #000000', paddingBottom: '0.35rem' }}>
+              <strong>Email:</strong>{' '}
+              <a
+                href={`mailto:${request.contactEmail}`}
+                style={{ color: '#000000', textDecoration: 'underline', fontWeight: 600 }}
+              >
+                {request.contactEmail}
+              </a>
+            </div>
+          ) : null}
+          {request.notePreset ? <div style={{ borderBottom: '1px solid #000000', paddingBottom: '0.35rem' }}><strong>Tipo richiesta:</strong> {request.notePreset}</div> : null}
+          {request.noteText ? <div style={{ borderBottom: '1px solid #000000', paddingBottom: '0.35rem' }}><strong>Nota admin:</strong> {request.noteText}</div> : null}
+          {request.createdByName ? <div style={{ borderBottom: '1px solid #000000', paddingBottom: '0.35rem' }}><strong>Creata da:</strong> {request.createdByName}</div> : null}
+          <div><strong>Data creazione:</strong> {new Date(request.createdAt).toLocaleString('it-IT')}</div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// Tab Cronologia
+
+function PropertyHistoryTab({
+  property,
+  linkedRequests,
+  requestReports,
+  onOpenLinkedRequest
+}: {
+  property: Property
+  linkedRequests: Array<{
+    id: string
+    contactName: string
+    contactPhone?: string
+    agentName: string
+    notePreset?: string
+    noteText?: string
+    createdAt: string
+    createdByName?: string
+  }>
+  requestReports: Array<{
+    id: string
+    title: string
+    report: string
+    completedAt: string
+    assignedToName?: string | null
+    requestTitle?: string | null
+    contactName?: string | null
+  }>
+  onOpenLinkedRequest: (request: {
+    id: string
+    contactName: string
+    contactPhone?: string
+    contactEmail?: string
+    agentName: string
+    notePreset?: string
+    noteText?: string
+    createdAt: string
+    createdByName?: string
+  }) => void
+}) {
+  const formatDateTime = (value: string | Date): string => {
+    return new Date(value).toLocaleString('it-IT', {
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
+    })
+  }
+
+  return (
     <div style={{
-
       backgroundColor: 'white',
-
       padding: '2rem',
-
       borderRadius: '0.5rem',
-
       boxShadow: '0 1px 3px rgba(0,0,0,0.1)'
-
     }}>
-
       <h3 style={{ fontSize: '1.25rem', fontWeight: '600', marginBottom: '1rem' }}>
-
-        Cronologia AttivitÒ 
-
+        Cronologia Attivita
       </h3>
 
-
-
       <div style={{ display: 'grid', gap: '1rem' }}>
-
         <div style={{
-
           display: 'flex',
-
           alignItems: 'center',
-
           gap: '1rem',
-
           padding: '1rem',
-
           backgroundColor: '#f8fafc',
-
           borderRadius: '0.375rem'
-
         }}>
-
           <div style={{
-
             width: '3rem',
-
             height: '3rem',
-
             backgroundColor: '#2563eb',
-
             borderRadius: '50%',
-
             display: 'flex',
-
             alignItems: 'center',
-
             justifyContent: 'center',
-
             color: 'white',
-
             fontWeight: 'bold'
-
           }}>
-
             <Home size={18} />
-
           </div>
-
           <div>
-
             <h4 style={{ fontWeight: '600', margin: 0 }}>Immobile creato</h4>
-
-            <p style={{ color: '#6b7280', fontSize: '0.875rem', margin: '0.25rem 0 0 0' }}>
-
-              {new Date(property.createdAt).toLocaleDateString('it-IT', {
-
-                day: 'numeric',
-
-                month: 'long',
-
-                year: 'numeric',
-
-                hour: '2-digit',
-
-                minute: '2-digit'
-
-              })}
-
+            <p style={{ color: '#334155', fontSize: '0.875rem', margin: '0.25rem 0 0 0' }}>
+              {property.reference ? `Riferimento: ${property.reference}` : 'Record immobile inserito'}
             </p>
-
+            <p style={{ color: '#6b7280', fontSize: '0.8rem', margin: '0.25rem 0 0 0' }}>
+              {formatDateTime(property.createdAt)}
+            </p>
           </div>
-
         </div>
 
-
-
         <div style={{
-
           display: 'flex',
-
           alignItems: 'center',
-
           gap: '1rem',
-
           padding: '1rem',
-
           backgroundColor: '#f8fafc',
-
           borderRadius: '0.375rem'
-
         }}>
-
           <div style={{
-
             width: '3rem',
-
             height: '3rem',
-
             backgroundColor: '#059669',
-
             borderRadius: '50%',
-
             display: 'flex',
-
             alignItems: 'center',
-
             justifyContent: 'center',
-
             color: 'white',
-
             fontWeight: 'bold'
-
           }}>
-
             <Tag size={18} />
-
           </div>
-
           <div>
-
             <h4 style={{ fontWeight: '600', margin: 0 }}>Prezzo impostato</h4>
-
-            <p style={{ color: '#6b7280', fontSize: '0.875rem', margin: '0.25rem 0 0 0' }}>
-
-              {property.salePrice && `âa¬${property.salePrice.toLocaleString()} (vendita)`}
-
-              {property.rentPrice && `âa¬${property.rentPrice.toLocaleString()}/mese (affitto)`}
-
+            <p style={{ color: '#334155', fontSize: '0.875rem', margin: '0.25rem 0 0 0' }}>
+              {[property.salePrice ? `EUR ${property.salePrice.toLocaleString()} (vendita)` : null, property.rentPrice ? `EUR ${property.rentPrice.toLocaleString()}/mese (affitto)` : null].filter(Boolean).join('  ') || 'Prezzo non disponibile'}
             </p>
-
           </div>
-
         </div>
 
+        {linkedRequests.map((request) => (
+          <div
+            key={`request-${request.id}`}
+            role="button"
+            onClick={() => onOpenLinkedRequest(request)}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '1rem',
+              padding: '1rem',
+              backgroundColor: '#f8fafc',
+              borderRadius: '0.375rem',
+              cursor: 'pointer'
+            }}
+          >
+            <div style={{
+              width: '3rem',
+              height: '3rem',
+              backgroundColor: '#1d4ed8',
+              borderRadius: '50%',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              color: 'white',
+              fontWeight: 'bold'
+            }}>
+              <Tag size={18} />
+            </div>
+            <div>
+              <h4 style={{ fontWeight: '600', margin: 0 }}>Richiesta assegnata</h4>
+              <p style={{ color: '#334155', fontSize: '0.875rem', margin: '0.25rem 0 0 0' }}>
+                {[`Cliente: ${request.contactName}`, `Agente: ${request.agentName}`, request.contactPhone ? `Telefono: ${request.contactPhone}` : null, request.notePreset ? `Nota: ${request.notePreset}` : null, request.noteText || null].filter(Boolean).join('  ')}
+              </p>
+              <p style={{ color: '#6b7280', fontSize: '0.8rem', margin: '0.25rem 0 0 0' }}>
+                {formatDateTime(request.createdAt)}
+              </p>
+              <button
+                type="button"
+                onClick={(event) => {
+                  event.stopPropagation()
+                  onOpenLinkedRequest(request)
+                }}
+                style={{
+                  marginTop: '0.35rem',
+                  border: '1px solid #cddaf2',
+                  background: '#fff',
+                  color: '#1d4ed8',
+                  borderRadius: '0.4rem',
+                  padding: '0.22rem 0.45rem',
+                  fontSize: '0.72rem',
+                  fontWeight: 700,
+                  cursor: 'pointer'
+                }}
+              >
+                Apri dettagli
+              </button>
+            </div>
+          </div>
+        ))}
 
+        {requestReports.map((row) => (
+          <div
+            key={`request-report-${row.id}`}
+            style={{
+              display: 'flex',
+              alignItems: 'flex-start',
+              gap: '1rem',
+              padding: '1rem',
+              backgroundColor: '#f8fafc',
+              borderRadius: '0.375rem'
+            }}
+          >
+            <div style={{
+              width: '3rem',
+              height: '3rem',
+              backgroundColor: '#0f766e',
+              borderRadius: '50%',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              color: 'white',
+              fontWeight: 'bold'
+            }}>
+              <FileText size={18} />
+            </div>
+            <div style={{ minWidth: 0 }}>
+              <h4 style={{ fontWeight: '600', margin: 0 }}>Report richiesta completato</h4>
+              <p style={{ color: '#334155', fontSize: '0.875rem', margin: '0.25rem 0 0 0' }}>
+                {[row.title, row.requestTitle ? `Richiesta: ${row.requestTitle}` : null, row.contactName ? `Cliente: ${row.contactName}` : null, row.assignedToName ? `Agente: ${row.assignedToName}` : null].filter(Boolean).join('  ')}
+              </p>
+              <p style={{ color: '#0f172a', fontSize: '0.84rem', margin: '0.35rem 0 0 0', whiteSpace: 'pre-wrap' }}>
+                {row.report}
+              </p>
+              <p style={{ color: '#6b7280', fontSize: '0.8rem', margin: '0.35rem 0 0 0' }}>
+                {formatDateTime(row.completedAt)}
+              </p>
+            </div>
+          </div>
+        ))}
 
-        <div style={{
-
-          textAlign: 'center',
-
-          padding: '2rem',
-
-          color: '#6b7280',
-
-          backgroundColor: '#f9fafb',
-
-          borderRadius: '0.375rem',
-
-          fontStyle: 'italic'
-
-        }}>
-
-          Altre attivitÒ  verranno mostrate qui quando disponibili
-
-        </div>
-
+        {linkedRequests.length === 0 && requestReports.length === 0 && (
+          <div style={{
+            textAlign: 'center',
+            padding: '1rem',
+            color: '#6b7280',
+            backgroundColor: '#f9fafb',
+            borderRadius: '0.375rem',
+            fontStyle: 'italic'
+          }}>
+            Nessuna richiesta collegata presente in cronologia
+          </div>
+        )}
       </div>
 
     </div>
@@ -42483,9 +43231,20 @@ function PropertyModal({
 
   const [availableAgents, setAvailableAgents] = useState<Agent[]>([])
 
-  const [portalRegistry, setPortalRegistry] = useState<PortalRegistryItem[]>([])
-
   const [provinceOptions, setProvinceOptions] = useState<ItalianProvince[]>([])
+  const [italianCities, setItalianCities] = useState<ItalianCity[]>([])
+  const [oneClickDictionaries, setOneClickDictionaries] = useState<{
+    propertyTypes: Array<{ id: number; label: string }>
+    announcementTypes: Array<{ id: number; label: string }>
+    portalCodes: Array<{ id: number; label: string }>
+    enums: Record<string, string[]>
+  }>({
+    propertyTypes: [],
+    announcementTypes: [],
+    portalCodes: [],
+    enums: {}
+  })
+  const [istatManualOverride, setIstatManualOverride] = useState(false)
 
   const { token } = useAuthStore()
   const isAdminUser = currentUserRole === 'SUPER_ADMIN' || currentUserRole === 'AGENCY_ADMIN'
@@ -42563,33 +43322,6 @@ function PropertyModal({
   }, [token])
 
 
-
-  useEffect(() => {
-
-    const fetchPortals = async () => {
-
-      try {
-
-        const response = await fetch('/api/portals')
-
-        const data = await response.json().catch(() => null)
-
-        if (!data?.success) return
-
-        const nextPortals = Array.isArray(data?.data?.portals) ? (data.data.portals as PortalRegistryItem[]) : []
-
-        setPortalRegistry(nextPortals)
-
-      } catch {}
-
-    }
-
-    fetchPortals()
-
-  }, [])
-
-
-
   useEffect(() => {
 
     loadItalianProvinces()
@@ -42604,6 +43336,33 @@ function PropertyModal({
 
   }, [])
 
+  useEffect(() => {
+    loadItalianCities()
+      .then(setItalianCities)
+      .catch(() => {
+        setItalianCities([])
+      })
+  }, [])
+
+  useEffect(() => {
+    const fetchOneClickDictionaries = async () => {
+      try {
+        const headers: HeadersInit = token ? { Authorization: `Bearer ${token}` } : {}
+        const response = await fetch('/api/oneclick/dictionaries', { headers })
+        const payload = await response.json().catch(() => null)
+        if (!response.ok || !payload?.success || !payload?.data) return
+        setOneClickDictionaries({
+          propertyTypes: Array.isArray(payload.data.propertyTypes) ? payload.data.propertyTypes : [],
+          announcementTypes: Array.isArray(payload.data.announcementTypes) ? payload.data.announcementTypes : [],
+          portalCodes: Array.isArray(payload.data.portalCodes) ? payload.data.portalCodes : [],
+          enums: payload.data.enums && typeof payload.data.enums === 'object' ? payload.data.enums : {}
+        })
+      } catch {
+      }
+    }
+    fetchOneClickDictionaries()
+  }, [token])
+
   const INTERNAL_PRICE_TAG = '[INCARICO_PRICE:'
   const extractInternalAgencyPrice = (notesValue?: string | null): string => {
     if (!notesValue) return ''
@@ -42616,6 +43375,27 @@ function PropertyModal({
       .replace(/\[INCARICO_PRICE:[0-9]+(?:\.[0-9]+)?\]/g, '')
       .replace(/\n{2,}/g, '\n')
       .trim()
+  }
+
+  const inferSelectedPortalCodesFromExclusions = (data: any): number[] => {
+    if (Array.isArray(data?.selectedPortalCodes) && data.selectedPortalCodes.length > 0) {
+      return data.selectedPortalCodes
+        .map((v: any) => Number(v))
+        .filter((v: number) => Number.isFinite(v) && v > 0)
+    }
+    const exclusions = Array.isArray(data?.esclusione_portali) ? data.esclusione_portali : []
+    const excludedWithCancelZero = new Set<number>(
+      exclusions
+        .filter((row: any) => Number(row?.cancel) === 0)
+        .map((row: any) => Number(row?.portalCode))
+        .filter((v: number) => Number.isFinite(v) && v > 0)
+    )
+    const allCodes = (Array.isArray(oneClickDictionaries.portalCodes) ? oneClickDictionaries.portalCodes : [])
+      .map((row) => Number(row.id))
+      .filter((v) => Number.isFinite(v) && v > 0)
+    if (!allCodes.length) return [20]
+    const selected = allCodes.filter((code) => !excludedWithCancelZero.has(code))
+    return selected.length ? selected : [20]
   }
 
 
@@ -42832,9 +43612,39 @@ function PropertyModal({
 
     // Portali
 
-    portalTargets: property?.portalTargets || [],
+    portalTargets: ['ONECLICKANNUNCI'],
 
     giComuneIstat: property?.giComuneIstat || '',
+
+    oneClickData: {
+      idtipologiaimmobile: property?.oneClickData?.idtipologiaimmobile || 5,
+      idtipologiaannuncio:
+        property?.oneClickData?.idtipologiaannuncio ||
+        (property?.contractType === 'RENT' ? 2 : 1),
+      comune_istat: property?.oneClickData?.comune_istat || property?.giComuneIstat || '',
+      riferimento: property?.oneClickData?.riferimento || property?.reference || '',
+      descrizione: property?.oneClickData?.descrizione || property?.description || '',
+      data_inserimento: property?.oneClickData?.data_inserimento || '',
+      data_aggiornamento: property?.oneClickData?.data_aggiornamento || '',
+      titolo_annuncio: property?.oneClickData?.titolo_annuncio || property?.title || '',
+      tipo_riscaldamento: property?.oneClickData?.tipo_riscaldamento || '',
+      asta: property?.oneClickData?.asta || 'N',
+      categoria_annuncio:
+        property?.oneClickData?.categoria_annuncio || 'residenziale',
+      nr_balconi: property?.oneClickData?.nr_balconi || undefined,
+      nr_terrazzi: property?.oneClickData?.nr_terrazzi || undefined,
+      id_localita_immobiliareit:
+        property?.oneClickData?.id_localita_immobiliareit || '',
+      id_zona_immobiliareit: property?.oneClickData?.id_zona_immobiliareit || '',
+      esclusione_portali: Array.isArray(property?.oneClickData?.esclusione_portali)
+        ? property?.oneClickData?.esclusione_portali
+        : [],
+      selectedPortalCodes: inferSelectedPortalCodesFromExclusions(property?.oneClickData),
+      portalSelectionBaselineDone: Boolean(property?.oneClickData?.portalSelectionBaselineDone),
+      videos: Array.isArray(property?.oneClickData?.videos)
+        ? property?.oneClickData?.videos
+        : []
+    },
 
 
 
@@ -42898,7 +43708,7 @@ function PropertyModal({
     'Agente e note'
   ]
   const stepLabels = isAdminUser
-    ? [...baseStepLabels, 'Annuncio', 'Portali']
+    ? [...baseStepLabels, 'Annuncio', '1clickannunci']
     : baseStepLabels
   const finalStep = stepLabels.length
 
@@ -42936,6 +43746,7 @@ function PropertyModal({
     latitude: number
     longitude: number
   }) => {
+    setIstatManualOverride(false)
     setFormData((prev) => ({
       ...prev,
       address: suggestion.road || prev.address,
@@ -43027,7 +43838,7 @@ function PropertyModal({
 
       if (file.size > 5 * 1024 * 1024) {
 
-        alert(`Il file ${file.name} Ò¨ troppo grande. Massimo 5MB per immagine.`)
+        alert(`Il file ${file.name} Ã’Â¨ troppo grande. Massimo 5MB per immagine.`)
 
         return
 
@@ -43039,7 +43850,7 @@ function PropertyModal({
 
       if (!file.type.startsWith('image/')) {
 
-        alert(`Il file ${file.name} non Ò¨ un'immagine valida.`)
+        alert(`Il file ${file.name} non Ã’Â¨ un'immagine valida.`)
 
         return
 
@@ -43318,63 +44129,36 @@ function PropertyModal({
   }
 
 
+  const portalOptions: { id: number; label: string }[] = Array.isArray(oneClickDictionaries.portalCodes)
+    ? oneClickDictionaries.portalCodes
+    : []
+  const oneClickPropertyTypeOptions: Array<{ id: number; label: string }> =
+    Array.isArray(oneClickDictionaries.propertyTypes) && oneClickDictionaries.propertyTypes.length > 0
+      ? oneClickDictionaries.propertyTypes
+      : [{ id: 5, label: 'Appartamento' }]
+  const oneClickAnnouncementTypeOptions: Array<{ id: number; label: string }> =
+    Array.isArray(oneClickDictionaries.announcementTypes) && oneClickDictionaries.announcementTypes.length > 0
+      ? oneClickDictionaries.announcementTypes
+      : [{ id: 1, label: 'Vendita' }, { id: 2, label: 'Affitto' }, { id: 3, label: 'Vacanze' }]
+  const oneClickEnumOptions = oneClickDictionaries.enums || {}
 
-  const fallbackPortalIds = Object.keys(portalLogoById)
-
-  const portalsForUI = portalRegistry.length
-
-    ? portalRegistry
-
-    : fallbackPortalIds.map((id) => ({
-
-        id,
-
-        label: id,
-
-        kind: 'MANUAL' as const,
-
-        modeLabel: 'Non implementato',
-
-        implemented: false,
-
-        requirements: []
-
-      }))
-
-
-
-  const portalOptions: { id: string; label: string; Logo: React.ComponentType<React.SVGProps<SVGSVGElement>> }[] = portalsForUI.map((portal) => {
-
-    const Logo =
-
-      portalLogoById[portal.id] ||
-
-      ((p: React.SVGProps<SVGSVGElement>) => (
-
-        <PortalLogoGeneric {...p} bg="#111827" fg="#ffffff" text={portal.id.slice(0, 3)} />
-
-      ))
-
-    return { id: portal.id, label: portal.label, Logo }
-
-  })
-
-
-
-  const togglePortalTarget = (portalId: string) => {
-
-    setFormData(prev => ({
-
-      ...prev,
-
-      portalTargets: prev.portalTargets.includes(portalId)
-
-        ? prev.portalTargets.filter(p => p !== portalId)
-
-        : [...prev.portalTargets, portalId]
-
-    }))
-
+  const toggleOneClickPortalSelection = (portalCode: number) => {
+    setFormData((prev) => {
+      const current = Array.isArray(prev.oneClickData?.selectedPortalCodes)
+        ? prev.oneClickData.selectedPortalCodes
+            .map((v: any) => Number(v))
+            .filter((v: number) => Number.isFinite(v) && v > 0)
+        : []
+      const exists = current.includes(portalCode)
+      const next = exists ? current.filter((code: number) => code !== portalCode) : [...current, portalCode]
+      return {
+        ...prev,
+        oneClickData: {
+          ...(prev.oneClickData || {}),
+          selectedPortalCodes: next.sort((a, b) => a - b)
+        }
+      }
+    })
   }
 
 
@@ -43388,6 +44172,7 @@ function PropertyModal({
       ...prev,
 
       ...randomData,
+      portalTargets: ['ONECLICKANNUNCI'],
 
       agentId: availableAgents.length > 0 ? availableAgents[0].id : prev.agentId,
 
@@ -43414,6 +44199,30 @@ function PropertyModal({
     }))
   }, [detailedType])
 
+  useEffect(() => {
+    if (istatManualOverride) return
+    const city = String(formData.city || '').trim().toLowerCase()
+    if (!city) return
+    const provinceCode = String(formData.province || '').trim().toUpperCase()
+    const exactMatches = italianCities.filter((row) => {
+      if (String(row.name || '').trim().toLowerCase() !== city) return false
+      if (!provinceCode) return true
+      return String(row.provinceCode || '').trim().toUpperCase() === provinceCode
+    })
+    const bestMatch = exactMatches[0] || null
+    const nextIstat = bestMatch?.istatCode ? String(bestMatch.istatCode) : ''
+    if (!nextIstat) return
+    if ((formData.oneClickData?.comune_istat || '') === nextIstat && (formData.giComuneIstat || '') === nextIstat) return
+    setFormData((prev) => ({
+      ...prev,
+      giComuneIstat: nextIstat,
+      oneClickData: {
+        ...(prev.oneClickData || {}),
+        comune_istat: nextIstat
+      }
+    }))
+  }, [formData.city, formData.province, italianCities, istatManualOverride, formData.oneClickData?.comune_istat, formData.giComuneIstat])
+
 
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -43426,7 +44235,7 @@ function PropertyModal({
 
     if (!formData.address.trim()) {
 
-      alert('L\'indirizzo è obbligatorio')
+      alert("L'indirizzo  obbligatorio")
 
       return
 
@@ -43434,7 +44243,7 @@ function PropertyModal({
 
     if (!formData.city.trim()) {
 
-      alert('La cittÒ  Ò¨ obbligatoria')
+      alert('La cittÃ’Â  Ã’Â¨ obbligatoria')
 
       return
 
@@ -43442,7 +44251,7 @@ function PropertyModal({
 
     if (!formData.zipCode.trim()) {
 
-      alert('Il CAP Ò¨ obbligatorio')
+      alert('Il CAP Ã’Â¨ obbligatorio')
 
       return
 
@@ -43467,17 +44276,17 @@ function PropertyModal({
     }
 
     if (isAdminUser && !formData.title.trim()) {
-      alert('Il titolo annuncio Ò¨ obbligatorio per la pubblicazione')
+      alert('Il titolo annuncio Ã’Â¨ obbligatorio per la pubblicazione')
       setActiveStep(10)
       return
     }
     if (isAdminUser && !formData.reference.trim()) {
-      alert('Il riferimento è obbligatorio per ricercare l\'immobile nel gestionale')
+      alert("Il riferimento  obbligatorio per ricercare l'immobile nel gestionale")
       setActiveStep(10)
       return
     }
     if (isAdminUser && !formData.description.trim()) {
-      alert('La descrizione annuncio Ò¨ obbligatoria')
+      alert('La descrizione annuncio Ã’Â¨ obbligatoria')
       setActiveStep(10)
       return
     }
@@ -43489,6 +44298,57 @@ function PropertyModal({
     const notesWithInternalPrice = normalizedInternalPrice
       ? `${cleanNotes}${cleanNotes ? '\n' : ''}${INTERNAL_PRICE_TAG}${normalizedInternalPrice}]`
       : cleanNotes
+
+    const computedOneClickData = {
+      ...(formData.oneClickData || {}),
+      comune_istat: (formData.oneClickData?.comune_istat || formData.giComuneIstat || '').trim(),
+      riferimento: (formData.oneClickData?.riferimento || formData.reference || '').trim(),
+      descrizione: (formData.oneClickData?.descrizione || formData.description || '').trim(),
+      idtipologiaannuncio:
+        Number(formData.oneClickData?.idtipologiaannuncio) ||
+        (formData.contractType === 'RENT' ? 2 : 1),
+      data_inserimento:
+        (formData.oneClickData?.data_inserimento || '').trim() ||
+        new Date().toLocaleString('it-IT'),
+      data_aggiornamento:
+        (formData.oneClickData?.data_aggiornamento || '').trim() ||
+        new Date().toLocaleString('it-IT'),
+      titolo_annuncio:
+        (formData.oneClickData?.titolo_annuncio || formData.title || '').trim().slice(0, 50),
+      selectedPortalCodes: Array.isArray(formData.oneClickData?.selectedPortalCodes)
+        ? formData.oneClickData.selectedPortalCodes
+            .map((v: any) => Number(v))
+            .filter((v: number) => Number.isFinite(v) && v > 0)
+        : [],
+      immagini: uploadedImages.map((link, index) => ({
+        link,
+        description: '',
+        planimetria: 'N',
+        principale: index === 0 ? 'S' : 'N'
+      }))
+    }
+
+    const requiredOneClick: string[] = []
+    if (!computedOneClickData.idtipologiaimmobile) requiredOneClick.push('idtipologiaimmobile')
+    if (!computedOneClickData.idtipologiaannuncio) requiredOneClick.push('idtipologiaannuncio')
+    if (!computedOneClickData.comune_istat) requiredOneClick.push('comune_istat')
+    if (!computedOneClickData.riferimento) requiredOneClick.push('riferimento')
+    if (!computedOneClickData.descrizione) requiredOneClick.push('descrizione')
+    if (!computedOneClickData.data_inserimento) requiredOneClick.push('data_inserimento')
+    if (!computedOneClickData.data_aggiornamento) requiredOneClick.push('data_aggiornamento')
+    if (!Array.isArray(computedOneClickData.selectedPortalCodes) || computedOneClickData.selectedPortalCodes.length === 0) {
+      requiredOneClick.push('seleziona almeno un portale di pubblicazione')
+    }
+    if (
+      computedOneClickData.id_localita_immobiliareit &&
+      computedOneClickData.id_zona_immobiliareit
+    ) {
+      requiredOneClick.push('id_localita_immobiliareit e id_zona_immobiliareit sono mutuamente esclusivi')
+    }
+    if (requiredOneClick.length > 0) {
+      alert(`Campi obbligatori 1clickannunci mancanti/non validi: ${requiredOneClick.join(', ')}`)
+      return
+    }
 
     const payload = {
 
@@ -43505,7 +44365,8 @@ function PropertyModal({
       notes: notesWithInternalPrice,
       propertyTax: undefined,
       images: uploadedImages,
-      portalTargets: isAdminUser ? formData.portalTargets : [],
+      portalTargets: ['ONECLICKANNUNCI'],
+      oneClickData: computedOneClickData,
       submitForApproval: !isAdminUser,
       isPublished: isAdminUser
 
@@ -43525,7 +44386,7 @@ function PropertyModal({
 
       console.error('Error saving property:', error)
 
-      alert('Si Ò¨ verificato un errore durante il salvataggio.')
+      alert('Si Ã’Â¨ verificato un errore durante il salvataggio.')
 
     } finally {
 
@@ -43884,7 +44745,7 @@ function PropertyModal({
 
               }}>
 
-                📋 Informazioni Generali
+                ÃƒÂ°Ã…Â¸Ã¢â‚¬Å“Ã¢â‚¬Â¹ Informazioni Generali
 
               </h4>
 
@@ -44162,11 +45023,11 @@ function PropertyModal({
 
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem' }}>
 
-                    <h5 style={{ margin: 0, fontSize: '1rem', fontWeight: '600', color: '#e2e8f0' }}>📣 Pubblicazione Portali</h5>
+                    <h5 style={{ margin: 0, fontSize: '1rem', fontWeight: '600', color: '#e2e8f0' }}>Dati 1clickannunci</h5>
 
                     <div style={{ fontSize: '0.875rem', color: '#93c5fd', fontWeight: '600' }}>
 
-                      Selezionati: {formData.portalTargets.length}
+                      Selezionati: {Array.isArray(formData.oneClickData?.selectedPortalCodes) ? formData.oneClickData.selectedPortalCodes.length : 0}
 
                     </div>
 
@@ -44198,37 +45059,13 @@ function PropertyModal({
 
                       }}>
 
-                        <div style={{
-
-                          width: '2rem',
-
-                          height: '2rem',
-
-                          borderRadius: '0.5rem',
-
-                          backgroundColor: 'rgba(30, 41, 59, 0.4)',
-
-                          display: 'flex',
-
-                          alignItems: 'center',
-
-                          justifyContent: 'center',
-
-                          flexShrink: 0
-
-                        }}>
-
-                          <portal.Logo />
-
-                        </div>
-
                         <div style={{ flex: 1, minWidth: 0 }}>
 
                           <div style={{ fontWeight: '600', color: '#111827', lineHeight: 1.1 }}>{portal.label}</div>
 
                           <div style={{ fontSize: '0.75rem', color: '#9aa3b2', marginTop: '0.15rem', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
 
-                            Target: {portal.id}
+                            Codice portale: {portal.id}
 
                           </div>
 
@@ -44238,9 +45075,9 @@ function PropertyModal({
 
                           type="checkbox"
 
-                          checked={formData.portalTargets.includes(portal.id)}
+                          checked={Array.isArray(formData.oneClickData?.selectedPortalCodes) && formData.oneClickData.selectedPortalCodes.includes(portal.id)}
 
-                          onChange={() => togglePortalTarget(portal.id)}
+                          onChange={() => toggleOneClickPortalSelection(portal.id)}
 
                         />
 
@@ -44276,9 +45113,16 @@ function PropertyModal({
 
                           value={formData.giComuneIstat}
 
-                          onChange={(e) => setFormData({
+                          onChange={(e) => {
+                            setIstatManualOverride(true)
+                            setFormData({
       ...formData,
-      giComuneIstat: e.target.value })}
+      giComuneIstat: e.target.value,
+      oneClickData: {
+        ...(formData.oneClickData || {}),
+        comune_istat: e.target.value
+      }})
+                          }}
 
                           placeholder="es. 015146"
 
@@ -44346,7 +45190,7 @@ function PropertyModal({
 
               }}>
 
-                📍 Ubicazione
+                ÃƒÂ°Ã…Â¸Ã¢â‚¬Å“Ã‚Â Ubicazione
 
               </h4>
 
@@ -44491,7 +45335,7 @@ function PropertyModal({
 
                       <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: '500' }}>
 
-                        Città *
+                        CittÃ  *
 
                       </label>
 
@@ -44501,9 +45345,12 @@ function PropertyModal({
 
                         value={formData.city}
 
-                        onChange={(e) => setFormData({
+                        onChange={(e) => {
+                          setIstatManualOverride(false)
+                          setFormData({
       ...formData,
-      city: e.target.value })}
+      city: e.target.value })
+                        }}
 
                         required
 
@@ -44581,9 +45428,12 @@ function PropertyModal({
 
                         value={formData.province}
 
-                        onChange={(e) => setFormData({
+                        onChange={(e) => {
+                          setIstatManualOverride(false)
+                          setFormData({
       ...formData,
-      province: e.target.value })}
+      province: e.target.value })
+                        }}
 
                         style={{
 
@@ -44821,7 +45671,7 @@ function PropertyModal({
 
               }}>
 
-                🏠 Caratteristiche Principali
+                ÃƒÂ°Ã…Â¸Ã‚ÂÃ‚Â  Caratteristiche Principali
 
               </h4>
 
@@ -45275,7 +46125,7 @@ function PropertyModal({
 
               }}>
 
-                âš¡ Impianti e Tecnologie
+                ÃƒÆ’Ã‚Â¢Ãƒâ€¦Ã‚Â¡Ãƒâ€šÃ‚Â¡ Impianti e Tecnologie
 
               </h4>
 
@@ -45485,7 +46335,7 @@ function PropertyModal({
 
               }}>
 
-                💰 Prezzi e Costi
+                ÃƒÂ°Ã…Â¸Ã¢â‚¬â„¢Ã‚Â° Prezzi e Costi
 
               </h4>
 
@@ -45499,7 +46349,7 @@ function PropertyModal({
 
                     <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: '500' }}>
 
-                      Prezzo al pubblico ({formData.contractType === 'RENT' ? '€/mese' : '€'})
+                      Prezzo al pubblico ({formData.contractType === 'RENT' ? 'Ã¢â€šÂ¬/mese' : 'Ã¢â€šÂ¬'})
 
                     </label>
 
@@ -45581,7 +46431,7 @@ function PropertyModal({
                     />
 
                     <p style={{ margin: '0.4rem 0 0', color: '#94a3b8', fontSize: '0.78rem' }}>
-                      Dato interno agenzia: non verrà pubblicato sui portali.
+                      Dato interno agenzia: non verrÃƒÂ  pubblicato sui portali.
                     </p>
 
                   </div>
@@ -45646,7 +46496,7 @@ function PropertyModal({
 
                     <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: '500' }}>
 
-                      Spese Condominiali (€/mese)
+                      Spese Condominiali (ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬/mese)
 
                     </label>
 
@@ -45684,7 +46534,7 @@ function PropertyModal({
 
                     <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: '500' }}>
 
-                      IMU (€/anno)
+                      IMU (ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬/anno)
 
                     </label>
 
@@ -45754,11 +46604,11 @@ function PropertyModal({
                   {[
                     ['planimetria', 'Planimetria (Obbligatorio)'],
                     ['visura', 'Visura (Obbligatorio)'],
-                    ['agibilita', 'Certificato di agibilitÒ /abitabilitÒ '],
+                    ['agibilita', 'Certificato di agibilitÃ’Â /abitabilitÃ’Â '],
                     ['attoProvenienza', 'Atto di provenienza'],
                     ['titoliEdilizi', 'Titoli edilizi'],
                     ['ape', 'APE'],
-                    ['conformitaImpianti', 'ConformitÒ  impianti'],
+                    ['conformitaImpianti', 'ConformitÃ’Â  impianti'],
                     ['rti', 'Relazione Tecnica Integrata (RTI)'],
                     ['dichiarazioneAmministratore', 'Dichiarazione amministratore'],
                     ['verbaliAssemblee', 'Verbali ultime assemblee'],
@@ -46271,7 +47121,7 @@ function PropertyModal({
 
                     <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: '500' }}>
 
-                      Città
+                      CittÃ 
 
                     </label>
 
@@ -47101,6 +47951,170 @@ function PropertyModal({
                       }}
                     />
                   </div>
+
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: '1rem' }}>
+                    <div>
+                      <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: '500' }}>
+                        idtipologiaimmobile *
+                      </label>
+                      <select
+                        value={formData.oneClickData?.idtipologiaimmobile || ''}
+                        onChange={(e) =>
+                          setFormData({
+                            ...formData,
+                            oneClickData: {
+                              ...(formData.oneClickData || {}),
+                              idtipologiaimmobile: e.target.value ? Number(e.target.value) : undefined
+                            }
+                          })
+                        }
+                        style={{ width: '100%', padding: '0.75rem', border: '1px solid rgba(71, 85, 105, 0.55)', borderRadius: '0.375rem' }}
+                      >
+                        <option value="">Seleziona tipologia...</option>
+                        {oneClickPropertyTypeOptions.map((row) => (
+                          <option key={`oct-${row.id}`} value={row.id}>{row.id} - {row.label}</option>
+                        ))}
+                      </select>
+                    </div>
+                    <div>
+                      <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: '500' }}>
+                        idtipologiaannuncio *
+                      </label>
+                      <select
+                        value={formData.oneClickData?.idtipologiaannuncio || 1}
+                        onChange={(e) =>
+                          setFormData({
+                            ...formData,
+                            oneClickData: {
+                              ...(formData.oneClickData || {}),
+                              idtipologiaannuncio: Number(e.target.value)
+                            }
+                          })
+                        }
+                        style={{ width: '100%', padding: '0.75rem', border: '1px solid rgba(71, 85, 105, 0.55)', borderRadius: '0.375rem' }}
+                      >
+                        {oneClickAnnouncementTypeOptions.map((row) => (
+                          <option key={`oca-${row.id}`} value={row.id}>{row.id} - {row.label}</option>
+                        ))}
+                      </select>
+                    </div>
+                    <div>
+                      <label style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem', fontWeight: '500' }}>
+                        comune_istat *
+                        <span style={{
+                          fontSize: '0.72rem',
+                          fontWeight: 700,
+                          color: istatManualOverride ? '#f59e0b' : '#22c55e'
+                        }}>
+                          {istatManualOverride ? 'manuale' : 'auto'}
+                        </span>
+                      </label>
+                      <input
+                        type="text"
+                        value={formData.oneClickData?.comune_istat || formData.giComuneIstat || ''}
+                        onChange={(e) =>
+                          {
+                            setIstatManualOverride(true)
+                            setFormData({
+                              ...formData,
+                              giComuneIstat: e.target.value,
+                              oneClickData: {
+                                ...(formData.oneClickData || {}),
+                                comune_istat: e.target.value
+                              }
+                            })
+                          }
+                        }
+                        placeholder="Es. 046017"
+                        style={{ width: '100%', padding: '0.75rem', border: '1px solid rgba(71, 85, 105, 0.55)', borderRadius: '0.375rem' }}
+                      />
+                      {istatManualOverride && (
+                        <button
+                          type="button"
+                          onClick={() => setIstatManualOverride(false)}
+                          style={{
+                            marginTop: '0.4rem',
+                            border: '1px solid rgba(59, 130, 246, 0.5)',
+                            background: 'rgba(59, 130, 246, 0.12)',
+                            color: '#93c5fd',
+                            borderRadius: '0.35rem',
+                            padding: '0.2rem 0.55rem',
+                            cursor: 'pointer',
+                            fontSize: '0.75rem',
+                            fontWeight: 600
+                          }}
+                        >
+                          Ripristina auto
+                        </button>
+                      )}
+                    </div>
+                  </div>
+
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: '1rem' }}>
+                    <div>
+                      <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: '500' }}>
+                        Titolo annuncio (max 50)
+                      </label>
+                      <input
+                        type="text"
+                        value={formData.oneClickData?.titolo_annuncio || ''}
+                        onChange={(e) =>
+                          setFormData({
+                            ...formData,
+                            oneClickData: {
+                              ...(formData.oneClickData || {}),
+                              titolo_annuncio: e.target.value.slice(0, 50)
+                            }
+                          })
+                        }
+                        style={{ width: '100%', padding: '0.75rem', border: '1px solid rgba(71, 85, 105, 0.55)', borderRadius: '0.375rem' }}
+                      />
+                    </div>
+                    <div>
+                      <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: '500' }}>
+                        Tipo riscaldamento
+                      </label>
+                      <select
+                        value={formData.oneClickData?.tipo_riscaldamento || ''}
+                        onChange={(e) =>
+                          setFormData({
+                            ...formData,
+                            oneClickData: {
+                              ...(formData.oneClickData || {}),
+                              tipo_riscaldamento: e.target.value
+                            }
+                          })
+                        }
+                        style={{ width: '100%', padding: '0.75rem', border: '1px solid rgba(71, 85, 105, 0.55)', borderRadius: '0.375rem' }}
+                      >
+                        <option value="">Seleziona...</option>
+                        {(oneClickEnumOptions.tipo_riscaldamento || []).map((value) => (
+                          <option key={`type-heat-${value}`} value={value}>{value}</option>
+                        ))}
+                      </select>
+                    </div>
+                    <div>
+                      <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: '500' }}>
+                        Categoria annuncio
+                      </label>
+                      <select
+                        value={formData.oneClickData?.categoria_annuncio || 'residenziale'}
+                        onChange={(e) =>
+                          setFormData({
+                            ...formData,
+                            oneClickData: {
+                              ...(formData.oneClickData || {}),
+                              categoria_annuncio: e.target.value
+                            }
+                          })
+                        }
+                        style={{ width: '100%', padding: '0.75rem', border: '1px solid rgba(71, 85, 105, 0.55)', borderRadius: '0.375rem' }}
+                      >
+                        <option value="residenziale">Residenziale</option>
+                        <option value="commerciale">Commerciale</option>
+                      </select>
+                    </div>
+                  </div>
                 </div>
               </div>
             )}
@@ -47120,7 +48134,7 @@ function PropertyModal({
                   borderBottom: '2px solid #2563eb',
                   paddingBottom: '0.5rem'
                 }}>
-                  11) Portali pubblicazione
+                  11) 1clickannunci
                 </h4>
 
                 <div style={{
@@ -47134,7 +48148,7 @@ function PropertyModal({
                       Seleziona i portali di pubblicazione
                     </div>
                     <div style={{ fontSize: '0.875rem', color: '#93c5fd', fontWeight: 600 }}>
-                      Selezionati: {formData.portalTargets.length}
+                      Selezionati: {Array.isArray(formData.oneClickData?.selectedPortalCodes) ? formData.oneClickData.selectedPortalCodes.length : 0}
                     </div>
                   </div>
 
@@ -47150,31 +48164,168 @@ function PropertyModal({
                         borderRadius: '0.5rem',
                         cursor: 'pointer'
                       }}>
-                        <div style={{
-                          width: '2rem',
-                          height: '2rem',
-                          borderRadius: '0.5rem',
-                          backgroundColor: 'rgba(30, 41, 59, 0.4)',
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          flexShrink: 0
-                        }}>
-                          <portal.Logo />
-                        </div>
                         <div style={{ flex: 1, minWidth: 0 }}>
                           <div style={{ fontWeight: '600', color: '#e2e8f0', lineHeight: 1.1 }}>{portal.label}</div>
                           <div style={{ fontSize: '0.75rem', color: '#9aa3b2', marginTop: '0.15rem', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                            Target: {portal.id}
+                            Codice: {portal.id}
                           </div>
                         </div>
                         <input
                           type="checkbox"
-                          checked={formData.portalTargets.includes(portal.id)}
-                          onChange={() => togglePortalTarget(portal.id)}
+                          checked={Array.isArray(formData.oneClickData?.selectedPortalCodes) && formData.oneClickData.selectedPortalCodes.includes(portal.id)}
+                          onChange={() => toggleOneClickPortalSelection(portal.id)}
                         />
                       </label>
                     ))}
+                  </div>
+                  {portalOptions.length === 0 && (
+                    <div style={{ marginTop: '0.65rem', color: '#93c5fd', fontSize: '0.82rem' }}>
+                      Dizionario portali non disponibile al momento.
+                    </div>
+                  )}
+                </div>
+
+                <div style={{
+                  marginTop: '1rem',
+                  padding: '1rem',
+                  border: '1px solid rgba(71, 85, 105, 0.45)',
+                  backgroundColor: 'rgba(30, 41, 59, 0.3)',
+                  borderRadius: '0.5rem',
+                  display: 'grid',
+                  gap: '0.8rem'
+                }}>
+                  <div style={{ fontSize: '0.95rem', fontWeight: 600, color: '#dbeafe' }}>Avanzati 1click</div>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: '0.75rem' }}>
+                    <div>
+                      <label style={{ display: 'block', marginBottom: '0.35rem', fontWeight: 500 }}>Box auto</label>
+                      <select
+                        value={formData.oneClickData?.box_auto || ''}
+                        onChange={(e) => setFormData({
+                          ...formData,
+                          oneClickData: { ...(formData.oneClickData || {}), box_auto: e.target.value }
+                        })}
+                        style={{ width: '100%', padding: '0.6rem', border: '1px solid rgba(71, 85, 105, 0.55)', borderRadius: '0.35rem' }}
+                      >
+                        <option value="">Seleziona...</option>
+                        {(oneClickEnumOptions.box_auto || []).map((value) => (
+                          <option key={`box-${value}`} value={value}>{value}</option>
+                        ))}
+                      </select>
+                    </div>
+                    <div>
+                      <label style={{ display: 'block', marginBottom: '0.35rem', fontWeight: 500 }}>Giardino</label>
+                      <select
+                        value={formData.oneClickData?.giardino || ''}
+                        onChange={(e) => setFormData({
+                          ...formData,
+                          oneClickData: { ...(formData.oneClickData || {}), giardino: e.target.value }
+                        })}
+                        style={{ width: '100%', padding: '0.6rem', border: '1px solid rgba(71, 85, 105, 0.55)', borderRadius: '0.35rem' }}
+                      >
+                        <option value="">Seleziona...</option>
+                        {(oneClickEnumOptions.giardino || []).map((value) => (
+                          <option key={`garden-${value}`} value={value}>{value}</option>
+                        ))}
+                      </select>
+                    </div>
+                    <div>
+                      <label style={{ display: 'block', marginBottom: '0.35rem', fontWeight: 500 }}>Piano</label>
+                      <select
+                        value={formData.oneClickData?.piano || ''}
+                        onChange={(e) => setFormData({
+                          ...formData,
+                          oneClickData: { ...(formData.oneClickData || {}), piano: e.target.value }
+                        })}
+                        style={{ width: '100%', padding: '0.6rem', border: '1px solid rgba(71, 85, 105, 0.55)', borderRadius: '0.35rem' }}
+                      >
+                        <option value="">Seleziona...</option>
+                        {(oneClickEnumOptions.piano || []).map((value) => (
+                          <option key={`floor-${value}`} value={value}>{value}</option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
+
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, minmax(0, 1fr))', gap: '0.75rem' }}>
+                    <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                      <input
+                        type="checkbox"
+                        checked={String(formData.oneClickData?.asta || 'N') === 'S'}
+                        onChange={(e) => setFormData({
+                          ...formData,
+                          oneClickData: { ...(formData.oneClickData || {}), asta: e.target.checked ? 'S' : 'N' }
+                        })}
+                      />
+                      Asta
+                    </label>
+                    <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                      <input
+                        type="checkbox"
+                        checked={String(formData.oneClickData?.piscina || 'N') === 'S'}
+                        onChange={(e) => setFormData({
+                          ...formData,
+                          oneClickData: { ...(formData.oneClickData || {}), piscina: e.target.checked ? 'S' : 'N' }
+                        })}
+                      />
+                      Piscina
+                    </label>
+                    <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                      <input
+                        type="checkbox"
+                        checked={String(formData.oneClickData?.caminetto || 'N') === 'S'}
+                        onChange={(e) => setFormData({
+                          ...formData,
+                          oneClickData: { ...(formData.oneClickData || {}), caminetto: e.target.checked ? 'S' : 'N' }
+                        })}
+                      />
+                      Caminetto
+                    </label>
+                    <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                      <input
+                        type="checkbox"
+                        checked={String(formData.oneClickData?.portineria || 'N') === 'S'}
+                        onChange={(e) => setFormData({
+                          ...formData,
+                          oneClickData: { ...(formData.oneClickData || {}), portineria: e.target.checked ? 'S' : 'N' }
+                        })}
+                      />
+                      Portineria
+                    </label>
+                  </div>
+
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
+                    <div>
+                      <label style={{ display: 'block', marginBottom: '0.35rem', fontWeight: 500 }}>ID localit immobiliare.it</label>
+                      <input
+                        type="text"
+                        value={formData.oneClickData?.id_localita_immobiliareit || ''}
+                        onChange={(e) => setFormData({
+                          ...formData,
+                          oneClickData: {
+                            ...(formData.oneClickData || {}),
+                            id_localita_immobiliareit: e.target.value,
+                            id_zona_immobiliareit: e.target.value ? '' : formData.oneClickData?.id_zona_immobiliareit
+                          }
+                        })}
+                        style={{ width: '100%', padding: '0.6rem', border: '1px solid rgba(71, 85, 105, 0.55)', borderRadius: '0.35rem' }}
+                      />
+                    </div>
+                    <div>
+                      <label style={{ display: 'block', marginBottom: '0.35rem', fontWeight: 500 }}>ID zona immobiliare.it</label>
+                      <input
+                        type="text"
+                        value={formData.oneClickData?.id_zona_immobiliareit || ''}
+                        onChange={(e) => setFormData({
+                          ...formData,
+                          oneClickData: {
+                            ...(formData.oneClickData || {}),
+                            id_zona_immobiliareit: e.target.value,
+                            id_localita_immobiliareit: e.target.value ? '' : formData.oneClickData?.id_localita_immobiliareit
+                          }
+                        })}
+                        style={{ width: '100%', padding: '0.6rem', border: '1px solid rgba(71, 85, 105, 0.55)', borderRadius: '0.35rem' }}
+                      />
+                    </div>
                   </div>
                 </div>
               </div>
@@ -47352,7 +48503,7 @@ function PropertyViewModal({
 
       <div
 
-        className="manus-contact-modal-panel"
+        className="manus-contact-modal-panel new-client-light-modal"
 
         style={{
 
@@ -47402,7 +48553,7 @@ function PropertyViewModal({
 
             <p className="manus-contact-subtitle" style={{ margin: '0.2rem 0 0' }}>
 
-              {property.reference || 'Senza riferimento'} · {property.city || 'N/D'}
+              {property.reference || 'Senza riferimento'} Ãƒâ€šÃ‚Â· {property.city || 'N/D'}
 
             </p>
 
@@ -47514,7 +48665,7 @@ function PropertyViewModal({
 
                 <p><strong>Indirizzo:</strong> {property.address}</p>
 
-                <p><strong>Città:</strong> {property.city}</p>
+                <p><strong>CittÃ :</strong> {property.city}</p>
 
                 <p><strong>Provincia:</strong> {property.province}</p>
 
@@ -47546,7 +48697,7 @@ function PropertyViewModal({
 
                 <p style={{ fontSize: '1.35rem', fontWeight: 'bold', color: '#34d399', margin: '0 0 0.45rem 0' }}>
 
-                  €{property.salePrice.toLocaleString()}
+                  ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬{property.salePrice.toLocaleString()}
 
                 </p>
 
@@ -47556,7 +48707,7 @@ function PropertyViewModal({
 
                 <p style={{ fontSize: '1.35rem', fontWeight: 'bold', color: '#34d399', margin: 0 }}>
 
-                  €{property.rentPrice.toLocaleString()}/mese
+                  ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬{property.rentPrice.toLocaleString()}/mese
 
                 </p>
 
@@ -47662,7 +48813,7 @@ function AgentDetailPage({
 
 }) {
 
-  const { token } = useAuthStore()
+  const { token, user } = useAuthStore()
 
   const [agent, setAgent] = useState<Agent | null>(null)
 
@@ -47676,7 +48827,37 @@ function AgentDetailPage({
 
   const [loading, setLoading] = useState(true)
 
-  const [activeTab, setActiveTab] = useState<'properties' | 'activities' | 'appointments' | 'contacts'>('properties')
+  const [activeTab, setActiveTab] = useState<'properties' | 'activities' | 'appointments' | 'contacts' | 'report'>('properties')
+  const isAdminView = user?.role === 'SUPER_ADMIN' || user?.role === 'AGENCY_ADMIN'
+  const nowDate = new Date()
+  const [reportYear, setReportYear] = useState<number>(nowDate.getFullYear())
+  const [reportMonth, setReportMonth] = useState<number>(nowDate.getMonth() + 1)
+  const [reportDay, setReportDay] = useState<string>('')
+  const [agentReportLoading, setAgentReportLoading] = useState(false)
+  const [agentReportData, setAgentReportData] = useState<null | {
+    summary: {
+      activitiesCreated: number
+      activitiesCompleted: number
+      tasksOnTime: number
+      tasksLate: number
+      tasksOnTimeRate: number
+      openTasks: number
+      openOverdueTasks: number
+      appointmentsTotal: number
+      appointmentsCompleted: number
+      appointmentsUpcoming: number
+      zoneGroupLogs: number
+      zoneStreetLogs: number
+      zoneListingActions: number
+      totalZoneInteractions: number
+      propertiesAcquired: number
+    }
+    charts: {
+      yearlyMonthly: Array<{ month: number; label: string; activitiesCompleted: number; appointments: number; zoneInteractions: number; propertiesAcquired: number }>
+      daily: Array<{ day: number; activitiesCompleted: number; appointments: number; zoneInteractions: number; propertiesAcquired: number }>
+    }
+    timeline: Array<{ id: string; at: string; category: string; title: string; detail: string }>
+  }>(null)
 
 
 
@@ -47757,6 +48938,29 @@ function AgentDetailPage({
     }
 
   }, [agentId, token])
+
+  useEffect(() => {
+    if (!isAdminView) return
+    if (activeTab !== 'report') return
+    if (!token) return
+
+    const authHeaders = token ? { Authorization: `Bearer ${token}` } : {}
+    const params = new URLSearchParams({
+      year: String(reportYear),
+      month: String(reportMonth)
+    })
+    if (reportDay) params.set('day', reportDay)
+
+    setAgentReportLoading(true)
+    fetch(`/api/agents/${encodeURIComponent(agentId)}/performance-report?${params.toString()}`, { headers: authHeaders })
+      .then((res) => res.json())
+      .then((payload) => {
+        if (payload?.success && payload?.data) setAgentReportData(payload.data)
+        else setAgentReportData(null)
+      })
+      .catch(() => setAgentReportData(null))
+      .finally(() => setAgentReportLoading(false))
+  }, [isAdminView, activeTab, token, agentId, reportYear, reportMonth, reportDay])
 
 
 
@@ -47916,11 +49120,12 @@ function AgentDetailPage({
 
           { id: 'properties', label: 'Immobili', icon: Building },
 
-          { id: 'activities', label: 'AttivitÒ ', icon: CheckSquare },
+          { id: 'activities', label: 'AttivitÃ’Â ', icon: CheckSquare },
 
           { id: 'appointments', label: 'Appuntamenti', icon: Calendar },
 
           { id: 'contacts', label: 'Clienti', icon: Users },
+          ...(isAdminView ? [{ id: 'report', label: 'Report agente', icon: BarChart3 }] : []),
 
         ].map(tab => (
 
@@ -48066,7 +49271,7 @@ function AgentDetailPage({
 
                    <div style={{ fontSize: '0.75rem', color: '#6b7280', fontWeight: '600', textTransform: 'uppercase', marginBottom: '0.5rem' }}>
 
-                      {p.type} • {p.contractType === 'SALE' ? 'VENDITA' : 'AFFITTO'}
+                      {p.type} ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¢ {p.contractType === 'SALE' ? 'VENDITA' : 'AFFITTO'}
 
                    </div>
 
@@ -48088,7 +49293,7 @@ function AgentDetailPage({
 
                       <div style={{ fontWeight: 'bold', fontSize: '1.25rem', color: '#2563eb' }}>
 
-                        € {(p.salePrice || p.rentPrice || 0).toLocaleString()}
+                        ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ {(p.salePrice || p.rentPrice || 0).toLocaleString()}
 
                       </div>
 
@@ -48126,7 +49331,7 @@ function AgentDetailPage({
 
            <div style={{ display: 'grid', gap: '0.5rem' }}>
 
-             {activities.length === 0 ? <p style={{ color: '#6b7280' }}>Nessuna attività assegnata.</p> : activities.map(a => (
+             {activities.length === 0 ? <p style={{ color: '#6b7280' }}>Nessuna attivitÃƒÆ’Ã‚Â  assegnata.</p> : activities.map(a => (
 
                <div key={a.id} style={{ padding: '1rem', border: '1px solid #e5e7eb', borderRadius: '0.5rem', backgroundColor: 'white', display: 'flex', justifyContent: 'space-between' }}>
 
@@ -48302,6 +49507,130 @@ function AgentDetailPage({
 
            </div>
 
+        )}
+
+        {activeTab === 'report' && isAdminView && (
+          <div style={{ display: 'grid', gap: '1rem' }}>
+            <div style={{ background: '#fff', border: '1px solid #e5e7eb', borderRadius: '0.75rem', padding: '1rem', display: 'flex', flexWrap: 'wrap', gap: '0.75rem', alignItems: 'end' }}>
+              <div>
+                <label style={{ fontSize: '0.8rem', fontWeight: 600, color: '#334155', display: 'block', marginBottom: '0.25rem' }}>Anno</label>
+                <input type="number" value={reportYear} onChange={(e) => setReportYear(Number(e.target.value) || nowDate.getFullYear())} style={{ border: '1px solid #d1d5db', borderRadius: '0.45rem', padding: '0.4rem 0.5rem', width: 110 }} />
+              </div>
+              <div>
+                <label style={{ fontSize: '0.8rem', fontWeight: 600, color: '#334155', display: 'block', marginBottom: '0.25rem' }}>Mese</label>
+                <select value={reportMonth} onChange={(e) => setReportMonth(Number(e.target.value) || (nowDate.getMonth() + 1))} style={{ border: '1px solid #d1d5db', borderRadius: '0.45rem', padding: '0.4rem 0.5rem', width: 140 }}>
+                  {Array.from({ length: 12 }, (_, i) => i + 1).map((m) => (
+                    <option key={`month-${m}`} value={m}>{new Date(2000, m - 1, 1).toLocaleString('it-IT', { month: 'long' })}</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label style={{ fontSize: '0.8rem', fontWeight: 600, color: '#334155', display: 'block', marginBottom: '0.25rem' }}>Giorno (opzionale)</label>
+                <input type="number" min={1} max={31} value={reportDay} onChange={(e) => setReportDay(e.target.value)} placeholder="Tutto il mese" style={{ border: '1px solid #d1d5db', borderRadius: '0.45rem', padding: '0.4rem 0.5rem', width: 150 }} />
+              </div>
+            </div>
+
+            {agentReportLoading ? (
+              <div style={{ color: '#64748b' }}>Caricamento report agente...</div>
+            ) : !agentReportData ? (
+              <div style={{ color: '#64748b' }}>Nessun dato report disponibile.</div>
+            ) : (
+              <>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(190px, 1fr))', gap: '0.75rem' }}>
+                  {[
+                    { label: 'Attivita create', value: agentReportData.summary.activitiesCreated, color: '#1d4ed8' },
+                    { label: 'Attivita completate', value: agentReportData.summary.activitiesCompleted, color: '#059669' },
+                    { label: 'Task in tempo', value: `${agentReportData.summary.tasksOnTimeRate}%`, color: '#0f766e' },
+                    { label: 'Task in ritardo', value: agentReportData.summary.tasksLate, color: '#b45309' },
+                    { label: 'Task aperti scaduti', value: agentReportData.summary.openOverdueTasks, color: '#b91c1c' },
+                    { label: 'Interazioni task zona', value: agentReportData.summary.totalZoneInteractions, color: '#7c3aed' },
+                    { label: 'Appuntamenti', value: agentReportData.summary.appointmentsTotal, color: '#0ea5e9' },
+                    { label: 'Immobili acquisiti', value: agentReportData.summary.propertiesAcquired, color: '#16a34a' }
+                  ].map((item) => (
+                    <div key={item.label} style={{ background: '#fff', border: '1px solid #e5e7eb', borderRadius: '0.65rem', padding: '0.75rem' }}>
+                      <div style={{ fontSize: '0.8rem', color: '#475569' }}>{item.label}</div>
+                      <div style={{ fontSize: '1.55rem', fontWeight: 800, color: item.color }}>{item.value}</div>
+                    </div>
+                  ))}
+                </div>
+
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(340px, 1fr))', gap: '1rem' }}>
+                  <div style={{ background: '#fff', border: '1px solid #e5e7eb', borderRadius: '0.65rem', padding: '0.85rem' }}>
+                    <h4 style={{ margin: 0, marginBottom: '0.65rem' }}>Performance mensile ({reportYear})</h4>
+                    <div style={{ fontSize: '0.75rem', color: '#64748b', marginBottom: '0.6rem' }}>
+                      Totale mese = Attivita completate + Appuntamenti + Interazioni task zona + Immobili acquisiti
+                    </div>
+                    <div style={{ display: 'grid', gap: '0.45rem' }}>
+                      {agentReportData.charts.yearlyMonthly.map((row) => {
+                        const max = Math.max(1, ...agentReportData.charts.yearlyMonthly.map((x) => x.activitiesCompleted + x.appointments + x.zoneInteractions + x.propertiesAcquired))
+                        const total = row.activitiesCompleted + row.appointments + row.zoneInteractions + row.propertiesAcquired
+                        return (
+                          <div key={`ym-${row.month}`} style={{ display: 'grid', gridTemplateColumns: '56px 1fr auto', gap: '0.5rem', alignItems: 'center' }}>
+                            <div style={{ fontSize: '0.78rem', color: '#475569', textTransform: 'capitalize' }}>{row.label}</div>
+                            <div style={{ height: '10px', background: '#e2e8f0', borderRadius: '999px', overflow: 'hidden' }}>
+                              <div style={{ width: `${Math.round((total / max) * 100)}%`, height: '100%', background: 'linear-gradient(90deg,#2563eb,#7c3aed)' }} />
+                            </div>
+                            <div style={{ fontSize: '0.78rem', fontWeight: 700, color: '#1f2937' }}>{total}</div>
+                          </div>
+                        )
+                      })}
+                    </div>
+                  </div>
+
+                  <div style={{ background: '#fff', border: '1px solid #e5e7eb', borderRadius: '0.65rem', padding: '0.85rem' }}>
+                    <h4 style={{ margin: 0, marginBottom: '0.65rem' }}>Dettaglio giornaliero ({new Date(reportYear, reportMonth - 1, 1).toLocaleString('it-IT', { month: 'long', year: 'numeric' })})</h4>
+                    <div style={{ display: 'grid', gridTemplateColumns: '58px 1fr 1fr 1fr 1fr 1fr', gap: '0.5rem', alignItems: 'center', padding: '0.45rem 0.35rem', borderBottom: '1px solid #e5e7eb', fontSize: '0.74rem', color: '#334155', fontWeight: 700 }}>
+                      <div>Giorno</div>
+                      <div>Attivita</div>
+                      <div>Appunt.</div>
+                      <div>Task zona</div>
+                      <div>Acquisiti</div>
+                      <div>Totale</div>
+                    </div>
+                    <div style={{ maxHeight: '280px', overflowY: 'auto', display: 'grid', gap: '0.4rem' }}>
+                      {agentReportData.charts.daily.map((row) => {
+                        const total = row.activitiesCompleted + row.appointments + row.zoneInteractions + row.propertiesAcquired
+                        return (
+                          <div key={`day-${row.day}`} style={{ display: 'grid', gridTemplateColumns: '58px 1fr 1fr 1fr 1fr 1fr', gap: '0.5rem', alignItems: 'center', padding: '0.35rem 0.35rem', borderBottom: '1px solid #f1f5f9' }}>
+                            <div style={{ fontSize: '0.78rem', color: '#334155', fontWeight: 700 }}>{row.day}</div>
+                            <div style={{ fontSize: '0.78rem', color: '#334155' }}>{row.activitiesCompleted}</div>
+                            <div style={{ fontSize: '0.78rem', color: '#334155' }}>{row.appointments}</div>
+                            <div style={{ fontSize: '0.78rem', color: '#334155' }}>{row.zoneInteractions}</div>
+                            <div style={{ fontSize: '0.78rem', color: '#166534', fontWeight: 700 }}>{row.propertiesAcquired}</div>
+                            <div style={{ fontSize: '0.8rem', fontWeight: 800, color: '#0f172a' }}>{total}</div>
+                          </div>
+                        )
+                      })}
+                    </div>
+                  </div>
+                </div>
+
+                <div style={{ background: '#fff', border: '1px solid #e5e7eb', borderRadius: '0.65rem', padding: '0.85rem' }}>
+                  <h4 style={{ margin: 0, marginBottom: '0.65rem' }}>Timeline operativa</h4>
+                  <div style={{ maxHeight: '420px', overflowY: 'auto', display: 'grid', gap: '0.55rem' }}>
+                    {agentReportData.timeline.length === 0 ? (
+                      <div style={{ color: '#64748b' }}>Nessuna attivita registrata nel periodo selezionato.</div>
+                    ) : (
+                      agentReportData.timeline.map((row) => (
+                        <div key={row.id} style={{ border: '1px solid #e5e7eb', borderRadius: '0.55rem', padding: '0.65rem' }}>
+                          <div style={{ fontSize: '0.75rem', color: '#64748b' }}>{new Date(row.at).toLocaleString('it-IT')}  {{
+                            ACTIVITY: 'Attivita',
+                            APPOINTMENT: 'Appuntamento',
+                            ZONE_GROUP: 'Task zona (gruppo)',
+                            ZONE_STREET: 'Task zona (via)',
+                            ZONE_LISTING: 'Task zona (immobile)',
+                            PROPERTY_ACQUIRED: 'Immobile acquisito'
+                          }[row.category] || row.category}</div>
+                          <div style={{ fontWeight: 700, color: '#111827' }}>{row.title}</div>
+                          <div style={{ fontSize: '0.84rem', color: '#334155' }}>{row.detail}</div>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                </div>
+              </>
+            )}
+          </div>
         )}
 
       </div>
@@ -48928,11 +50257,11 @@ function AgentsPage({
 
                   <Trash2 size={16} />
 
-                </button>
+                      </button>
 
-              )}
+                    )}
 
-            </div>
+                  </div>
 
           </div>
 
@@ -49049,7 +50378,7 @@ function AgentModal({
 
     if (!agent && !formData.password.trim()) {
 
-      alert('La password Ò¨ obbligatoria per il nuovo agente')
+      alert('La password Ã’Â¨ obbligatoria per il nuovo agente')
 
       return
 
@@ -49169,7 +50498,7 @@ function AgentModal({
 
             <p className="manus-contact-subtitle" style={{ margin: '0.22rem 0 0', color: '#9aa3b2', fontSize: '0.8rem' }}>
 
-              Profilo, operatività e sicurezza accesso
+              Profilo, operativitÃƒÆ’Ã‚Â  e sicurezza accesso
 
             </p>
 
@@ -49265,7 +50594,7 @@ function AgentModal({
 
           <button type="button" onClick={() => setActiveAgentTab('profile')} className={`manus-contact-tab ${activeAgentTab === 'profile' ? 'is-active' : ''}`}>Profilo</button>
 
-          <button type="button" onClick={() => setActiveAgentTab('operations')} className={`manus-contact-tab ${activeAgentTab === 'operations' ? 'is-active' : ''}`}>Operatività</button>
+          <button type="button" onClick={() => setActiveAgentTab('operations')} className={`manus-contact-tab ${activeAgentTab === 'operations' ? 'is-active' : ''}`}>OperativitÃ </button>
 
           <button type="button" onClick={() => setActiveAgentTab('security')} className={`manus-contact-tab ${activeAgentTab === 'security' ? 'is-active' : ''}`}>Sicurezza</button>
 
@@ -49855,6 +51184,8 @@ function ContactModal({
 
   const [showCitySuggestions, setShowCitySuggestions] = useState(false)
 
+  const [provinceCityOptions, setProvinceCityOptions] = useState<ItalianCity[]>([])
+
   const [provinceOptions, setProvinceOptions] = useState<ItalianProvince[]>([])
 
 
@@ -49892,6 +51223,40 @@ function ContactModal({
     }
 
   }, [])
+
+  useEffect(() => {
+
+    const provinceCode = String(formData.province || '').trim().toUpperCase()
+
+    if (!provinceCode) {
+
+      setProvinceCityOptions([])
+
+      return
+
+    }
+
+    loadItalianCities()
+
+      .then((cities) => {
+
+        const scoped = cities
+
+          .filter(city => String(city.provinceCode || '').toUpperCase() === provinceCode)
+
+          .sort((a, b) => a.name.localeCompare(b.name, 'it'))
+
+        setProvinceCityOptions(scoped)
+
+      })
+
+      .catch(() => {
+
+        setProvinceCityOptions([])
+
+      })
+
+  }, [formData.province])
 
 
 
@@ -49983,7 +51348,7 @@ function ContactModal({
 
       if (!formData.fiscalCode || !formData.fiscalCode.trim()) {
 
-        alert('Per il proprietario il codice fiscale Ò¨ obbligatorio')
+        alert('Per il proprietario il codice fiscale Ã’Â¨ obbligatorio')
 
         return
 
@@ -50264,49 +51629,55 @@ function ContactModal({
 
 
     const trimmed = value.trim()
+    const query = trimmed.toLowerCase()
 
-    if (trimmed.length < 2) {
+    const source =
+      provinceCityOptions.length > 0
+        ? provinceCityOptions
+        : await loadItalianCities().catch(() => [])
 
-      setCitySuggestions([])
+    const suggestions = source
+      .filter((city: ItalianCity) =>
+        query.length === 0 ||
+        city.name.toLowerCase().startsWith(query) ||
+        `${city.name.toLowerCase()} (${city.provinceCode.toLowerCase()})`.includes(query)
+      )
+      .slice(0, 24)
 
-      setShowCitySuggestions(false)
+    setCitySuggestions(suggestions)
 
-      return
+    setShowCitySuggestions(suggestions.length > 0)
 
-    }
+  }
 
-
-
+  const handleFeedback = async (matchId: string | undefined, value: 'POSITIVE' | 'NEGATIVE') => {
+    if (!matchId || !token) return
     try {
-
-      const cities = await loadItalianCities()
-
-      const query = trimmed.toLowerCase()
-
-      const suggestions = cities
-
-        .filter(city =>
-
-          city.name.toLowerCase().startsWith(query) ||
-
-          `${city.name.toLowerCase()} (${city.provinceCode.toLowerCase()})`.includes(query)
-
+      const response = await fetch(`/api/matching/${matchId}/feedback`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`
+        },
+        body: JSON.stringify({ value })
+      })
+      const payload = await response.json()
+      if (!response.ok || !payload?.success) {
+        throw new Error(payload?.message || 'Errore salvataggio feedback')
+      }
+      setMatchingResults((prev) =>
+        prev.map((item) =>
+          item.matchId === matchId
+            ? {
+                ...item,
+                feedbacks: [{ value, createdAt: new Date().toISOString() }, ...(item.feedbacks || [])]
+              }
+            : item
         )
-
-        .slice(0, 10)
-
-      setCitySuggestions(suggestions)
-
-      setShowCitySuggestions(suggestions.length > 0)
-
-    } catch {
-
-      setCitySuggestions([])
-
-      setShowCitySuggestions(false)
-
+      )
+    } catch (error: any) {
+      alert(error?.message || 'Errore salvataggio feedback')
     }
-
   }
 
 
@@ -51053,128 +52424,40 @@ function ContactModal({
 
                   </div>
 
-                  <div style={{ position: 'relative' }}>
-
+                  <div>
                     <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: '500' }}>
-
-                      Città
-
+                      Citt
                     </label>
-
-                    <input
-
-                      type="text"
-
+                    <select
                       value={formData.city}
-
-                      onChange={(e) => handleCityInputChange(e.target.value)}
-
-                      onFocus={() => {
-
-                        if (citySuggestions.length > 0) {
-
-                          setShowCitySuggestions(true)
-
+                      onChange={(e) => {
+                        const selectedName = e.target.value
+                        if (!selectedName) return
+                        const found = provinceCityOptions.find(city => city.name === selectedName)
+                        if (found) {
+                          handleSelectCity(found)
+                        } else {
+                          setFormData(prev => ({ ...prev, city: selectedName }))
                         }
-
                       }}
-
-                      onBlur={() => {
-
-                        setTimeout(() => setShowCitySuggestions(false), 150)
-
-                      }}
-
                       style={{
-
                         width: '100%',
-
                         padding: '0.75rem',
-
                         border: '1px solid #d1d5db',
-
                         borderRadius: '0.375rem'
-
                       }}
-
-                    />
-
-                    {showCitySuggestions && citySuggestions.length > 0 && (
-
-                      <div
-
-                        style={{
-
-                          position: 'absolute',
-
-                          top: '100%',
-
-                          left: 0,
-
-                          right: 0,
-
-                          backgroundColor: 'white',
-
-                          border: '1px solid #d1d5db',
-
-                          borderRadius: '0.375rem',
-
-                          marginTop: '0.25rem',
-
-                          maxHeight: '220px',
-
-                          overflowY: 'auto',
-
-                          zIndex: 20,
-
-                          boxShadow: '0 10px 15px -3px rgba(0,0,0,0.1), 0 4px 6px -4px rgba(0,0,0,0.1)'
-
-                        }}
-
-                      >
-
-                        {citySuggestions.map(city => (
-
-                          <div
-
-                            key={`${city.name}-${city.provinceCode}`}
-
-                            onMouseDown={(e) => {
-
-                              e.preventDefault()
-
-                              handleSelectCity(city)
-
-                            }}
-
-                            style={{
-
-                              padding: '0.5rem 0.75rem',
-
-                              cursor: 'pointer',
-
-                              borderBottom: '1px solid #f3f4f6'
-
-                            }}
-
-                          >
-
-                            <div style={{ fontWeight: '500' }}>{city.name}</div>
-
-                            <div style={{ fontSize: '0.75rem', color: '#6b7280' }}>
-
-                              {city.provinceCode} · {city.regionName}
-
-                            </div>
-
-                          </div>
-
-                        ))}
-
-                      </div>
-
-                    )}
-
+                    >
+                      <option value="">
+                        {formData.province
+                          ? `Seleziona citt dalla provincia ${formData.province}`
+                          : 'Seleziona prima la provincia'}
+                      </option>
+                      {provinceCityOptions.map(city => (
+                        <option key={`city-prop-${city.name}-${city.provinceCode}`} value={city.name}>
+                          {city.name}
+                        </option>
+                      ))}
+                    </select>
                   </div>
 
                 </div>
@@ -51230,6 +52513,7 @@ function ContactModal({
             {category === 'CLIENT' && activeClientTab === 'request' && (
 
               <div
+                className="manus-contact-section"
 
                 style={{
 
@@ -51363,127 +52647,44 @@ function ContactModal({
 
 
 
-                <div style={{ position: 'relative' }}>
+                <div>
 
                 <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: '500' }}>
 
-                  Città
+                  Citt
 
                 </label>
 
-                <input
-
-                  type="text"
-
+                <select
                   value={formData.city}
-
-                  onChange={(e) => handleCityInputChange(e.target.value)}
-
-                  onFocus={() => {
-
-                    if (citySuggestions.length > 0) {
-
-                      setShowCitySuggestions(true)
-
+                  onChange={(e) => {
+                    const selectedName = e.target.value
+                    if (!selectedName) return
+                    const found = provinceCityOptions.find(city => city.name === selectedName)
+                    if (found) {
+                      handleSelectCity(found)
+                    } else {
+                      setFormData(prev => ({ ...prev, city: selectedName }))
                     }
-
                   }}
-
-                  onBlur={() => {
-
-                    setTimeout(() => setShowCitySuggestions(false), 150)
-
-                  }}
-
                   style={{
-
                     width: '100%',
-
                     padding: '0.75rem',
-
                     border: '1px solid #d1d5db',
-
                     borderRadius: '0.375rem'
-
                   }}
-
-                />
-
-                {showCitySuggestions && citySuggestions.length > 0 && (
-
-                  <div
-
-                    style={{
-
-                      position: 'absolute',
-
-                      top: '100%',
-
-                      left: 0,
-
-                      right: 0,
-
-                      backgroundColor: 'white',
-
-                      border: '1px solid #d1d5db',
-
-                      borderRadius: '0.375rem',
-
-                      marginTop: '0.25rem',
-
-                      maxHeight: '220px',
-
-                      overflowY: 'auto',
-
-                      zIndex: 20,
-
-                      boxShadow: '0 10px 15px -3px rgba(0,0,0,0.1), 0 4px 6px -4px rgba(0,0,0,0.1)'
-
-                    }}
-
-                  >
-
-                    {citySuggestions.map(city => (
-
-                      <div
-
-                        key={`${city.name}-${city.provinceCode}`}
-
-                        onMouseDown={(e) => {
-
-                          e.preventDefault()
-
-                          handleSelectCity(city)
-
-                        }}
-
-                        style={{
-
-                          padding: '0.5rem 0.75rem',
-
-                          cursor: 'pointer',
-
-                          borderBottom: '1px solid #f3f4f6'
-
-                        }}
-
-                      >
-
-                        <div style={{ fontWeight: '500' }}>{city.name}</div>
-
-                        <div style={{ fontSize: '0.75rem', color: '#6b7280' }}>
-
-                          {city.provinceCode} · {city.regionName}
-
-                        </div>
-
-                      </div>
-
-                    ))}
-
-                  </div>
-
-                )}
+                >
+                  <option value="">
+                    {formData.province
+                      ? `Seleziona citt dalla provincia ${formData.province}`
+                      : 'Seleziona prima la provincia'}
+                  </option>
+                  {provinceCityOptions.map(city => (
+                    <option key={`city-req-${city.name}-${city.provinceCode}`} value={city.name}>
+                      {city.name}
+                    </option>
+                  ))}
+                </select>
 
               </div>
 
@@ -51697,7 +52898,7 @@ function ContactModal({
 
                 <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: '500' }}>
 
-                  Budget (€)
+                  Budget (ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬)
 
                 </label>
 
@@ -51887,7 +53088,7 @@ function ContactModal({
 
                 >
 
-                  📎 Documentazione proprietario
+                  ÃƒÂ°Ã…Â¸Ã¢â‚¬Å“Ã…Â½ Documentazione proprietario
 
                 </h4>
 
@@ -51899,7 +53100,7 @@ function ContactModal({
 
                     Per caricare i documenti, salva prima il proprietario. Dopo il salvataggio potrai
 
-                    aggiungere qui documento d'identitÒ , codice fiscale, visura e atto di proprietÒ .
+                    aggiungere qui documento d'identitÃ’Â , codice fiscale, visura e atto di proprietÃ’Â .
 
                   </div>
 
@@ -52949,25 +54150,18 @@ function NotificationsPage({
 
     switch (type) {
 
-      case 'TASK_COMPLETED': return '✅'
-
-      case 'APPOINTMENT_CREATED': return '📅'
-
-      case 'APPOINTMENT_REMINDER': return '⏰'
-
-      case 'MATCH_FOUND': return '🎯'
-
-      case 'PROPERTY_ADDED': return '🏠'
-
-      case 'CLIENT_ADDED': return '👤'
-
-      default: return '📢'
+      case 'TASK_CREATED': return 'TSK'
+      case 'TASK_COMPLETED': return 'OK'
+      case 'APPOINTMENT_CREATED': return 'APP'
+      case 'APPOINTMENT_REMINDER': return 'REM'
+      case 'MATCH_FOUND': return 'M'
+      case 'PROPERTY_ADDED': return 'IMM'
+      case 'CLIENT_ADDED': return 'CLI'
+      default: return 'INFO'
 
     }
 
   }
-
-
 
   const getNotificationColor = (type: string) => {
 
@@ -52993,7 +54187,8 @@ function NotificationsPage({
 
     switch (type) {
 
-      case 'TASK_COMPLETED': return 'Attività completate'
+      case 'TASK_CREATED': return 'Task creati'
+      case 'TASK_COMPLETED': return 'Task completati'
 
       case 'APPOINTMENT_CREATED': return 'Appuntamenti creati'
 
@@ -53013,7 +54208,7 @@ function NotificationsPage({
 
       case 'EVENT_REMINDER': return 'Promemoria eventi'
 
-      case 'ACTIVITY_CREATED': return 'Attività create'
+      case 'ACTIVITY_CREATED': return 'AttivitÃ  create'
 
       default: return type
 
@@ -53441,7 +54636,7 @@ function NotificationsPage({
 
         }}>
 
-          <div style={{ fontSize: '3rem', marginBottom: '1rem' }}>ðŸ⬝⬢</div>
+          <div style={{ fontSize: '3rem', marginBottom: '1rem' }}>??</div>
 
           <h3 style={{ fontSize: '1.125rem', fontWeight: '500', marginBottom: '0.5rem' }}>
 
@@ -53631,7 +54826,7 @@ function NotificationsPage({
 
                             >
 
-                              âS
+                              <CheckSquare size={14} />
 
                             </button>
 
@@ -53663,7 +54858,7 @@ function NotificationsPage({
 
                           >
 
-                            ðŸ️
+                            <Trash2 size={14} />
 
                           </button>
 
@@ -54300,14 +55495,52 @@ function ContractsPage({
 function SettingsPage({
 
   onRefreshData,
+  authToken,
 
-  createNotification
+  createNotification,
+
+  installWebApp,
+
+  pwaInstalling,
+
+  pwaInstallMessage,
+
+  activatePushNotifications,
+
+  pushLoading,
+
+  pushEnabled,
+
+  pushError,
+
+  sendPushTestNotification,
+
+  pushTestLoading
 
 }: {
 
   onRefreshData: () => void,
+  authToken?: string | null,
 
-  createNotification?: (type: 'ACTIVITY_CREATED' | 'TASK_COMPLETED' | 'APPOINTMENT_CREATED' | 'APPOINTMENT_REMINDER' | 'MATCH_FOUND' | 'PROPERTY_ADDED' | 'CLIENT_ADDED', title: string, message: string, relatedId?: string) => void
+  createNotification?: (type: 'ACTIVITY_CREATED' | 'TASK_CREATED' | 'TASK_COMPLETED' | 'APPOINTMENT_CREATED' | 'APPOINTMENT_REMINDER' | 'MATCH_FOUND' | 'PROPERTY_ADDED' | 'CLIENT_ADDED', title: string, message: string, relatedId?: string) => void,
+
+  installWebApp: () => void,
+
+  pwaInstalling: boolean,
+
+  pwaInstallMessage: string | null,
+
+  activatePushNotifications: () => Promise<void>,
+
+  pushLoading: boolean,
+
+  pushEnabled: boolean,
+
+  pushError: string | null,
+
+  sendPushTestNotification: () => Promise<void>,
+
+  pushTestLoading: boolean
 
 }) {
 
@@ -54426,75 +55659,13 @@ function SettingsPage({
 
 
   useEffect(() => {
-
-    let cancelled = false
-
-    fetch('/api/config/immobiliareit')
-
-      .then(r => r.json())
-
-      .then((data) => {
-
-        if (cancelled) return
-
-        if (data?.success) {
-
-          setImmoUsername(data.data?.immoUsername || '')
-
-          setImmoSource(data.data?.immoSource || '')
-
-          setImmoEndpoint(data.data?.immoEndpoint || '')
-
-          setImmoHasPassword(Boolean(data.data?.hasPassword))
-
-          setImmoLoaded(true)
-
-        }
-
-      })
-
-      .catch(() => {})
-
-    return () => {
-
-      cancelled = true
-
-    }
-
+    setImmoLoaded(true)
   }, [])
 
 
 
   useEffect(() => {
-
-    let cancelled = false
-
-    fetch('/api/config/gestionaleimmobiliare')
-
-      .then(r => r.json())
-
-      .then((data) => {
-
-        if (cancelled) return
-
-        if (data?.success) {
-
-          setGiAgencyId(data.data?.giAgencyId != null ? String(data.data.giAgencyId) : '')
-
-          setGiLoaded(true)
-
-        }
-
-      })
-
-      .catch(() => {})
-
-    return () => {
-
-      cancelled = true
-
-    }
-
+    setGiLoaded(true)
   }, [])
 
 
@@ -54659,11 +55830,11 @@ function SettingsPage({
 
       setEffectiveBaseUrl(saved || window.location.origin)
 
-      alert('✅ URL pubblico base salvato')
+      alert('ÃƒÂ¢Ã…â€œÃ¢â‚¬Â¦ URL pubblico base salvato')
 
     } catch (e) {
 
-      alert('❌ Errore di connessione durante il salvataggio')
+      alert('ÃƒÂ¢Ã‚ÂÃ…â€™ Errore di connessione durante il salvataggio')
 
     } finally {
 
@@ -54727,13 +55898,13 @@ function SettingsPage({
 
       setApimoToken('')
 
-      alert('✅ Config APIMO salvata')
+      alert('ÃƒÂ¢Ã…â€œÃ¢â‚¬Â¦ Config APIMO salvata')
 
       await loadApimoStatus()
 
     } catch (e) {
 
-      alert('❌ Errore di connessione durante il salvataggio')
+      alert('ÃƒÂ¢Ã‚ÂÃ…â€™ Errore di connessione durante il salvataggio')
 
     } finally {
 
@@ -54765,13 +55936,13 @@ function SettingsPage({
 
       }
 
-      alert('✅ Sync APIMO completata')
+      alert('ÃƒÂ¢Ã…â€œÃ¢â‚¬Â¦ Sync APIMO completata')
 
       await loadApimoStatus()
 
     } catch (e) {
 
-      alert('❌ Errore di connessione durante la sincronizzazione')
+      alert('ÃƒÂ¢Ã‚ÂÃ…â€™ Errore di connessione durante la sincronizzazione')
 
     } finally {
 
@@ -54797,7 +55968,7 @@ function SettingsPage({
 
         if (!aiPropertyId.trim()) {
 
-          alert('❌ Inserisci un propertyId (id immobile)')
+          alert('ÃƒÂ¢Ã‚ÂÃ…â€™ Inserisci un propertyId (id immobile)')
 
           return
 
@@ -54837,7 +56008,7 @@ function SettingsPage({
 
         if (!aiInputText.trim()) {
 
-          alert('❌ Inserisci un testo da tradurre')
+          alert('ÃƒÂ¢Ã‚ÂÃ…â€™ Inserisci un testo da tradurre')
 
           return
 
@@ -54875,7 +56046,7 @@ function SettingsPage({
 
         if (!aiInputText.trim()) {
 
-          alert('❌ Inserisci un testo da migliorare')
+          alert('ÃƒÂ¢Ã‚ÂÃ…â€™ Inserisci un testo da migliorare')
 
           return
 
@@ -54913,7 +56084,7 @@ function SettingsPage({
 
     } catch (e: any) {
 
-      alert(`❠${e?.message || 'Errore AI'}`)
+      alert(` ${e?.message || 'Errore AI'}`)
 
     } finally {
 
@@ -54981,11 +56152,11 @@ function SettingsPage({
 
       setImmoPassword('')
 
-      alert('✅ Config Immobiliare.it salvata')
+      alert('ÃƒÂ¢Ã…â€œÃ¢â‚¬Â¦ Config Immobiliare.it salvata')
 
     } catch (e) {
 
-      alert('❌ Errore di connessione durante il salvataggio')
+      alert('ÃƒÂ¢Ã‚ÂÃ…â€™ Errore di connessione durante il salvataggio')
 
     } finally {
 
@@ -55003,7 +56174,7 @@ function SettingsPage({
 
     if (raw && !/^\d+$/.test(raw)) {
 
-      alert('❌ giAgencyId non valido (usa solo numeri)')
+      alert('ÃƒÂ¢Ã‚ÂÃ…â€™ giAgencyId non valido (usa solo numeri)')
 
       return
 
@@ -55037,11 +56208,11 @@ function SettingsPage({
 
       setGiAgencyId(data.data?.giAgencyId != null ? String(data.data.giAgencyId) : '')
 
-      alert('✅ Config GestionaleImmobiliare.it salvata')
+      alert('ÃƒÂ¢Ã…â€œÃ¢â‚¬Â¦ Config GestionaleImmobiliare.it salvata')
 
     } catch (e) {
 
-      alert('❌ Errore di connessione durante il salvataggio')
+      alert('ÃƒÂ¢Ã‚ÂÃ…â€™ Errore di connessione durante il salvataggio')
 
     } finally {
 
@@ -55065,7 +56236,7 @@ function SettingsPage({
 
       'APPOINTMENT_CREATED',
 
-      '📅 Nuovo Appuntamento',
+      'ÃƒÂ°Ã…Â¸Ã¢â‚¬Å“Ã¢â‚¬Â¦ Nuovo Appuntamento',
 
       'Visita immobile con Mario Rossi - Domani alle 14:00',
 
@@ -55081,9 +56252,9 @@ function SettingsPage({
 
       'MATCH_FOUND',
 
-      '🎯 Nuovo Match Trovato!',
+      'ÃƒÂ°Ã…Â¸Ã…Â½Ã‚Â¯ Nuovo Match Trovato!',
 
-      'Attico Panoramico Centro matcha perfettamente con Mario Rossi (95% compatibilità)',
+      'Attico Panoramico Centro matcha perfettamente con Mario Rossi (95% compatibilitÃ )',
 
       'demo-match-1'
 
@@ -55097,7 +56268,7 @@ function SettingsPage({
 
       'APPOINTMENT_REMINDER',
 
-      '⏰ Appuntamento Imminente',
+      'ÃƒÂ¢Ã‚ÂÃ‚Â° Appuntamento Imminente',
 
       'Visita immobile tra 30 minuti - Via Torino 2',
 
@@ -55113,7 +56284,7 @@ function SettingsPage({
 
       'TASK_COMPLETED',
 
-      '✅ Task Completato',
+      'ÃƒÂ¢Ã…â€œÃ¢â‚¬Â¦ Task Completato',
 
       'Contratto di vendita firmato per Villa Indipendente',
 
@@ -55129,9 +56300,9 @@ function SettingsPage({
 
       'PROPERTY_ADDED',
 
-      '🏠 Nuovo Immobile Aggiunto',
+      'ÃƒÂ°Ã…Â¸Ã‚ÂÃ‚Â  Nuovo Immobile Aggiunto',
 
-      'Bilocale Moderno Isola - €1.200/mese',
+      'Bilocale Moderno Isola - ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬1.200/mese',
 
       'demo-prop-1'
 
@@ -55145,7 +56316,7 @@ function SettingsPage({
 
       'CLIENT_ADDED',
 
-      '👤 Nuovo Cliente',
+      'ÃƒÂ°Ã…Â¸Ã¢â‚¬ËœÃ‚Â¤ Nuovo Cliente',
 
       'Giulia Verdi - Acquirente interessato a ville',
 
@@ -55155,7 +56326,7 @@ function SettingsPage({
 
 
 
-    alert('✅ 6 notifiche demo generate! Clicca sulla campanella per vederle.')
+    alert('6 notifiche demo generate. Clicca sulla campanella per vederle.')
 
   }
 
@@ -55175,7 +56346,23 @@ function SettingsPage({
 
     if (!confirm('ATTENZIONE: eliminerai tutti i dati demo. Procedere?')) return
 
-    alert('Reset dati demo non disponibile in questa build.')
+    setGenerating(true)
+    try {
+      const response = await fetch('/api/reset', {
+        method: 'POST',
+        headers: authToken ? { Authorization: `Bearer ${authToken}` } : undefined
+      })
+      const data = await response.json().catch(() => ({}))
+      if (!response.ok || !data?.success) {
+        throw new Error(data?.message || 'Errore reset dati')
+      }
+      alert('Dati eliminati con successo.')
+      onRefreshData()
+    } catch (error: any) {
+      alert(`Errore eliminazione dati: ${error?.message || 'errore sconosciuto'}`)
+    } finally {
+      setGenerating(false)
+    }
 
   }
 
@@ -55199,7 +56386,7 @@ function SettingsPage({
 
         <h1 style={{ fontSize: '2rem', fontWeight: 'bold', marginBottom: '0.5rem' }}>
 
-          âš️ Impostazioni
+          Impostazioni
 
         </h1>
 
@@ -55209,6 +56396,94 @@ function SettingsPage({
 
         </p>
 
+      </div>
+
+      <div
+        style={{
+          backgroundColor: 'white',
+          padding: '1.25rem',
+          borderRadius: '0.5rem',
+          boxShadow: '0 1px 3px rgba(0,0,0,0.1)',
+          marginBottom: '1.25rem'
+        }}
+      >
+        <h3 style={{ fontSize: '1.1rem', fontWeight: 600, marginBottom: '0.35rem' }}>
+          App mobile e notifiche
+        </h3>
+        <p style={{ color: '#6b7280', marginBottom: '0.9rem' }}>
+          Gestisci installazione web app e notifiche push da qui.
+        </p>
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem', alignItems: 'center' }}>
+          <button
+            type="button"
+            onClick={installWebApp}
+            disabled={pwaInstalling}
+            style={{
+              border: '1px solid #cbd5e1',
+              background: '#ffffff',
+              color: '#1e293b',
+              borderRadius: '9999px',
+              padding: '0.42rem 0.78rem',
+              fontSize: '0.82rem',
+              fontWeight: 600,
+              cursor: pwaInstalling ? 'default' : 'pointer',
+              opacity: pwaInstalling ? 0.7 : 1,
+              whiteSpace: 'nowrap'
+            }}
+          >
+            {pwaInstalling ? 'Installazione' : 'Scarica web app'}
+          </button>
+          <button
+            type="button"
+            onClick={activatePushNotifications}
+            disabled={pushLoading || pushEnabled}
+            title={pushError || ''}
+            style={{
+              border: pushEnabled ? '1px solid #86efac' : '1px solid #cbd5e1',
+              background: pushEnabled ? '#dcfce7' : '#ffffff',
+              color: pushEnabled ? '#166534' : '#1e293b',
+              borderRadius: '9999px',
+              padding: '0.42rem 0.78rem',
+              fontSize: '0.82rem',
+              fontWeight: 600,
+              cursor: pushLoading || pushEnabled ? 'default' : 'pointer',
+              opacity: pushLoading ? 0.7 : 1,
+              whiteSpace: 'nowrap'
+            }}
+          >
+            {pushEnabled ? 'Notifiche attive' : pushLoading ? 'Attivazione' : 'Attiva notifiche'}
+          </button>
+          <button
+            type="button"
+            onClick={sendPushTestNotification}
+            disabled={pushTestLoading || !pushEnabled}
+            title={!pushEnabled ? 'Attiva prima le notifiche push' : ''}
+            style={{
+              border: '1px solid #cbd5e1',
+              background: '#ffffff',
+              color: '#1e293b',
+              borderRadius: '9999px',
+              padding: '0.42rem 0.78rem',
+              fontSize: '0.82rem',
+              fontWeight: 600,
+              cursor: pushTestLoading || !pushEnabled ? 'default' : 'pointer',
+              opacity: pushTestLoading || !pushEnabled ? 0.7 : 1,
+              whiteSpace: 'nowrap'
+            }}
+          >
+            {pushTestLoading ? 'Invio test' : 'Test push'}
+          </button>
+        </div>
+        {pushError && !pushEnabled && (
+          <div style={{ color: '#b91c1c', fontSize: '0.78rem', marginTop: '0.6rem' }}>
+            {pushError}
+          </div>
+        )}
+        {pwaInstallMessage && (
+          <div style={{ color: '#1e3a8a', fontSize: '0.78rem', marginTop: '0.45rem' }}>
+            {pwaInstallMessage}
+          </div>
+        )}
       </div>
 
 
@@ -55225,11 +56500,11 @@ function SettingsPage({
 
       }}>
 
-        <div style={{ marginBottom: '2rem', borderBottom: '1px solid #e5e7eb', paddingBottom: '1.5rem' }}>
+        <div style={{ display: 'none', marginBottom: '2rem', borderBottom: '1px solid #e5e7eb', paddingBottom: '1.5rem' }}>
 
           <h3 style={{ fontSize: '1.25rem', fontWeight: '600', marginBottom: '0.5rem' }}>
 
-            ðŸ⬝ Password account
+            Password account
 
           </h3>
 
@@ -55271,11 +56546,11 @@ function SettingsPage({
 
         <h3 style={{ fontSize: '1.25rem', fontWeight: '600', marginBottom: '1rem' }}>
 
-          🐠Link Pubblici
+          Link Pubblici
 
         </h3>
 
-        <div style={{ display: 'grid', gap: '0.75rem', marginBottom: '2rem' }}>
+        <div style={{ display: 'none', gap: '0.75rem', marginBottom: '2rem' }}>
 
           <div>
 
@@ -55347,7 +56622,7 @@ function SettingsPage({
 
             >
 
-              {savingPublicBaseUrl ? '⏳ Salvataggio...' : '💾 Salva'}
+              {savingPublicBaseUrl ? 'Salvataggio...' : 'Salva'}
 
             </button>
 
@@ -55363,13 +56638,11 @@ function SettingsPage({
 
 
 
-        <h3 style={{ fontSize: '1.25rem', fontWeight: '600', marginBottom: '1rem' }}>
-
-          ðŸS¡ Feed Portali
-
+        <h3 style={{ display: 'none', fontSize: '1.25rem', fontWeight: '600', marginBottom: '1rem' }}>
+          Feed 1clickannunci
         </h3>
 
-        <div style={{ display: 'grid', gap: '0.75rem', marginBottom: '2rem' }}>
+        <div style={{ display: 'none', gap: '0.75rem', marginBottom: '2rem' }}>
 
           <div style={{ color: '#6b7280', fontSize: '0.875rem' }}>
 
@@ -55380,74 +56653,31 @@ function SettingsPage({
           <div style={{ display: 'grid', gap: '0.5rem' }}>
 
             <div style={{ display: 'flex', justifyContent: 'space-between', gap: '1rem', alignItems: 'center' }}>
-
-              <div style={{ fontWeight: 500 }}>Trovit / Mitula / Nestoria / Nuroa</div>
-
-              <a href={`${baseForFeedLinks}/feeds/trovit.xml`} target="_blank" rel="noreferrer">
-
-                {`${baseForFeedLinks}/feeds/trovit.xml`}
-
+              <div style={{ fontWeight: 500 }}>Feed XML ufficiale</div>
+              <a href={`${baseForFeedLinks}/feeds/1clickannunci.xml`} target="_blank" rel="noreferrer">
+                {`${baseForFeedLinks}/feeds/1clickannunci.xml`}
               </a>
-
-            </div>
-
-            <div style={{ display: 'flex', justifyContent: 'space-between', gap: '1rem', alignItems: 'center' }}>
-
-              <div style={{ fontWeight: 500 }}>GestionaleImmobiliare.it (XML)</div>
-
-              <a href={`${baseForFeedLinks}/feeds/gestionaleimmobiliare.xml`} target="_blank" rel="noreferrer">
-
-                {`${baseForFeedLinks}/feeds/gestionaleimmobiliare.xml`}
-
-              </a>
-
-            </div>
-
-            <div style={{ display: 'flex', justifyContent: 'space-between', gap: '1rem', alignItems: 'center' }}>
-
-              <div style={{ fontWeight: 500 }}>GestionaleImmobiliare.it (sync tar.gz)</div>
-
-              <a href={`${baseForFeedLinks}/feeds/gestionale_sync.tar.gz`} target="_blank" rel="noreferrer">
-
-                {`${baseForFeedLinks}/feeds/gestionale_sync.tar.gz`}
-
-              </a>
-
-            </div>
-
-            <div style={{ display: 'flex', justifyContent: 'space-between', gap: '1rem', alignItems: 'center' }}>
-
-              <div style={{ fontWeight: 500 }}>Meta Catalog (CSV)</div>
-
-              <a href={`${baseForFeedLinks}/feeds/meta_catalog.csv`} target="_blank" rel="noreferrer">
-
-                {`${baseForFeedLinks}/feeds/meta_catalog.csv`}
-
-              </a>
-
             </div>
 
           </div>
 
           <div style={{ color: '#6b7280', fontSize: '0.875rem' }}>
-
-            Aggiungi ?all=1 per includere tutti gli immobili nel feed.
-
+            Il feed include automaticamente tutti gli immobili pubblicati e validi per 1clickannunci.
           </div>
 
         </div>
 
 
 
-        <h3 style={{ fontSize: '1.25rem', fontWeight: '600', marginBottom: '1rem' }}>
+        <h3 style={{ display: 'none', fontSize: '1.25rem', fontWeight: '600', marginBottom: '1rem' }}>
 
-          🏠 Immobiliare.it
+          Ã°Å¸ÂÂ  Immobiliare.it
 
         </h3>
 
-        <div style={{ display: 'grid', gap: '0.75rem', marginBottom: '2rem' }}>
+        <div style={{ display: 'none', gap: '0.75rem', marginBottom: '2rem' }}>
 
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: '0.75rem' }}>
+          <div style={{ display: 'none', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: '0.75rem' }}>
 
             <div>
 
@@ -55557,7 +56787,7 @@ function SettingsPage({
 
             <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: '500' }}>
 
-              Password {immoHasPassword ? '(già salvata)' : '(non impostata)'}
+              Password {immoHasPassword ? '(giÃ  salvata)' : '(non impostata)'}
 
             </label>
 
@@ -55623,7 +56853,7 @@ function SettingsPage({
 
             >
 
-              {savingImmo ? '⏳ Salvataggio...' : '💾 Salva'}
+              {savingImmo ? 'Salvataggio...' : 'Salva'}
 
             </button>
 
@@ -55639,13 +56869,13 @@ function SettingsPage({
 
 
 
-        <h3 style={{ fontSize: '1.25rem', fontWeight: '600', marginBottom: '1rem' }}>
+        <h3 style={{ display: 'none', fontSize: '1.25rem', fontWeight: '600', marginBottom: '1rem' }}>
 
-          🏢 GestionaleImmobiliare.it
+          Ã°Å¸ÂÂ¢ GestionaleImmobiliare.it
 
         </h3>
 
-        <div style={{ display: 'grid', gap: '0.75rem', marginBottom: '2rem' }}>
+        <div style={{ display: 'none', gap: '0.75rem', marginBottom: '2rem' }}>
 
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: '0.75rem' }}>
 
@@ -55723,13 +56953,13 @@ function SettingsPage({
 
             >
 
-              {savingGi ? '⏳ Salvataggio...' : '💾 Salva'}
+              {savingGi ? 'Salvataggio...' : 'Salva'}
 
             </button>
 
             <div style={{ color: '#6b7280', fontSize: '0.875rem' }}>
 
-              Necessario per generare il pacchetto /feeds/gestionale_sync.tar.gz.
+              Sezione legacy dismessa.
 
             </div>
 
@@ -55739,13 +56969,13 @@ function SettingsPage({
 
 
 
-        <h3 style={{ fontSize: '1.25rem', fontWeight: '600', marginBottom: '1rem' }}>
+        <h3 style={{ display: 'none', fontSize: '1.25rem', fontWeight: '600', marginBottom: '1rem' }}>
 
-          ðŸ⬝~ APIMO.net
+          APIMO.net
 
         </h3>
 
-        <div style={{ display: 'grid', gap: '0.75rem', marginBottom: '2rem' }}>
+        <div style={{ display: 'none', gap: '0.75rem', marginBottom: '2rem' }}>
 
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: '0.75rem' }}>
 
@@ -55825,7 +57055,7 @@ function SettingsPage({
 
             <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: '500' }}>
 
-              Token {apimoHasToken ? '(già salvato)' : '(non impostato)'}
+              Token {apimoHasToken ? '(giÃ  salvato)' : '(non impostato)'}
 
             </label>
 
@@ -55891,7 +57121,7 @@ function SettingsPage({
 
             >
 
-              {savingApimo ? '⏳ Salvataggio...' : '💾 Salva'}
+              {savingApimo ? 'Salvataggio...' : 'Salva'}
 
             </button>
 
@@ -55931,7 +57161,7 @@ function SettingsPage({
 
             >
 
-              {syncingApimo ? '⏳ Sync...' : '⬇️ Pull (delta)'}
+              {syncingApimo ? 'Sync...' : 'Pull (delta)'}
 
             </button>
 
@@ -55971,7 +57201,7 @@ function SettingsPage({
 
             >
 
-              {syncingApimo ? '⏳ Sync...' : '⬇️ Pull (full)'}
+              {syncingApimo ? 'Sync...' : 'Pull (full)'}
 
             </button>
 
@@ -56009,7 +57239,7 @@ function SettingsPage({
 
             >
 
-              ðŸ⬝ Aggiorna stato
+              Aggiorna stato
 
             </button>
 
@@ -56041,7 +57271,7 @@ function SettingsPage({
 
             <div style={{ display: 'grid', gap: '0.25rem', color: '#374151', fontSize: '0.9rem' }}>
 
-              <div>Configurato: {apimoStatusLoaded ? (apimoStatus?.configured ? 'sì' : 'no') : '-'}</div>
+              <div>Configurato: {apimoStatusLoaded ? (apimoStatus?.configured ? 'sÃ¬' : 'no') : '-'}</div>
 
               <div>Ultimo timestamp pull: {apimoStatusLoaded ? (apimoStatus?.apimoLastPullTimestamp ?? '-') : '-'}</div>
 
@@ -56061,7 +57291,7 @@ function SettingsPage({
 
         <h3 style={{ fontSize: '1.25rem', fontWeight: '600', marginBottom: '1rem' }}>
 
-          🤠AI (Groq)
+          AI (GROQ)
 
         </h3>
 
@@ -56125,7 +57355,7 @@ function SettingsPage({
 
               >
 
-                ðŸ⬝ Aggiorna
+                Aggiorna
 
               </button>
 
@@ -56133,7 +57363,7 @@ function SettingsPage({
 
             <div style={{ display: 'grid', gap: '0.25rem', marginTop: '0.5rem', color: '#374151', fontSize: '0.9rem' }}>
 
-              <div>Configurato: {aiStatusLoaded ? (aiStatus?.configured ? 'sì' : 'no') : '-'}</div>
+              <div>Configurato: {aiStatusLoaded ? (aiStatus?.configured ? 'sÃ¬' : 'no') : '-'}</div>
 
               <div>Modello: {aiStatusLoaded ? (aiStatus?.model || '-') : '-'}</div>
 
@@ -56283,7 +57513,7 @@ function SettingsPage({
 
                   onChange={(e) => setAiTargetLanguage(e.target.value)}
 
-                  placeholder="Italiano / English / FranÒ§ais"
+                  placeholder="Italiano / English / FranÃ’Â§ais"
 
                   style={{
 
@@ -56427,7 +57657,7 @@ function SettingsPage({
 
           {(aiAction === 'translate' || aiAction === 'improve') && (
 
-            <div>
+            <div style={{ display: 'none' }}>
 
               <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: '500' }}>
 
@@ -56467,7 +57697,7 @@ function SettingsPage({
 
 
 
-          <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center', flexWrap: 'wrap' }}>
+          <div style={{ display: 'none', gap: '0.75rem', alignItems: 'center', flexWrap: 'wrap' }}>
 
             <button
 
@@ -56503,7 +57733,7 @@ function SettingsPage({
 
             >
 
-              {aiRunning ? '⏳ Esecuzione...' : '✨ Esegui'}
+              {aiRunning ? 'ÃƒÂ¢Ã‚ÂÃ‚Â³ Esecuzione...' : 'ÃƒÂ¢Ã…â€œÃ‚Â¨ Esegui'}
 
             </button>
 
@@ -56517,7 +57747,7 @@ function SettingsPage({
 
 
 
-          <div>
+          <div style={{ display: 'none' }}>
 
             <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: '500' }}>
 
@@ -56559,7 +57789,7 @@ function SettingsPage({
 
         <h3 style={{ fontSize: '1.25rem', fontWeight: '600', marginBottom: '1.5rem' }}>
 
-          ðŸ⬺ ï¸ Strumenti Sviluppatore
+          Ã°Å¸â€”â€˜Ã¯Â¸Â Elimina tutti i dati
 
         </h3>
 
@@ -56569,7 +57799,7 @@ function SettingsPage({
 
           {/* Genera Dati Demo */}
 
-          <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
+          <div style={{ display: 'none', gap: '1rem', alignItems: 'center' }}>
 
             <button
 
@@ -56605,13 +57835,13 @@ function SettingsPage({
 
             >
 
-              {generating ? '⏳ Generazione in corso...' : '✨ Genera Dati Demo'}
+              {generating ? 'ÃƒÂ¢Ã‚ÂÃ‚Â³ Generazione in corso...' : 'ÃƒÂ¢Ã…â€œÃ‚Â¨ Genera Dati Demo'}
 
             </button>
 
             <p style={{ color: '#6b7280', fontSize: '0.875rem' }}>
 
-              Aggiunge immobili, clienti e agenti di prova per testare le funzionalitÒ .
+              Aggiunge immobili, clienti e agenti di prova per testare le funzionalitÃ .
 
             </p>
 
@@ -56621,7 +57851,7 @@ function SettingsPage({
 
           {/* Genera Notifiche Demo */}
 
-          <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
+          <div style={{ display: 'none', gap: '1rem', alignItems: 'center' }}>
 
             <button
 
@@ -56653,7 +57883,7 @@ function SettingsPage({
 
             >
 
-              ðŸ⬝⬝ Genera Notifiche Demo
+              ?? Genera Notifiche Demo
 
             </button>
 
@@ -56705,7 +57935,7 @@ function SettingsPage({
 
             >
 
-              {generating ? '⏳ Eliminazione...' : '🗑️ Elimina Tutti i Dati'}
+              {generating ? 'ÃƒÂ¢Ã‚ÂÃ‚Â³ Eliminazione...' : 'ÃƒÂ°Ã…Â¸Ã¢â‚¬â€Ã¢â‚¬ËœÃƒÂ¯Ã‚Â¸Ã‚Â Elimina Tutti i Dati'}
 
             </button>
 
@@ -56736,6 +57966,15 @@ export default App
 // Force HMR update
 
  
+
+
+
+
+
+
+
+
+
 
 
 

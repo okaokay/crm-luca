@@ -1122,7 +1122,6 @@ const minioClient = new Minio.Client({
 });
 
 const OWNER_DOCUMENTS_BUCKET = process.env.MINIO_OWNER_DOCUMENTS_BUCKET || 'owner-documents';
-const PROPERTY_DOCUMENTS_BUCKET = process.env.MINIO_PROPERTY_DOCUMENTS_BUCKET || OWNER_DOCUMENTS_BUCKET;
 
 const storageStatObject = (bucket: string, key: string) =>
   new Promise<any>((resolve, reject) => {
@@ -15561,7 +15560,7 @@ app.delete('/api/properties/:id', async (req, res) => {
 
 // Contacts endpoints
 app.get('/api/contacts', async (req, res) => {
-  const { page = 1, limit = 200, search, type, category, city, assignedToId } = req.query;
+  const { page = 1, limit = 10, search, type, category, city, assignedToId } = req.query;
 
   try {
     const auth = getAuth(req);
@@ -16997,224 +16996,6 @@ app.delete('/api/contacts/:id/documents/:documentId', async (req, res) => {
   }
 });
 
-type PropertyStoredDocument = {
-  id: string
-  type: string
-  fileKey: string
-  originalName: string
-  mimeType: string
-  size: number
-  uploadedAt: string
-}
-
-const getPropertyDocumentsFromOneClickData = (oneClickData: unknown): PropertyStoredDocument[] => {
-  if (!oneClickData || typeof oneClickData !== 'object') return []
-  const raw = (oneClickData as any).propertyDocuments
-  if (!Array.isArray(raw)) return []
-  return raw
-    .map((entry) => ({
-      id: String(entry?.id || '').trim(),
-      type: String(entry?.type || '').trim(),
-      fileKey: String(entry?.fileKey || '').trim(),
-      originalName: String(entry?.originalName || '').trim(),
-      mimeType: String(entry?.mimeType || '').trim() || 'application/octet-stream',
-      size: Number(entry?.size || 0) || 0,
-      uploadedAt: String(entry?.uploadedAt || '').trim() || new Date().toISOString()
-    }))
-    .filter((entry) => entry.id && entry.type && entry.fileKey)
-}
-
-const sanitizeFileName = (name: string): string =>
-  String(name || 'file')
-    .replace(/[^a-zA-Z0-9._-]/g, '_')
-    .replace(/_+/g, '_')
-    .slice(0, 120)
-
-app.get('/api/properties/:id/documents', async (req, res) => {
-  try {
-    const auth = getAuth(req)
-    if (!auth) return res.status(401).json({ success: false, message: 'Unauthorized' })
-
-    const property = await prisma.property.findUnique({
-      where: { id: req.params.id },
-      select: { id: true, agencyId: true, ownerId: true, oneClickData: true }
-    })
-    if (!property) return res.status(404).json({ success: false, message: 'Property not found' })
-    if (auth.agencyId && property.agencyId !== auth.agencyId) return res.status(404).json({ success: false, message: 'Property not found' })
-    if (auth.role === 'AGENT' && property.ownerId !== auth.id) return res.status(403).json({ success: false, message: 'Forbidden' })
-
-    const documents = getPropertyDocumentsFromOneClickData(property.oneClickData)
-    res.json({ success: true, data: documents })
-  } catch (error) {
-    console.error('Error fetching property documents:', error)
-    res.status(500).json({ success: false, message: 'Error fetching property documents' })
-  }
-})
-
-app.post('/api/properties/:id/documents', upload.single('file'), async (req, res) => {
-  try {
-    const auth = getAuth(req)
-    if (!auth) return res.status(401).json({ success: false, message: 'Unauthorized' })
-    if (!req.file) return res.status(400).json({ success: false, message: 'Missing file' })
-
-    const property = await prisma.property.findUnique({
-      where: { id: req.params.id },
-      select: { id: true, agencyId: true, ownerId: true, oneClickData: true }
-    })
-    if (!property) return res.status(404).json({ success: false, message: 'Property not found' })
-    if (auth.agencyId && property.agencyId !== auth.agencyId) return res.status(404).json({ success: false, message: 'Property not found' })
-    if (auth.role === 'AGENT' && property.ownerId !== auth.id) return res.status(403).json({ success: false, message: 'Forbidden' })
-
-    const type = String(req.body?.type || '').trim().toLowerCase()
-    if (!type) return res.status(400).json({ success: false, message: 'Missing document type' })
-
-    const documentId = `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`
-    const safeName = sanitizeFileName(req.file.originalname || `${type}.bin`)
-    const fileKey = `properties/${property.id}/documents/${documentId}-${safeName}`
-
-    await storagePutObject(
-      PROPERTY_DOCUMENTS_BUCKET,
-      fileKey,
-      req.file.buffer,
-      req.file.size,
-      req.file.mimetype || 'application/octet-stream'
-    )
-
-    const existingDocs = getPropertyDocumentsFromOneClickData(property.oneClickData)
-    const newDocument: PropertyStoredDocument = {
-      id: documentId,
-      type,
-      fileKey,
-      originalName: req.file.originalname || safeName,
-      mimeType: req.file.mimetype || 'application/octet-stream',
-      size: req.file.size || 0,
-      uploadedAt: new Date().toISOString()
-    }
-
-    await prisma.property.update({
-      where: { id: property.id },
-      data: {
-        oneClickData: {
-          ...(property.oneClickData && typeof property.oneClickData === 'object' ? (property.oneClickData as any) : {}),
-          propertyDocuments: [newDocument, ...existingDocs]
-        }
-      }
-    })
-
-    res.status(201).json({ success: true, data: newDocument, message: 'Property document uploaded successfully' })
-  } catch (error) {
-    console.error('Error uploading property document:', error)
-    res.status(500).json({ success: false, message: 'Error uploading property document' })
-  }
-})
-
-app.get('/api/properties/:id/documents/:documentId', async (req, res) => {
-  try {
-    const auth = getAuth(req)
-    if (!auth) return res.status(401).json({ success: false, message: 'Unauthorized' })
-
-    const property = await prisma.property.findUnique({
-      where: { id: req.params.id },
-      select: { id: true, agencyId: true, ownerId: true, oneClickData: true }
-    })
-    if (!property) return res.status(404).json({ success: false, message: 'Property not found' })
-    if (auth.agencyId && property.agencyId !== auth.agencyId) return res.status(404).json({ success: false, message: 'Property not found' })
-    if (auth.role === 'AGENT' && property.ownerId !== auth.id) return res.status(403).json({ success: false, message: 'Forbidden' })
-
-    const documents = getPropertyDocumentsFromOneClickData(property.oneClickData)
-    const documentMeta = documents.find((doc) => doc.id === req.params.documentId)
-    if (!documentMeta) return res.status(404).json({ success: false, message: 'Document not found' })
-
-    const stat = await storageStatObject(PROPERTY_DOCUMENTS_BUCKET, documentMeta.fileKey)
-    const dataStream = await storageGetObject(PROPERTY_DOCUMENTS_BUCKET, documentMeta.fileKey)
-    const meta = stat?.metaData || {}
-    const contentType = meta['content-type'] || meta['Content-Type'] || documentMeta.mimeType || 'application/octet-stream'
-
-    const downloadParam = String((req.query as any)?.download || '').toLowerCase()
-    const isDownload = downloadParam === '1' || downloadParam === 'true' || downloadParam === 'download'
-    res.setHeader('Content-Type', contentType)
-    res.setHeader('Content-Disposition', `${isDownload ? 'attachment' : 'inline'}; filename="${encodeURIComponent(documentMeta.originalName || 'document')}"`)
-
-    dataStream.on('error', (streamErr: any) => {
-      console.error('Error streaming property document:', streamErr)
-      if (!res.headersSent) {
-        res.status(500).json({ success: false, message: 'Error streaming property document' })
-      } else {
-        res.end()
-      }
-    })
-    dataStream.pipe(res)
-  } catch (error) {
-    console.error('Error downloading property document:', error)
-    res.status(500).json({ success: false, message: 'Error downloading property document' })
-  }
-})
-
-app.delete('/api/properties/:id/documents/:documentId', async (req, res) => {
-  try {
-    const auth = getAuth(req)
-    if (!auth) return res.status(401).json({ success: false, message: 'Unauthorized' })
-
-    const property = await prisma.property.findUnique({
-      where: { id: req.params.id },
-      select: { id: true, agencyId: true, ownerId: true, oneClickData: true }
-    })
-    if (!property) return res.status(404).json({ success: false, message: 'Property not found' })
-    if (auth.agencyId && property.agencyId !== auth.agencyId) return res.status(404).json({ success: false, message: 'Property not found' })
-    if (auth.role === 'AGENT' && property.ownerId !== auth.id) return res.status(403).json({ success: false, message: 'Forbidden' })
-
-    const documents = getPropertyDocumentsFromOneClickData(property.oneClickData)
-    const target = documents.find((doc) => doc.id === req.params.documentId)
-    if (!target) return res.status(404).json({ success: false, message: 'Document not found' })
-
-    const remaining = documents.filter((doc) => doc.id !== req.params.documentId)
-    await prisma.property.update({
-      where: { id: property.id },
-      data: {
-        oneClickData: {
-          ...(property.oneClickData && typeof property.oneClickData === 'object' ? (property.oneClickData as any) : {}),
-          propertyDocuments: remaining
-        }
-      }
-    })
-
-    try {
-      await storageRemoveObject(PROPERTY_DOCUMENTS_BUCKET, target.fileKey)
-    } catch (storageError) {
-      console.warn('Unable to remove property document from storage:', storageError)
-    }
-
-    res.json({ success: true, message: 'Property document deleted successfully' })
-  } catch (error) {
-    console.error('Error deleting property document:', error)
-    res.status(500).json({ success: false, message: 'Error deleting property document' })
-  }
-})
-
-app.delete('/api/contacts/:id/request-profile', async (req, res) => {
-  try {
-    const auth = getAuth(req)
-    if (!auth) return res.status(401).json({ success: false, message: 'Unauthorized' })
-
-    const contact = await prisma.contact.findUnique({
-      where: { id: req.params.id },
-      select: { id: true, agencyId: true, assignedToId: true }
-    })
-    if (!contact) return res.status(404).json({ success: false, message: 'Contact not found' })
-    if (auth.agencyId && contact.agencyId !== auth.agencyId) return res.status(404).json({ success: false, message: 'Contact not found' })
-    if (auth.role === 'AGENT' && contact.assignedToId && contact.assignedToId !== auth.id) return res.status(403).json({ success: false, message: 'Forbidden' })
-
-    await prisma.request.deleteMany({
-      where: { contactId: contact.id }
-    })
-
-    res.json({ success: true, message: 'Request profile deleted successfully' })
-  } catch (error) {
-    console.error('Error deleting request profile:', error)
-    res.status(500).json({ success: false, message: 'Error deleting request profile' })
-  }
-})
-
 app.post('/api/contacts', async (req, res) => {
   try {
     const auth = getAuth(req);
@@ -17819,10 +17600,9 @@ app.get('/api/notifications', async (req, res) => {
       where.agencyId = auth.agencyId;
     }
 
-    const canManageAllNotifications = isAdminRole(auth.role);
-    if (!canManageAllNotifications) {
+    if (auth.role === 'AGENT') {
       where.recipientId = auth.id;
-    } else if (agentId && String(agentId).toUpperCase() !== 'ALL') {
+    } else if (agentId) {
       where.recipientId = agentId.toString();
     }
 
@@ -17830,7 +17610,6 @@ app.get('/api/notifications', async (req, res) => {
       if (isRead === 'true') where.isRead = true;
       if (isRead === 'false') where.isRead = false;
     }
-    where.type = { not: WEB_PUSH_SUBSCRIPTION_TYPE };
 
     const notifications = await prisma.notification.findMany({
       where,
@@ -17851,7 +17630,7 @@ app.put('/api/notifications/:id/read', async (req, res) => {
 
     const where: any = { id: req.params.id };
 
-    if (!isAdminRole(auth.role)) {
+    if (auth.role === 'AGENT') {
       where.recipientId = auth.id;
     } else if (auth.agencyId) {
       where.agencyId = auth.agencyId;
@@ -17881,26 +17660,23 @@ app.put('/api/notifications/read-all/:agentId', async (req, res) => {
     const targetUserId = req.params.agentId;
     const markAllForAgency = targetUserId === 'ALL';
 
-    const canManageAllNotifications = isAdminRole(auth.role);
+    if (auth.role === 'AGENT' && (markAllForAgency || targetUserId !== auth.id)) {
+      return res.status(403).json({ success: false, message: 'Forbidden' });
+    }
 
     const where: any = {
       type: { not: WEB_PUSH_SUBSCRIPTION_TYPE }
     };
 
+    if (!markAllForAgency) {
+      where.recipientId = targetUserId;
+    }
+
     if (auth.agencyId) {
       where.agencyId = auth.agencyId;
     }
 
-    if (!canManageAllNotifications) {
-      if (markAllForAgency || (targetUserId && targetUserId !== auth.id)) {
-        return res.status(403).json({ success: false, message: 'Forbidden' });
-      }
-      where.recipientId = auth.id;
-    } else if (!markAllForAgency) {
-      where.recipientId = targetUserId;
-    }
-
-    if (markAllForAgency && !canManageAllNotifications) {
+    if (markAllForAgency && !isAdminRole(auth.role)) {
       return res.status(403).json({ success: false, message: 'Forbidden' });
     }
 
@@ -17926,7 +17702,7 @@ app.delete('/api/notifications/:id', async (req, res) => {
 
     const where: any = { id: req.params.id };
 
-    if (!isAdminRole(auth.role)) {
+    if (auth.role === 'AGENT') {
       where.recipientId = auth.id;
     } else if (auth.agencyId) {
       where.agencyId = auth.agencyId;
@@ -17952,13 +17728,12 @@ app.get('/api/notifications/unread-count/:agentId', async (req, res) => {
 
     const targetUserId = req.params.agentId;
 
-    const canManageAllNotifications = isAdminRole(auth.role);
-    if (!canManageAllNotifications && targetUserId !== auth.id) {
+    if (auth.role === 'AGENT' && targetUserId !== auth.id) {
       return res.status(403).json({ success: false, message: 'Forbidden' });
     }
 
     const where: any = {
-      recipientId: !canManageAllNotifications ? auth.id : targetUserId,
+      recipientId: targetUserId,
       isRead: false,
       type: { not: WEB_PUSH_SUBSCRIPTION_TYPE }
     };
