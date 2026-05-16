@@ -62,7 +62,7 @@ services:
       - backend
     networks:
       - crm-network
-      - traefik-proxy
+      - traefik_default
     restart: unless-stopped
     labels:
       - traefik.enable=true
@@ -70,7 +70,7 @@ services:
       - traefik.http.routers.frontend.entrypoints=web,websecure
       - traefik.http.routers.frontend.tls=true
       - traefik.http.routers.frontend.tls.certresolver=letsencrypt
-      - traefik.docker.network=traefik-proxy
+      - traefik.docker.network=traefik_default
       - traefik.http.services.frontend.loadbalancer.server.port=3000
 
 volumes:
@@ -81,5 +81,5 @@ volumes:
 networks:
   crm-network:
     driver: bridge
-  traefik-proxy:
+  traefik_default:
     external: true
