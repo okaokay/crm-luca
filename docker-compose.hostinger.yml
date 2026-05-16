@@ -64,13 +64,23 @@ services:
     networks:
       - crm-network
     restart: unless-stopped
+    healthcheck:
+      disable: true
     labels:
       - traefik.enable=true
-      - traefik.http.routers.crm-luca.rule=Host(`gestifacile.cloud`)
-      - traefik.http.routers.crm-luca.entrypoints=websecure
-      - traefik.http.routers.crm-luca.tls=true
-      - traefik.http.routers.crm-luca.tls.certresolver=letsencrypt
-      - traefik.http.services.crm-luca.loadbalancer.server.port=3000
+
+      - traefik.http.routers.crm-luca-http.rule=Host(`gestifacile.cloud`) || Host(`www.gestifacile.cloud`)
+      - traefik.http.routers.crm-luca-http.entrypoints=web
+      - traefik.http.routers.crm-luca-http.service=crm-luca-service
+
+      - traefik.http.routers.crm-luca-https.rule=Host(`gestifacile.cloud`) || Host(`www.gestifacile.cloud`)
+      - traefik.http.routers.crm-luca-https.entrypoints=websecure
+      - traefik.http.routers.crm-luca-https.tls=true
+      - traefik.http.routers.crm-luca-https.tls.certresolver=letsencrypt
+      - traefik.http.routers.crm-luca-https.service=crm-luca-service
+
+      - traefik.http.services.crm-luca-service.loadbalancer.server.port=3000
+      - traefik.http.services.crm-luca-service.loadbalancer.server.scheme=http
 
 volumes:
   postgres_data:
