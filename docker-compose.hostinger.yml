@@ -45,8 +45,8 @@ services:
       MINIO_PORT: 9000
       MINIO_ACCESS_KEY: minioadmin
       MINIO_SECRET_KEY: minioadmin123
-      PUBLIC_BASE_URL: http://gestifacile.cloud
-      FRONTEND_URL: http://gestifacile.cloud
+      PUBLIC_BASE_URL: http://gestifacile.cloud:8080
+      FRONTEND_URL: http://gestifacile.cloud:8080
     depends_on:
       - postgres
       - redis
@@ -62,7 +62,7 @@ services:
     depends_on:
       - backend
     ports:
-      - "80:80"
+      - "8080:80"
     networks:
       - crm-network
     restart: unless-stopped
