@@ -4,6 +4,7 @@ WORKDIR /app
 
 COPY package.json package-lock.json ./
 COPY prisma ./prisma
+
 RUN npm install
 
 COPY tsconfig.json ./
@@ -12,14 +13,16 @@ COPY src ./src
 RUN npm run build
 
 FROM mcr.microsoft.com/playwright:v1.58.2-noble AS runner
+
 WORKDIR /app
 
 COPY --from=builder /app/package.json ./package.json
 COPY --from=builder /app/package-lock.json ./package-lock.json
 COPY --from=builder /app/node_modules ./node_modules
 COPY --from=builder /app/dist ./dist
+COPY --from=builder /app/prisma ./prisma
 
-RUN npm prune --omit=dev && npm cache clean --force && chown -R pwuser:pwuser /app
+RUN npm cache clean --force && chown -R pwuser:pwuser /app
 
 USER pwuser
 
