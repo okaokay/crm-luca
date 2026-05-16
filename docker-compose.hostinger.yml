@@ -68,11 +68,18 @@ services:
     labels:
       - traefik.enable=true
       - traefik.docker.network=traefik-proxy
-      - traefik.http.routers.gestifacile-frontend.rule=Host(`gestifacile.cloud`) || Host(`www.gestifacile.cloud`)
-      - traefik.http.routers.gestifacile-frontend.entrypoints=websecure
-      - traefik.http.routers.gestifacile-frontend.tls=true
-      - traefik.http.routers.gestifacile-frontend.tls.certresolver=letsencrypt
-      - traefik.http.services.gestifacile-frontend.loadbalancer.server.port=80
+
+      - traefik.http.routers.gestifacile-http.rule=Host(`gestifacile.cloud`) || Host(`www.gestifacile.cloud`)
+      - traefik.http.routers.gestifacile-http.entrypoints=web
+      - traefik.http.routers.gestifacile-http.service=gestifacile-service
+
+      - traefik.http.routers.gestifacile-https.rule=Host(`gestifacile.cloud`) || Host(`www.gestifacile.cloud`)
+      - traefik.http.routers.gestifacile-https.entrypoints=websecure
+      - traefik.http.routers.gestifacile-https.tls=true
+      - traefik.http.routers.gestifacile-https.tls.certresolver=letsencrypt
+      - traefik.http.routers.gestifacile-https.service=gestifacile-service
+
+      - traefik.http.services.gestifacile-service.loadbalancer.server.port=80
 
 volumes:
   postgres_data:
