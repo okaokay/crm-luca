@@ -62,9 +62,11 @@ services:
       - backend
     networks:
       - crm-network
+      - traefik-public
     restart: unless-stopped
     labels:
       - traefik.enable=true
+      - traefik.docker.network=traefik-public
       - traefik.http.routers.frontend.rule=Host(`gestifacile.cloud`) || Host(`www.gestifacile.cloud`)
       - traefik.http.routers.frontend.entrypoints=web,websecure
       - traefik.http.routers.frontend.tls=true
@@ -79,3 +81,5 @@ volumes:
 networks:
   crm-network:
     driver: bridge
+  traefik-public:
+    external: true
