@@ -192,12 +192,75 @@ type ZoneClientRecordForm = {
   type: 'SELLER' | 'LEAD'
   note: string
 }
+type DynamicZoneGroup = {
+  zoneId: string
+  groupId: string
+  city: string
+  province: string
+  region: string
+  zoneName: string
+  groupName: string
+  streets: Array<{ id: string; name: string }>
+  activeAssignment: { assignmentId: string; agentId: string; agentName: string } | null
+}
+
+type DynamicGroupWorkspace = {
+  zoneId: string
+  groupId: string
+  groupName: string
+  groupIndex: number
+  city: string
+  province: string
+  region: string
+  zoneName: string
+  canWrite: boolean
+  streets: Array<{ id: string; name: string }>
+  logs: Array<{
+    id: string
+    entryType: string
+    title: string | null
+    content: string
+    metadata?: any
+    createdAt: string
+    createdBy: { id: string; firstName: string; lastName: string; email: string }
+  }>
+}
 
 const fmt = (v?: string | null) => (v ? new Date(v).toLocaleString('it-IT') : '-')
 const capFromZone = (zone?: string) => (String(zone || '').match(/^CAP\s+(\d{5})$/i)?.[1] || '')
+const buildZoneImageMetadata = (photoDataUrl?: string | null) => {
+  const clean = String(photoDataUrl || '').trim()
+  if (!clean) return { photoDataUrl: null as string | null, attachments: [] as Array<{ type: 'image'; dataUrl: string; label: string }> }
+  return {
+    photoDataUrl: clean,
+    attachments: [{ type: 'image' as const, dataUrl: clean, label: 'Foto zona' }]
+  }
+}
+const getZonePrimaryPhoto = (metadata?: any) => {
+  const fromAttachment = Array.isArray(metadata?.attachments)
+    ? String(metadata.attachments.find((a: any) => a && typeof a.dataUrl === 'string' && String(a.dataUrl).trim())?.dataUrl || '').trim()
+    : ''
+  if (fromAttachment) return fromAttachment
+  const legacy = String(metadata?.photoDataUrl || '').trim()
+  return legacy || null
+}
 const csvEsc = (v: unknown) => {
   const s = String(v ?? '')
   return s.includes(',') || s.includes('"') || s.includes('\n') ? `"${s.replace(/"/g, '""')}"` : s
+}
+const ZONE_KIND_LABELS: Record<string, string> = {
+  ZONE_NOTE: 'Nota di zona',
+  ZONE_SIGN: 'Cartello di zona',
+  ZONE_PROPERTY: 'Immobile di zona',
+  ZONE_CLIENT: 'Cliente di zona',
+  ZONE_CLIENT_RECORD: 'Scheda cliente di zona',
+  ZONE_CLIENT_RECORD_UPDATE: 'Aggiornamento scheda cliente',
+  ZONE_CLIENT_RECORD_NOTE: 'Nota su scheda cliente',
+  ZONE_SIGN_ACTION: 'Azione su cartello'
+}
+const zoneKindLabel = (kind?: string | null) => {
+  const key = String(kind || '').trim()
+  return ZONE_KIND_LABELS[key] || key || 'Altro'
 }
 
 const card: React.CSSProperties = {
@@ -391,7 +454,7 @@ export function AgentZoneTasksPage({ agents, onRefreshGlobalData }: AgentZoneTas
   const [closingAssignmentId, setClosingAssignmentId] = useState<string | null>(null)
   const [reassignModal, setReassignModal] = useState<{ assignmentId: string; open: boolean }>({ assignmentId: '', open: false })
   const [reassignAgentId, setReassignAgentId] = useState('')
-  const [groupPage, setGroupPage] = useState<{ mode: 'list' | 'history' | 'operational' | 'notes_archive' | 'clients_archive' | 'add_zone_info_menu' | 'add_zone_sign' | 'add_zone_property' | 'add_zone_client' | 'zone_clients_registry' | 'zone_client_detail' | 'zone_sign_detail' | 'zone_property_detail'; assignmentId: string | null }>({
+  const [groupPage, setGroupPage] = useState<{ mode: 'list' | 'history' | 'operational' | 'notes_archive' | 'clients_archive' | 'add_zone_info_menu' | 'add_zone_sign' | 'add_zone_property' | 'add_zone_client' | 'add_zone_note' | 'zone_log' | 'zone_clients_registry' | 'zone_client_detail' | 'zone_sign_detail' | 'zone_property_detail'; assignmentId: string | null }>({
     mode: 'list',
     assignmentId: null
   })
@@ -433,7 +496,18 @@ export function AgentZoneTasksPage({ agents, onRefreshGlobalData }: AgentZoneTas
   const [groupOverview, setGroupOverview] = useState<GroupOverview | null>(null)
   const [groupOverviewLoading, setGroupOverviewLoading] = useState(false)
   const [dailySlideIndex, setDailySlideIndex] = useState(0)
-  const [zoneNoteForm, setZoneNoteForm] = useState({ title: '', content: '' })
+  const [zoneNoteForm, setZoneNoteForm] = useState({ title: '', content: '', streetId: '', photoDataUrl: '' })
+  const [zoneLogKeyword, setZoneLogKeyword] = useState('')
+  const [zoneLogStreetFilter, setZoneLogStreetFilter] = useState('ALL')
+  const [megaGridKeyword, setMegaGridKeyword] = useState('')
+  const [megaGridKindFilter, setMegaGridKindFilter] = useState('ALL')
+  const [megaGridStreetFilter, setMegaGridStreetFilter] = useState('ALL')
+  const [megaGridAuthorFilter, setMegaGridAuthorFilter] = useState('ALL')
+  const [megaGridContactTypeFilter, setMegaGridContactTypeFilter] = useState('ALL')
+  const [megaGridWithPhoto, setMegaGridWithPhoto] = useState('ALL')
+  const [megaGridDateFrom, setMegaGridDateFrom] = useState('')
+  const [megaGridDateTo, setMegaGridDateTo] = useState('')
+  const [megaGridSort, setMegaGridSort] = useState<'DESC' | 'ASC'>('DESC')
   const [zoneClientForm, setZoneClientForm] = useState<ZoneClientForm>({
     firstName: '',
     lastName: '',
@@ -489,6 +563,46 @@ export function AgentZoneTasksPage({ agents, onRefreshGlobalData }: AgentZoneTas
   const [zoneClientRecordNote, setZoneClientRecordNote] = useState('')
 
   const [f, setF] = useState({ agentId: '', region: '', province: '', city: '', cap: '', groupIndex: '' })
+  const hideGroupOperationalLegacyBlocks = true
+  const [dynamicGroups, setDynamicGroups] = useState<DynamicZoneGroup[]>([])
+  const [dynamicLoading, setDynamicLoading] = useState(false)
+  const [dynamicCityFilter, setDynamicCityFilter] = useState('')
+  const [dynamicKeyword, setDynamicKeyword] = useState('')
+  const [dynamicTypeFilter, setDynamicTypeFilter] = useState('')
+  const [dynamicAuthorFilter, setDynamicAuthorFilter] = useState('')
+  const [dynamicContactTypeFilter, setDynamicContactTypeFilter] = useState('')
+  const [dynamicPhotoFilter, setDynamicPhotoFilter] = useState<'ALL' | 'YES' | 'NO'>('ALL')
+  const [dynamicDateFromFilter, setDynamicDateFromFilter] = useState('')
+  const [dynamicDateToFilter, setDynamicDateToFilter] = useState('')
+  const [dynamicOrderBy, setDynamicOrderBy] = useState<'DATE_DESC' | 'DATE_ASC' | 'TYPE_ASC' | 'AUTHOR_ASC'>('DATE_DESC')
+  const [showDynamicCreateModal, setShowDynamicCreateModal] = useState(false)
+  const [showDynamicImportModal, setShowDynamicImportModal] = useState(false)
+  const [dynamicImportMode, setDynamicImportMode] = useState<'APPEND' | 'UPSERT'>('APPEND')
+  const [dynamicImportFile, setDynamicImportFile] = useState<File | null>(null)
+  const [dynamicImporting, setDynamicImporting] = useState(false)
+  const [dynamicImportReport, setDynamicImportReport] = useState<any | null>(null)
+  const [dynamicCreateForm, setDynamicCreateForm] = useState({
+    city: '',
+    zoneName: '',
+    groupName: '',
+    streets: ['']
+  })
+  const [dynamicSelectedGroupId, setDynamicSelectedGroupId] = useState<string | null>(null)
+  const [dynamicWorkspace, setDynamicWorkspace] = useState<DynamicGroupWorkspace | null>(null)
+  const [dynamicWorkspaceLoading, setDynamicWorkspaceLoading] = useState(false)
+  const [dynamicSelectedStreetId, setDynamicSelectedStreetId] = useState<string | null>(null)
+  const [streetMenuOpenId, setStreetMenuOpenId] = useState<string | null>(null)
+  const [dynamicClosingAssignmentId, setDynamicClosingAssignmentId] = useState<string | null>(null)
+  const [dynamicReassignModal, setDynamicReassignModal] = useState<{ open: boolean; zoneId: string; groupId: string; assignmentId: string; groupName: string }>({
+    open: false, zoneId: '', groupId: '', assignmentId: '', groupName: ''
+  })
+  const [dynamicReassignAgentId, setDynamicReassignAgentId] = useState('')
+  const [dynamicAssignModal, setDynamicAssignModal] = useState<{ open: boolean; zoneId: string; groupId: string; groupName: string }>({
+    open: false, zoneId: '', groupId: '', groupName: ''
+  })
+  const [dynamicAssignAgentId, setDynamicAssignAgentId] = useState('')
+  const [dynamicDeletingGroupId, setDynamicDeletingGroupId] = useState<string | null>(null)
+  const [dynamicCreateTargetZone, setDynamicCreateTargetZone] = useState<{ zoneId: string; city: string; zoneName: string } | null>(null)
 
   const authFetch = async (input: RequestInfo | URL, init: RequestInit = {}) => {
     const h = token ? { ...(init.headers as Record<string, string>), Authorization: `Bearer ${token}` } : init.headers
@@ -508,7 +622,420 @@ export function AgentZoneTasksPage({ agents, onRefreshGlobalData }: AgentZoneTas
     }
   }
 
+  const loadDynamicGroups = async (params?: { city?: string; q?: string }) => {
+    setDynamicLoading(true)
+    try {
+      const query = new URLSearchParams()
+      const city = String(params?.city ?? dynamicCityFilter).trim()
+      const qValue = String(params?.q ?? dynamicKeyword).trim()
+      if (city) query.set('city', city)
+      if (qValue) query.set('q', qValue)
+      const response = await authFetch(`/api/agent-zones/dynamic-groups${query.toString() ? `?${query.toString()}` : ''}`)
+      const parsed = await parseJsonSafe(response)
+      if (parsed.ok && parsed.data?.success && Array.isArray(parsed.data.data)) {
+        setDynamicGroups(parsed.data.data)
+      } else {
+        setDynamicGroups([])
+      }
+    } catch {
+      setDynamicGroups([])
+    } finally {
+      setDynamicLoading(false)
+    }
+  }
+
+  const openDynamicGroupWorkspace = async (groupId: string) => {
+    setDynamicSelectedStreetId(null)
+    setStreetMenuOpenId(null)
+    setDynamicSelectedGroupId(groupId)
+    setDynamicWorkspaceLoading(true)
+    try {
+      const response = await authFetch(`/api/agent-zones/dynamic-groups/${encodeURIComponent(groupId)}/workspace`)
+      const parsed = await parseJsonSafe(response)
+      if (parsed.ok && parsed.data?.success) {
+        setDynamicWorkspace(parsed.data.data)
+      } else {
+        setDynamicWorkspace(null)
+        setMsg(parsed.ok ? (parsed.data?.message || 'Errore apertura gruppo dinamico') : 'Errore apertura gruppo dinamico')
+      }
+    } catch {
+      setDynamicWorkspace(null)
+      setMsg('Errore apertura gruppo dinamico')
+    } finally {
+      setDynamicWorkspaceLoading(false)
+    }
+  }
+
+  const createDynamicGroup = async () => {
+    const city = String(dynamicCreateForm.city || '').trim()
+    const zoneName = String(dynamicCreateForm.zoneName || '').trim()
+    const groupName = String(dynamicCreateForm.groupName || '').trim()
+    const streets = dynamicCreateForm.streets.map((s) => String(s || '').trim()).filter(Boolean)
+    if (!groupName || streets.length === 0) {
+      setMsg('Compila nome gruppo e almeno una via')
+      return
+    }
+    if (!dynamicCreateTargetZone && (!city || !zoneName)) {
+      setMsg('Compila città, nome zona, nome gruppo e almeno una via')
+      return
+    }
+    try {
+      const response = await authFetch('/api/agent-zones/dynamic-groups', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(dynamicCreateTargetZone
+          ? { zoneId: dynamicCreateTargetZone.zoneId, groupName, streets }
+          : { city, zoneName, groupName, streets })
+      })
+      const parsed = await parseJsonSafe(response)
+      if (!parsed.ok || !parsed.data?.success) {
+        setMsg(parsed.ok ? (parsed.data?.message || 'Errore creazione gruppo') : 'Errore creazione gruppo')
+        return
+      }
+      setShowDynamicCreateModal(false)
+      setDynamicCreateForm({ city: '', zoneName: '', groupName: '', streets: [''] })
+      setDynamicCreateTargetZone(null)
+      await loadDynamicGroups()
+      setMsg('Gruppo zona creato')
+    } catch {
+      setMsg('Errore creazione gruppo')
+    }
+  }
+
+  const downloadDynamicCsvTemplate = async () => {
+    try {
+      const response = await authFetch('/api/agent-zones/dynamic-groups/import-template')
+      if (!response.ok) {
+        setMsg('Errore download template CSV')
+        return
+      }
+      const blob = await response.blob()
+      const url = window.URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = 'template-import-zone.csv'
+      document.body.appendChild(a)
+      a.click()
+      a.remove()
+      window.URL.revokeObjectURL(url)
+    } catch {
+      setMsg('Errore download template CSV')
+    }
+  }
+
+  const downloadDynamicCsvExample = async () => {
+    try {
+      const response = await authFetch('/api/agent-zones/dynamic-groups/import-template-example')
+      if (!response.ok) {
+        setMsg('Errore download esempio CSV')
+        return
+      }
+      const blob = await response.blob()
+      const url = window.URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = 'esempio-import-zone.csv'
+      document.body.appendChild(a)
+      a.click()
+      a.remove()
+      window.URL.revokeObjectURL(url)
+    } catch {
+      setMsg('Errore download esempio CSV')
+    }
+  }
+
+  const downloadDynamicImportErrorsCsv = () => {
+    const rejected = Array.isArray(dynamicImportReport?.rejectedRows) ? dynamicImportReport.rejectedRows : []
+    if (!rejected.length) {
+      setMsg('Nessuna riga scartata da esportare')
+      return
+    }
+    const lines = ['line,reason,raw']
+    for (const row of rejected) {
+      const line = String(row?.line ?? '')
+      const reason = String(row?.reason ?? '').replace(/"/g, '""')
+      const raw = String(row?.raw ?? '').replace(/"/g, '""')
+      lines.push(`${line},"${reason}","${raw}"`)
+    }
+    const csv = `\uFEFF${lines.join('\n')}`
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' })
+    const url = window.URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = 'import-zone-righe-scartate.csv'
+    document.body.appendChild(a)
+    a.click()
+    a.remove()
+    window.URL.revokeObjectURL(url)
+  }
+
+  const importDynamicGroupsCsv = async () => {
+    if (!dynamicImportFile) {
+      setMsg('Seleziona un file CSV da importare')
+      return
+    }
+    const form = new FormData()
+    form.append('file', dynamicImportFile)
+    form.append('mode', dynamicImportMode)
+    setDynamicImporting(true)
+    try {
+      const response = await authFetch('/api/agent-zones/dynamic-groups/import', {
+        method: 'POST',
+        body: form
+      })
+      const parsed = await parseJsonSafe(response)
+      if (!parsed.ok || !parsed.data?.success) {
+        setMsg(parsed.ok ? (parsed.data?.message || 'Errore import CSV zone') : 'Errore import CSV zone')
+        return
+      }
+      setDynamicImportReport(parsed.data?.data || null)
+      await loadDynamicGroups()
+      setMsg('Import zone completato')
+    } catch {
+      setMsg('Errore import CSV zone')
+    } finally {
+      setDynamicImporting(false)
+    }
+  }
+
+  const saveDynamicZoneLog = async (payload: { title: string; content: string; metadata?: any; entryType?: string }) => {
+    if (!dynamicWorkspace) return false
+    const content = String(payload.content || '').trim()
+    if (!content) return false
+    const response = await authFetch(`/api/agent-zones/dynamic-groups/${encodeURIComponent(dynamicWorkspace.groupId)}/logs`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        entryType: payload.entryType || 'NOTE',
+        title: String(payload.title || '').trim(),
+        content,
+        metadata: payload.metadata || null
+      })
+    })
+    const parsed = await parseJsonSafe(response)
+    if (!parsed.ok || !parsed.data?.success) {
+      setMsg(parsed.ok ? (parsed.data?.message || 'Errore salvataggio informazione zona') : 'Errore salvataggio informazione zona')
+      return false
+    }
+    await openDynamicGroupWorkspace(dynamicWorkspace.groupId)
+    return true
+  }
+
+  const moveDynamicStreet = async (streetId: string, targetGroupId: string) => {
+    if (!targetGroupId) return
+    const response = await authFetch(`/api/agent-zones/dynamic-groups/streets/${encodeURIComponent(streetId)}/move`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ targetGroupId })
+    })
+    const parsed = await parseJsonSafe(response)
+    if (!parsed.ok || !parsed.data?.success) {
+      setMsg(parsed.ok ? (parsed.data?.message || 'Errore spostamento via') : 'Errore spostamento via')
+      return
+    }
+    setStreetMenuOpenId(null)
+    await loadDynamicGroups()
+    if (dynamicWorkspace) await openDynamicGroupWorkspace(dynamicWorkspace.groupId)
+    setMsg('Via spostata')
+  }
+
+  const renameDynamicStreet = async (streetId: string, currentName: string) => {
+    const nextName = window.prompt('Nuovo nome via', currentName)
+    if (!nextName || !nextName.trim()) return
+    const response = await authFetch(`/api/agent-zones/dynamic-groups/streets/${encodeURIComponent(streetId)}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name: nextName })
+    })
+    const parsed = await parseJsonSafe(response)
+    if (!parsed.ok || !parsed.data?.success) {
+      setMsg(parsed.ok ? (parsed.data?.message || 'Errore modifica via') : 'Errore modifica via')
+      return
+    }
+    setStreetMenuOpenId(null)
+    await loadDynamicGroups()
+    if (dynamicWorkspace) await openDynamicGroupWorkspace(dynamicWorkspace.groupId)
+    setMsg('Via modificata')
+  }
+
+  const deleteDynamicStreet = async (streetId: string, streetName: string) => {
+    if (!window.confirm(`Eliminare la via "${streetName}"?`)) return
+    const response = await authFetch(`/api/agent-zones/dynamic-groups/streets/${encodeURIComponent(streetId)}`, {
+      method: 'DELETE'
+    })
+    const parsed = await parseJsonSafe(response)
+    if (!parsed.ok || !parsed.data?.success) {
+      setMsg(parsed.ok ? (parsed.data?.message || 'Errore eliminazione via') : 'Errore eliminazione via')
+      return
+    }
+    setStreetMenuOpenId(null)
+    if (dynamicSelectedStreetId === streetId) setDynamicSelectedStreetId(null)
+    await loadDynamicGroups()
+    if (dynamicWorkspace) await openDynamicGroupWorkspace(dynamicWorkspace.groupId)
+    setMsg('Via eliminata')
+  }
+
+  const closeDynamicGroupAndArchive = async (assignmentId: string) => {
+    if (!assignmentId) return
+    if (!window.confirm('Confermi chiusura e archiviazione del gruppo?')) return
+    setDynamicClosingAssignmentId(assignmentId)
+    try {
+      const response = await authFetch('/api/agent-zones/group-workspace/close-assignment', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ assignmentId, note: 'Chiuso e archiviato da admin (gruppo dinamico)' })
+      })
+      const parsed = await parseJsonSafe(response)
+      if (!parsed.ok || !parsed.data?.success) {
+        setMsg(parsed.ok ? (parsed.data?.message || 'Errore chiusura gruppo') : 'Errore chiusura gruppo')
+        return
+      }
+      await loadDynamicGroups()
+      if (dynamicWorkspace?.groupId && dynamicSelectedGroupId && dynamicWorkspace.groupId === dynamicSelectedGroupId) {
+        await openDynamicGroupWorkspace(dynamicWorkspace.groupId)
+      }
+      setMsg('Gruppo chiuso e archiviato')
+    } catch {
+      setMsg('Errore chiusura gruppo')
+    } finally {
+      setDynamicClosingAssignmentId(null)
+    }
+  }
+
+  const closeArchiveAndReassignDynamicGroup = async () => {
+    if (!dynamicReassignModal.open || !dynamicReassignModal.assignmentId || !dynamicReassignModal.zoneId || !dynamicReassignModal.groupId || !dynamicReassignAgentId) return
+    setDynamicClosingAssignmentId(dynamicReassignModal.assignmentId)
+    try {
+      const closeResponse = await authFetch('/api/agent-zones/group-workspace/close-assignment', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ assignmentId: dynamicReassignModal.assignmentId, note: 'Chiuso e riassegnato da admin (gruppo dinamico)' })
+      })
+      const closeParsed = await parseJsonSafe(closeResponse)
+      if (!closeParsed.ok || !closeParsed.data?.success) {
+        setMsg(closeParsed.ok ? (closeParsed.data?.message || 'Errore chiusura gruppo') : 'Errore chiusura gruppo')
+        return
+      }
+      const assignResponse = await authFetch(`/api/agent-zones/${encodeURIComponent(dynamicReassignModal.zoneId)}/assignments`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          agentId: dynamicReassignAgentId,
+          assignmentType: 'GROUP',
+          groupId: dynamicReassignModal.groupId,
+          note: 'Riassegnazione da gruppo dinamico'
+        })
+      })
+      const assignParsed = await parseJsonSafe(assignResponse)
+      if (!assignParsed.ok || !assignParsed.data?.success) {
+        setMsg(assignParsed.ok ? (assignParsed.data?.message || 'Errore riassegnazione gruppo') : 'Errore riassegnazione gruppo')
+        return
+      }
+      setDynamicReassignModal({ open: false, zoneId: '', groupId: '', assignmentId: '', groupName: '' })
+      setDynamicReassignAgentId('')
+      await loadDynamicGroups()
+      if (dynamicSelectedGroupId === dynamicReassignModal.groupId) await openDynamicGroupWorkspace(dynamicReassignModal.groupId)
+      setMsg('Gruppo chiuso, archiviato e riassegnato')
+    } catch {
+      setMsg('Errore riassegnazione gruppo')
+    } finally {
+      setDynamicClosingAssignmentId(null)
+    }
+  }
+
+  const assignDynamicGroup = async () => {
+    if (!dynamicAssignModal.open || !dynamicAssignModal.zoneId || !dynamicAssignModal.groupId || !dynamicAssignAgentId) return
+    try {
+      const response = await authFetch(`/api/agent-zones/${encodeURIComponent(dynamicAssignModal.zoneId)}/assignments`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          agentId: dynamicAssignAgentId,
+          assignmentType: 'GROUP',
+          groupId: dynamicAssignModal.groupId,
+          note: 'Assegnazione gruppo dinamico da admin'
+        })
+      })
+      const parsed = await parseJsonSafe(response)
+      if (!parsed.ok || !parsed.data?.success) {
+        setMsg(parsed.ok ? (parsed.data?.message || 'Errore assegnazione gruppo') : 'Errore assegnazione gruppo')
+        return
+      }
+      setDynamicAssignModal({ open: false, zoneId: '', groupId: '', groupName: '' })
+      setDynamicAssignAgentId('')
+      await loadDynamicGroups()
+      setMsg('Gruppo assegnato con successo')
+    } catch {
+      setMsg('Errore assegnazione gruppo')
+    }
+  }
+
+  const deleteDynamicGroup = async (groupId: string, groupName: string) => {
+    if (!groupId) return
+    if (!window.confirm(`Eliminare completamente il gruppo "${groupName}" con tutte le sue vie e informazioni?`)) return
+    setDynamicDeletingGroupId(groupId)
+    try {
+      const response = await authFetch(`/api/agent-zones/dynamic-groups/${encodeURIComponent(groupId)}`, {
+        method: 'DELETE'
+      })
+      const parsed = await parseJsonSafe(response)
+      if (!parsed.ok || !parsed.data?.success) {
+        setMsg(parsed.ok ? (parsed.data?.message || 'Errore eliminazione gruppo') : 'Errore eliminazione gruppo')
+        return
+      }
+      if (dynamicSelectedGroupId === groupId) {
+        setDynamicSelectedGroupId(null)
+        setDynamicWorkspace(null)
+        setDynamicSelectedStreetId(null)
+      }
+      await loadDynamicGroups()
+      setMsg('Gruppo eliminato con successo')
+    } catch {
+      setMsg('Errore eliminazione gruppo')
+    } finally {
+      setDynamicDeletingGroupId(null)
+    }
+  }
+
   const activeAgents = useMemo(() => agents.filter((a) => a.isActive && a.role === 'AGENT'), [agents])
+  const dynamicZonesView = useMemo(() => {
+    const sourceGroups = (() => {
+      if (isAdmin) return dynamicGroups
+      const currentAgentId = String(user?.id || '').trim()
+      if (!currentAgentId) return [] as DynamicZoneGroup[]
+      return dynamicGroups.filter((group) => String(group.activeAssignment?.agentId || '') === currentAgentId)
+    })()
+    const map = new Map<string, { zoneId: string; city: string; province: string; region: string; zoneName: string; groups: DynamicZoneGroup[] }>()
+    for (const group of sourceGroups) {
+      const key = String(group.zoneId)
+      if (!map.has(key)) {
+        map.set(key, {
+          zoneId: key,
+          city: group.city,
+          province: group.province,
+          region: group.region,
+          zoneName: group.zoneName,
+          groups: []
+        })
+      }
+      map.get(key)!.groups.push(group)
+    }
+    return Array.from(map.values()).sort((a, b) => {
+      const ka = `${a.city} ${a.zoneName}`.toLowerCase()
+      const kb = `${b.city} ${b.zoneName}`.toLowerCase()
+      return ka.localeCompare(kb, 'it')
+    })
+  }, [isAdmin, user?.id, dynamicGroups])
+
+  const openDynamicAssignModal = (group: DynamicZoneGroup) => {
+    setDynamicAssignModal({
+      open: true,
+      zoneId: group.zoneId,
+      groupId: group.groupId,
+      groupName: group.groupName
+    })
+    setDynamicAssignAgentId('')
+  }
   // Desktop + tablet: 3 colonne affiancate. Solo mobile stretto va in colonna.
   const isMobileLayout = viewportWidth < 640
   const regions = useMemo(() => Array.from(new Set(geo.map((x) => x.region))).sort(), [geo])
@@ -527,17 +1054,33 @@ export function AgentZoneTasksPage({ agents, onRefreshGlobalData }: AgentZoneTas
   }, [summary, q, agentFilter, handoverOnly])
 
   const loadBase = async () => {
-    const [g, c, z] = await Promise.all([authFetch('/api/geo/locations'), authFetch('/api/geo/pescara-caps'), authFetch('/api/agent-zones')])
-    const gj = await g.json(); const cj = await c.json(); const zj = await z.json()
-    setGeo(gj.success ? gj.data : []); setCaps(cj.success ? cj.data : []); setZones(zj.success ? zj.data : [])
+    try {
+      const [g, c, z] = await Promise.all([authFetch('/api/geo/locations'), authFetch('/api/geo/pescara-caps'), authFetch('/api/agent-zones')])
+      const gj = await parseJsonSafe(g)
+      const cj = await parseJsonSafe(c)
+      const zj = await parseJsonSafe(z)
+      setGeo(gj.ok && gj.data?.success ? gj.data.data : [])
+      setCaps(cj.ok && cj.data?.success ? cj.data.data : [])
+      setZones(zj.ok && zj.data?.success ? zj.data.data : [])
+      if ((gj.ok && gj.data?.success) && (cj.ok && cj.data?.success) && (zj.ok && zj.data?.success)) {
+        setMsg('')
+      } else if (!(zj.ok && zj.data?.success)) {
+        setMsg('Impossibile caricare le zone assegnate al momento. Riprova tra qualche secondo.')
+      }
+    } catch {
+      setGeo([])
+      setCaps([])
+      setZones([])
+      setMsg('Errore caricamento Task di zona. Riprova tra qualche secondo.')
+    }
   }
 
   const loadSummary = async () => {
     if (!f.region || !f.province || !f.city) return setSummary([])
     const p = new URLSearchParams({ region: f.region, province: f.province, city: f.city })
     const res = await authFetch(`/api/agent-zones/cap-summary?${p.toString()}`)
-    const data = await res.json()
-    setSummary(data.success ? data.data : [])
+    const parsed = await parseJsonSafe(res)
+    setSummary(parsed.ok && parsed.data?.success ? parsed.data.data : [])
   }
 
   const getSelectableStreetItems = () => {
@@ -567,13 +1110,13 @@ export function AgentZoneTasksPage({ agents, onRefreshGlobalData }: AgentZoneTas
     if (!cap || !f.region || !f.province || !f.city) return setGroups([])
     const p = new URLSearchParams({ cap, region: f.region, province: f.province, city: f.city })
     const res = await authFetch(`/api/agent-zones/cap-groups?${p.toString()}`)
-    const data = await res.json()
-    setGroups(data.success ? data.data.groups : [])
+    const parsed = await parseJsonSafe(res)
+    setGroups(parsed.ok && parsed.data?.success ? parsed.data.data.groups : [])
   }
   const loadZoneDetails = async (zoneId: string) => {
     const res = await authFetch(`/api/agent-zones/${encodeURIComponent(zoneId)}/details`)
-    const data = await res.json()
-    if (data.success) setZoneDetails((prev) => ({ ...prev, [zoneId]: data.data }))
+    const parsed = await parseJsonSafe(res)
+    if (parsed.ok && parsed.data?.success) setZoneDetails((prev) => ({ ...prev, [zoneId]: parsed.data.data }))
   }
 
   useEffect(() => {
@@ -581,6 +1124,10 @@ export function AgentZoneTasksPage({ agents, onRefreshGlobalData }: AgentZoneTas
     window.addEventListener('resize', onResize)
     return () => window.removeEventListener('resize', onResize)
   }, [])
+
+  useEffect(() => {
+    loadDynamicGroups().catch(() => null)
+  }, [isAdmin, token])
 
   useEffect(() => {
     if (groupPage.mode !== 'operational') return
@@ -695,7 +1242,9 @@ export function AgentZoneTasksPage({ agents, onRefreshGlobalData }: AgentZoneTas
     setZoneClientDetailId(null)
     setGroupOverview(null)
     setManualStreetListingMap({})
-    setZoneNoteForm({ title: '', content: '' })
+    setZoneNoteForm({ title: '', content: '', streetId: '', photoDataUrl: '' })
+    setZoneLogKeyword('')
+    setZoneLogStreetFilter('ALL')
     setZoneClientForm({ firstName: '', lastName: '', phone: '', email: '', type: 'SELLER', note: '' })
     setZoneSignForm({
       streetId: '',
@@ -754,7 +1303,7 @@ export function AgentZoneTasksPage({ agents, onRefreshGlobalData }: AgentZoneTas
         workspaceData.assignmentHistory.find((a: any) => a.isActive) ||
         workspaceData.assignmentHistory[0] ||
         null
-      if (!isAdmin && preferredAssignment) {
+      if (preferredAssignment) {
         setGroupPage({
           mode: preferredAssignment.isActive ? 'operational' : 'history',
           assignmentId: preferredAssignment.id
@@ -801,6 +1350,13 @@ export function AgentZoneTasksPage({ agents, onRefreshGlobalData }: AgentZoneTas
 
   const saveZoneNote = async () => {
     if (!wsCtx || !zoneNoteForm.content.trim()) return setMsg('Scrivi una nota di zona prima di salvare')
+    const selectableStreetItems = (() => {
+      const base = getSelectableStreetItems()
+      return base.length > 0 ? base : [{ id: '__whole_zone__', name: 'Intera zona', isManual: true }]
+    })()
+    const selectedStreet = selectableStreetItems.find((s) => s.id === zoneNoteForm.streetId)
+    const isManualStreet = Boolean(selectedStreet?.isManual)
+    const streetName = selectedStreet ? String(selectedStreet.name || '').replace(/\s*\(ALTRO\)\s*$/i, '').trim() : null
     const res = await authFetch('/api/agent-zones/group-workspace/logs', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -813,12 +1369,20 @@ export function AgentZoneTasksPage({ agents, onRefreshGlobalData }: AgentZoneTas
         entryType: 'NOTE',
         title: zoneNoteForm.title.trim(),
         content: zoneNoteForm.content.trim(),
-        metadata: { kind: 'ZONE_NOTE' }
+        metadata: {
+          kind: 'ZONE_NOTE',
+          streetId: selectedStreet && !isManualStreet ? selectedStreet.id : null,
+          streetName: streetName || null,
+          ...buildZoneImageMetadata(zoneNoteForm.photoDataUrl)
+        }
       })
     })
+    if (!res.ok && res.status === 413) {
+      return setMsg('Immagine troppo grande: riduci la foto e riprova')
+    }
     const data = await res.json()
     if (!data.success) return setMsg(data.message || 'Errore salvataggio nota di zona')
-    setZoneNoteForm({ title: '', content: '' })
+    setZoneNoteForm({ title: '', content: '', streetId: '', photoDataUrl: '' })
     await refreshWorkspaceData(wsCtx)
     setMsg('Nota di zona salvata')
   }
@@ -1063,10 +1627,19 @@ export function AgentZoneTasksPage({ agents, onRefreshGlobalData }: AgentZoneTas
     setZonePropertyForm((p) => ({ ...p, photoDataUrl: dataUrl }))
   }
 
+  const onZoneNotePhotoSelected = async (file: File | null) => {
+    if (!file) return
+    const dataUrl = await fileToOptimizedDataUrl(file)
+    setZoneNoteForm((p) => ({ ...p, photoDataUrl: dataUrl }))
+  }
+
   const saveZoneSign = async () => {
     if (!wsCtx || !ws) return
     if (!ws.canWrite) return setMsg('Non hai permessi per inserire cartelli su questo gruppo')
-    const selectableStreetItems = getSelectableStreetItems()
+    const selectableStreetItems = (() => {
+      const base = getSelectableStreetItems()
+      return base.length > 0 ? base : [{ id: '__whole_zone__', name: 'Intera zona', isManual: true }]
+    })()
     const isCustomStreet = zoneSignForm.streetId === '__add_custom__'
     const selectedStreet = selectableStreetItems.find((s) => s.id === zoneSignForm.streetId)
     const isManualStreet = Boolean(selectedStreet?.isManual)
@@ -1099,7 +1672,7 @@ export function AgentZoneTasksPage({ agents, onRefreshGlobalData }: AgentZoneTas
           phone: zoneSignForm.phone.trim(),
           apartmentFeatures: zoneSignForm.apartmentFeatures.trim() || null,
           note: zoneSignForm.note.trim() || null,
-          photoDataUrl: zoneSignForm.photoDataUrl || null
+          ...buildZoneImageMetadata(zoneSignForm.photoDataUrl)
         }
       })
     })
@@ -1132,7 +1705,10 @@ export function AgentZoneTasksPage({ agents, onRefreshGlobalData }: AgentZoneTas
   const saveZoneProperty = async () => {
     if (!wsCtx || !ws) return
     if (!ws.canWrite) return setMsg('Non hai permessi per inserire immobili di zona')
-    const selectableStreetItems = getSelectableStreetItems()
+    const selectableStreetItems = (() => {
+      const base = getSelectableStreetItems()
+      return base.length > 0 ? base : [{ id: '__whole_zone__', name: 'Intera zona', isManual: true }]
+    })()
     const isCustomStreet = zonePropertyForm.streetId === '__add_custom__'
     const selectedStreet = selectableStreetItems.find((s) => s.id === zonePropertyForm.streetId)
     const isManualStreet = Boolean(selectedStreet?.isManual)
@@ -1165,7 +1741,7 @@ export function AgentZoneTasksPage({ agents, onRefreshGlobalData }: AgentZoneTas
           phone: zonePropertyForm.phone.trim(),
           apartmentFeatures: zonePropertyForm.apartmentFeatures.trim() || null,
           note: zonePropertyForm.note.trim() || null,
-          photoDataUrl: zonePropertyForm.photoDataUrl || null
+          ...buildZoneImageMetadata(zonePropertyForm.photoDataUrl)
         }
       })
     })
@@ -1456,7 +2032,7 @@ export function AgentZoneTasksPage({ agents, onRefreshGlobalData }: AgentZoneTas
         roomsText: String(l?.metadata?.roomsText || '-'),
         floorText: String(l?.metadata?.floorText || '-'),
         agencyName: 'Interno zona',
-        mainImageUrl: l?.metadata?.photoDataUrl || null,
+        mainImageUrl: getZonePrimaryPhoto(l?.metadata),
         listingStatus: safeStatus,
         lastSeenAt: l.createdAt,
         updatedAt: l.createdAt
@@ -1684,6 +2260,27 @@ export function AgentZoneTasksPage({ agents, onRefreshGlobalData }: AgentZoneTas
               <p style={{ marginTop: '6px', color: '#64748b' }}>
                 {streetCtx.region} {'>'} {streetCtx.province} {'>'} {streetCtx.city} {'>'} CAP {streetCtx.cap} {'>'} Gruppo {streetCtx.groupIndex} {'>'} {streetCtx.streetName}
               </p>
+              {listingDetail.listing.mainImageUrl ? (
+                <div style={{ marginTop: '10px' }}>
+                  <img
+                    src={listingDetail.listing.mainImageUrl}
+                    alt={listingDetail.listing.title || `Immobile ${listingDetail.listing.sourceListingId}`}
+                    loading="lazy"
+                    onError={(e) => {
+                      e.currentTarget.style.display = 'none'
+                    }}
+                    style={{
+                      width: '100%',
+                      maxWidth: '520px',
+                      maxHeight: '300px',
+                      borderRadius: '10px',
+                      objectFit: 'cover',
+                      border: '1px solid #e5e7eb',
+                      background: '#f8fafc'
+                    }}
+                  />
+                </div>
+              ) : null}
               <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', marginTop: '8px' }}>
                 <div><strong>Prezzo:</strong> {listingDetail.listing.priceText || '-'}</div>
                 <div><strong>Superficie:</strong> {listingDetail.listing.surfaceText || '-'}</div>
@@ -2091,6 +2688,45 @@ export function AgentZoneTasksPage({ agents, onRefreshGlobalData }: AgentZoneTas
     const zoneClients = selectedAssignmentLogs.filter((l: any) => l?.metadata?.kind === 'ZONE_CLIENT')
     const zoneSigns = (ws?.logs || []).filter((l: any) => l?.metadata?.kind === 'ZONE_SIGN')
     const zoneProperties = (ws?.logs || []).filter((l: any) => l?.metadata?.kind === 'ZONE_PROPERTY')
+    const zoneLogEntries = (ws?.logs || [])
+      .filter((l: any) => {
+        const kind = String(l?.metadata?.kind || '')
+        return (
+          kind === 'ZONE_NOTE' ||
+          kind === 'ZONE_SIGN' ||
+          kind === 'ZONE_PROPERTY' ||
+          kind === 'ZONE_CLIENT' ||
+          kind === 'ZONE_CLIENT_RECORD' ||
+          kind === 'ZONE_CLIENT_RECORD_UPDATE' ||
+          kind === 'ZONE_CLIENT_RECORD_NOTE' ||
+          kind === 'ZONE_SIGN_ACTION'
+        )
+      })
+      .sort((a: any, b: any) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+    const zoneLogStreetOptions = Array.from(
+      new Set(
+        zoneLogEntries
+          .map((l: any) => String(l?.metadata?.streetName || '').trim())
+          .filter(Boolean)
+      )
+    ).sort((a, b) => a.localeCompare(b, 'it'))
+    const filteredZoneLogEntries = zoneLogEntries.filter((l: any) => {
+      const keyword = zoneLogKeyword.trim().toLowerCase()
+      const content = [
+        l?.title || '',
+        l?.content || '',
+        l?.createdBy?.firstName || '',
+        l?.createdBy?.lastName || '',
+        l?.metadata?.streetName || '',
+        l?.metadata?.fullName || '',
+        l?.metadata?.phone || '',
+        l?.metadata?.email || ''
+      ].join(' ').toLowerCase()
+      const matchesKeyword = !keyword || content.includes(keyword)
+      const streetName = String(l?.metadata?.streetName || '').trim()
+      const matchesStreet = zoneLogStreetFilter === 'ALL' || streetName === zoneLogStreetFilter
+      return matchesKeyword && matchesStreet
+    })
     const zoneClientRecordCreates = (ws?.logs || []).filter((l: any) => l?.metadata?.kind === 'ZONE_CLIENT_RECORD')
     const zoneClientRecordUpdates = (ws?.logs || []).filter((l: any) => l?.metadata?.kind === 'ZONE_CLIENT_RECORD_UPDATE')
     const zoneClientRecordNotes = (ws?.logs || []).filter((l: any) => l?.metadata?.kind === 'ZONE_CLIENT_RECORD_NOTE')
@@ -2180,9 +2816,147 @@ export function AgentZoneTasksPage({ agents, onRefreshGlobalData }: AgentZoneTas
         .map((name, idx) => ({ id: `altro-${idx}-${name}`, name: `${name} (ALTRO)` }))
       return [...baseGroupStreetItems, ...extra]
     })()
+    const formStreetOptions = (() => {
+      const byId = new Map<string, { id: string; name: string; isManual?: boolean }>()
+      selectableStreetItems.forEach((s: any) => byId.set(String(s.id), { id: String(s.id), name: String(s.name || ''), isManual: Boolean(s.isManual) }))
+      groupStreetItems.forEach((s: any) => {
+        const id = String(s.id || s.name)
+        if (!byId.has(id)) byId.set(id, { id, name: String(s.name || ''), isManual: /\(ALTRO\)\s*$/i.test(String(s.name || '')) })
+      })
+      const list = Array.from(byId.values()).filter((s) => String(s.name || '').trim())
+      if (list.length > 0) return list
+      return [{ id: '__whole_zone__', name: 'Intera zona', isManual: true }]
+    })()
     const latestZoneSigns = zoneSigns.slice(0, 3)
     const latestZoneProperties = zoneProperties.slice(0, 3)
     const latestAssignmentLogs = visibleSelectedAssignmentLogs.slice(0, 4)
+    const latestZoneLogEntries = filteredZoneLogEntries.slice(0, 6)
+    const megaGridRows = zoneLogEntries.map((l: any) => {
+      const metadata = l?.metadata || {}
+      const createdBy = `${String(l?.createdBy?.firstName || '').trim()} ${String(l?.createdBy?.lastName || '').trim()}`.trim() || '-'
+      const kind = String(metadata.kind || 'ALTRO')
+      const street = String(metadata.streetName || '').trim()
+      const fullName = String(metadata.fullName || '').trim()
+      const phone = String(metadata.phone || '').trim()
+      const email = String(metadata.email || '').trim()
+      const contactType = String(metadata.contactType || '').trim()
+      const address = [metadata.address, metadata.city, metadata.province, metadata.zipCode].filter(Boolean).join(', ')
+      const hasPhoto = Boolean(getZonePrimaryPhoto(metadata))
+      const searchable = [
+        l?.title || '',
+        l?.content || '',
+        createdBy,
+        kind,
+        street,
+        fullName,
+        phone,
+        email,
+        contactType,
+        address
+      ].join(' ').toLowerCase()
+      return {
+        id: String(l.id),
+        rawId: String(l.id),
+        rawMetadata: metadata,
+        kind,
+        createdAt: String(l.createdAt || ''),
+        createdAtTs: new Date(String(l.createdAt || '')).getTime(),
+        createdBy,
+        title: String(l?.title || '').trim(),
+        content: String(l?.content || '').trim(),
+        street,
+        fullName,
+        phone,
+        email,
+        contactType,
+        address,
+        hasPhoto,
+        searchable
+      }
+    })
+    const openMegaGridRowDetail = (row: any) => {
+      const kind = String(row?.kind || '')
+      if (kind === 'ZONE_SIGN' || kind === 'ZONE_SIGN_ACTION') {
+        const signTargetId = kind === 'ZONE_SIGN_ACTION'
+          ? String(row?.rawMetadata?.zoneSignLogId || '')
+          : String(row?.rawId || '')
+        if (signTargetId) {
+          setZoneSignDetailId(signTargetId)
+          setGroupPage({ mode: 'zone_sign_detail', assignmentId: selectedAssignmentId })
+          return
+        }
+      }
+      if (kind === 'ZONE_PROPERTY') {
+        const propertyId = String(row?.rawId || '')
+        if (propertyId) {
+          setZonePropertyDetailId(propertyId)
+          setGroupPage({ mode: 'zone_property_detail', assignmentId: selectedAssignmentId })
+          return
+        }
+      }
+      if (kind === 'ZONE_CLIENT_RECORD' || kind === 'ZONE_CLIENT_RECORD_UPDATE' || kind === 'ZONE_CLIENT_RECORD_NOTE') {
+        const clientRecordId = String(row?.rawMetadata?.clientRecordId || '')
+        if (clientRecordId) {
+          setZoneClientDetailId(clientRecordId)
+          setGroupPage({ mode: 'zone_client_detail', assignmentId: selectedAssignmentId })
+          return
+        }
+      }
+      if (kind === 'ZONE_CLIENT') {
+        setGroupPage({ mode: 'clients_archive', assignmentId: selectedAssignmentId })
+        return
+      }
+      setGroupPage({ mode: 'zone_log', assignmentId: selectedAssignmentId })
+    }
+    const megaGridKindOptions = Array.from(
+      new Set([
+        'ZONE_NOTE',
+        'ZONE_SIGN',
+        'ZONE_PROPERTY',
+        'ZONE_CLIENT',
+        'ZONE_CLIENT_RECORD',
+        'ZONE_CLIENT_RECORD_UPDATE',
+        'ZONE_CLIENT_RECORD_NOTE',
+        'ZONE_SIGN_ACTION',
+        ...megaGridRows.map((r) => r.kind)
+      ].filter(Boolean))
+    ).sort((a, b) => a.localeCompare(b, 'it'))
+    const megaGridStreetOptions = Array.from(
+      new Set([
+        ...groupStreetItems.map((s) => String(s.name || '').replace(/\s*\(ALTRO\)\s*$/i, '').trim()),
+        ...megaGridRows.map((r) => r.street)
+      ].filter(Boolean))
+    ).sort((a, b) => a.localeCompare(b, 'it'))
+    const megaGridAuthorOptions = Array.from(
+      new Set([
+        ...(ws?.assignmentHistory || []).map((a: any) => `${String(a?.agent?.firstName || '').trim()} ${String(a?.agent?.lastName || '').trim()}`.trim()),
+        ...megaGridRows.map((r) => r.createdBy)
+      ].filter(Boolean))
+    ).sort((a, b) => a.localeCompare(b, 'it'))
+    const megaGridContactTypeOptions = Array.from(
+      new Set(['SELLER', 'LEAD', ...megaGridRows.map((r) => r.contactType)].filter(Boolean))
+    ).sort((a, b) => a.localeCompare(b, 'it'))
+    const megaGridRowsFiltered = megaGridRows
+      .filter((row) => {
+        const keyword = megaGridKeyword.trim().toLowerCase()
+        if (keyword && !row.searchable.includes(keyword)) return false
+        if (megaGridKindFilter !== 'ALL' && row.kind !== megaGridKindFilter) return false
+        if (megaGridStreetFilter !== 'ALL' && row.street !== megaGridStreetFilter) return false
+        if (megaGridAuthorFilter !== 'ALL' && row.createdBy !== megaGridAuthorFilter) return false
+        if (megaGridContactTypeFilter !== 'ALL' && row.contactType !== megaGridContactTypeFilter) return false
+        if (megaGridWithPhoto === 'YES' && !row.hasPhoto) return false
+        if (megaGridWithPhoto === 'NO' && row.hasPhoto) return false
+        if (megaGridDateFrom) {
+          const fromTs = new Date(`${megaGridDateFrom}T00:00:00`).getTime()
+          if (Number.isFinite(fromTs) && row.createdAtTs < fromTs) return false
+        }
+        if (megaGridDateTo) {
+          const toTs = new Date(`${megaGridDateTo}T23:59:59`).getTime()
+          if (Number.isFinite(toTs) && row.createdAtTs > toTs) return false
+        }
+        return true
+      })
+      .sort((a, b) => megaGridSort === 'DESC' ? b.createdAtTs - a.createdAtTs : a.createdAtTs - b.createdAtTs)
     const dailyListings = groupOverview?.dailyListings || []
     const activeDailyListing = dailyListings.length > 0 ? dailyListings[dailySlideIndex % dailyListings.length] : null
     return (
@@ -2245,7 +3019,64 @@ export function AgentZoneTasksPage({ agents, onRefreshGlobalData }: AgentZoneTas
                   >
                     AGGIUNGI CLIENTE DI ZONA
                   </button>
-                  <button type="button" style={{ ...btnPrimary, background: '#334155' }}>AGGIUNGI INFORMAZIONI DI ZONA</button>
+                  <button
+                    type="button"
+                    style={{ ...btnPrimary, background: '#334155' }}
+                    onClick={() => setGroupPage({ mode: 'add_zone_note', assignmentId: selectedAssignmentId })}
+                  >
+                    AGGIUNGI INFORMAZIONI DI ZONA
+                  </button>
+                </div>
+              </div>
+            )}
+            {groupPage.mode === 'add_zone_note' && (
+              <div style={{ ...card, padding: '14px', display: 'grid', gap: '10px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+                  <h3 style={{ margin: 0 }}>Nuova nota di zona</h3>
+                  <button
+                    type="button"
+                    style={{ ...btnPrimary, background: '#64748b', padding: '8px 10px' }}
+                    onClick={() => setGroupPage({ mode: 'add_zone_info_menu', assignmentId: groupPage.assignmentId })}
+                  >
+                    Torna al menu
+                  </button>
+                </div>
+                <div style={{ display: 'grid', gap: '8px' }}>
+                  <input
+                    value={zoneNoteForm.title}
+                    onChange={(e) => setZoneNoteForm((p) => ({ ...p, title: e.target.value }))}
+                    placeholder="Titolo nota (opzionale)"
+                    style={inputStyle}
+                  />
+                  <select
+                    value={zoneNoteForm.streetId}
+                    onChange={(e) => setZoneNoteForm((p) => ({ ...p, streetId: e.target.value }))}
+                    style={inputStyle}
+                  >
+                    <option value="">Sotto-zona: tutta la zona</option>
+                    {formStreetOptions.map((street) => (
+                      <option key={street.id} value={street.id}>{street.name}</option>
+                    ))}
+                  </select>
+                  <textarea
+                    value={zoneNoteForm.content}
+                    onChange={(e) => setZoneNoteForm((p) => ({ ...p, content: e.target.value }))}
+                    placeholder="Inserisci informazioni di zona"
+                    style={{ ...inputStyle, minHeight: '120px', resize: 'vertical' }}
+                  />
+                  <div style={{ display: 'grid', gap: '6px' }}>
+                    <label style={{ fontSize: '0.88rem', color: '#334155' }}>Foto nota zona (opzionale)</label>
+                    <input
+                      type="file"
+                      accept="image/*"
+                      onChange={async (e) => onZoneNotePhotoSelected(e.target.files?.[0] || null)}
+                      style={inputStyle}
+                    />
+                    {zoneNoteForm.photoDataUrl ? (
+                      <img src={zoneNoteForm.photoDataUrl} alt="Anteprima nota zona" style={{ width: '220px', maxWidth: '100%', borderRadius: '8px', border: '1px solid #e5e7eb' }} />
+                    ) : null}
+                  </div>
+                  <button type="button" style={btnPrimary} onClick={saveZoneNote}>Salva nota di zona</button>
                 </div>
               </div>
             )}
@@ -2269,7 +3100,7 @@ export function AgentZoneTasksPage({ agents, onRefreshGlobalData }: AgentZoneTas
                     style={inputStyle}
                   >
                     <option value="">Seleziona via</option>
-                    {selectableStreetItems.map((street) => (
+                    {formStreetOptions.map((street) => (
                       <option key={street.id} value={street.id}>{street.name}</option>
                     ))}
                     <option value="__add_custom__">AGGIUNGI VIA</option>
@@ -2348,7 +3179,7 @@ export function AgentZoneTasksPage({ agents, onRefreshGlobalData }: AgentZoneTas
                     style={inputStyle}
                   >
                     <option value="">Seleziona via</option>
-                    {selectableStreetItems.map((street) => (
+                    {formStreetOptions.map((street) => (
                       <option key={street.id} value={street.id}>{street.name}</option>
                     ))}
                     <option value="__add_custom__">AGGIUNGI VIA</option>
@@ -2515,9 +3346,9 @@ export function AgentZoneTasksPage({ agents, onRefreshGlobalData }: AgentZoneTas
                         {wsCtx.region} {'>'} {wsCtx.province} {'>'} {wsCtx.city} {'>'} CAP {wsCtx.cap} {'>'} Gruppo {wsCtx.groupIndex}
                       </p>
                     </div>
-                    {zoneSignDetail?.metadata?.photoDataUrl ? (
+                    {getZonePrimaryPhoto(zoneSignDetail?.metadata) ? (
                       <img
-                        src={String(zoneSignDetail.metadata.photoDataUrl)}
+                        src={String(getZonePrimaryPhoto(zoneSignDetail?.metadata))}
                         alt="Foto cartello"
                         style={{ width: '180px', height: '120px', objectFit: 'cover', borderRadius: '8px', border: '1px solid #e5e7eb' }}
                       />
@@ -2656,9 +3487,9 @@ export function AgentZoneTasksPage({ agents, onRefreshGlobalData }: AgentZoneTas
                     <strong>Note:</strong> {String(zonePropertyDetail.metadata.note)}
                   </div>
                 ) : null}
-                {zonePropertyDetail?.metadata?.photoDataUrl ? (
+                {getZonePrimaryPhoto(zonePropertyDetail?.metadata) ? (
                   <img
-                    src={String(zonePropertyDetail.metadata.photoDataUrl)}
+                    src={String(getZonePrimaryPhoto(zonePropertyDetail?.metadata))}
                     alt="Foto immobile"
                     style={{ marginTop: '10px', width: '280px', maxWidth: '100%', borderRadius: '8px', border: '1px solid #e5e7eb' }}
                   />
@@ -2778,7 +3609,7 @@ export function AgentZoneTasksPage({ agents, onRefreshGlobalData }: AgentZoneTas
               </div>
             )}
 
-            {groupPage.mode !== 'list' && groupPage.mode !== 'add_zone_info_menu' && groupPage.mode !== 'add_zone_sign' && groupPage.mode !== 'add_zone_property' && groupPage.mode !== 'add_zone_client' && groupPage.mode !== 'zone_clients_registry' && groupPage.mode !== 'zone_client_detail' && groupPage.mode !== 'zone_sign_detail' && groupPage.mode !== 'zone_property_detail' && selectedAssignment && (
+            {groupPage.mode !== 'list' && groupPage.mode !== 'add_zone_info_menu' && groupPage.mode !== 'add_zone_sign' && groupPage.mode !== 'add_zone_property' && groupPage.mode !== 'add_zone_client' && groupPage.mode !== 'add_zone_note' && groupPage.mode !== 'zone_clients_registry' && groupPage.mode !== 'zone_client_detail' && groupPage.mode !== 'zone_sign_detail' && groupPage.mode !== 'zone_property_detail' && selectedAssignment && (
               <>
                 <div style={{ ...card, padding: '12px' }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', gap: '8px', flexWrap: 'wrap' }}>
@@ -2787,6 +3618,8 @@ export function AgentZoneTasksPage({ agents, onRefreshGlobalData }: AgentZoneTas
                         ? 'Archivio note di zona'
                         : groupPage.mode === 'clients_archive'
                           ? 'Archivio clienti di zona'
+                          : groupPage.mode === 'zone_log'
+                            ? 'Log di Zona'
                           : selectedAssignmentIsHistory
                             ? 'Storico completo assegnazione'
                             : 'Scheda operativa assegnazione'}
@@ -2794,13 +3627,13 @@ export function AgentZoneTasksPage({ agents, onRefreshGlobalData }: AgentZoneTas
                     <button
                       type="button"
                       onClick={() =>
-                        groupPage.mode === 'notes_archive' || groupPage.mode === 'clients_archive'
+                        groupPage.mode === 'notes_archive' || groupPage.mode === 'clients_archive' || groupPage.mode === 'zone_log'
                           ? setGroupPage({ mode: selectedAssignment?.isActive ? 'operational' : 'history', assignmentId: groupPage.assignmentId })
                           : setGroupPage({ mode: 'list', assignmentId: null })
                       }
                       style={{ ...btnPrimary, background: '#64748b', padding: '8px 10px' }}
                     >
-                      {groupPage.mode === 'notes_archive' || groupPage.mode === 'clients_archive'
+                      {groupPage.mode === 'notes_archive' || groupPage.mode === 'clients_archive' || groupPage.mode === 'zone_log'
                         ? 'Torna alla scheda assegnazione'
                         : 'Torna allo storico assegnazioni'}
                     </button>
@@ -2857,10 +3690,133 @@ export function AgentZoneTasksPage({ agents, onRefreshGlobalData }: AgentZoneTas
                   </div>
                 </div>
                 {groupPage.mode === 'operational' && (
+                  <div style={{ ...card, padding: '10px', display: 'grid', gap: '8px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px' }}>
+                      <h3 style={{ margin: 0, fontSize: '1rem' }}>Aggiungi informazioni di zona</h3>
+                      <button
+                        type="button"
+                        style={{ ...btnPrimary, background: '#64748b', padding: '7px 10px' }}
+                        onClick={() => setGroupPage({ mode: 'operational', assignmentId: selectedAssignmentId })}
+                      >
+                        Torna alla scheda gruppo
+                      </button>
+                    </div>
+                    <div style={{ display: 'grid', gridTemplateColumns: isMobileLayout ? '1fr' : '1fr 1fr', gap: '8px' }}>
+                      <button type="button" style={{ ...btnPrimary, background: '#1d4ed8' }} onClick={() => setGroupPage({ mode: 'add_zone_sign', assignmentId: selectedAssignmentId })}>
+                        AGGIUNGI CARTELLO DI ZONA
+                      </button>
+                      <button type="button" style={{ ...btnPrimary, background: '#2563eb' }} onClick={() => setGroupPage({ mode: 'add_zone_property', assignmentId: selectedAssignmentId })}>
+                        AGGIUNGI IMMOBILE DI ZONA
+                      </button>
+                      <button type="button" style={{ ...btnPrimary, background: '#0f766e' }} onClick={() => setGroupPage({ mode: 'add_zone_client', assignmentId: selectedAssignmentId })}>
+                        AGGIUNGI CLIENTE DI ZONA
+                      </button>
+                      <button type="button" style={{ ...btnPrimary, background: '#334155' }} onClick={() => setGroupPage({ mode: 'add_zone_note', assignmentId: selectedAssignmentId })}>
+                        AGGIUNGI INFORMAZIONI DI ZONA
+                      </button>
+                    </div>
+                  </div>
+                )}
+                {groupPage.mode === 'operational' && (
+                  <div style={{ ...card, padding: '12px', display: 'grid', gap: '10px' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+                      <h3 style={{ margin: 0, fontSize: '1rem' }}>Mega griglia informazioni zona</h3>
+                      <div style={{ color: '#64748b', fontSize: '0.86rem' }}>
+                        Totale: <strong>{megaGridRows.length}</strong> · Filtrate: <strong>{megaGridRowsFiltered.length}</strong>
+                      </div>
+                    </div>
+                    <div style={{ display: 'grid', gap: '8px', gridTemplateColumns: isMobileLayout ? '1fr' : 'repeat(4, minmax(0, 1fr))' }}>
+                      <input value={megaGridKeyword} onChange={(e) => setMegaGridKeyword(e.target.value)} placeholder="Ricerca globale..." style={inputStyle} />
+                      <select value={megaGridKindFilter} onChange={(e) => setMegaGridKindFilter(e.target.value)} style={inputStyle}>
+                        <option value="ALL">Tutti i tipi</option>
+                        {megaGridKindOptions.map((k) => <option key={k} value={k}>{zoneKindLabel(k)}</option>)}
+                      </select>
+                      <select value={megaGridStreetFilter} onChange={(e) => setMegaGridStreetFilter(e.target.value)} style={inputStyle}>
+                        <option value="ALL">Tutte le vie/sotto-zone</option>
+                        {megaGridStreetOptions.map((street) => <option key={street} value={street}>{street}</option>)}
+                      </select>
+                      <select value={megaGridAuthorFilter} onChange={(e) => setMegaGridAuthorFilter(e.target.value)} style={inputStyle}>
+                        <option value="ALL">Tutti gli autori</option>
+                        {megaGridAuthorOptions.map((author) => <option key={author} value={author}>{author}</option>)}
+                      </select>
+                      <select value={megaGridContactTypeFilter} onChange={(e) => setMegaGridContactTypeFilter(e.target.value)} style={inputStyle}>
+                        <option value="ALL">Tutti i tipi contatto</option>
+                        {megaGridContactTypeOptions.map((cType) => <option key={cType} value={cType}>{cType}</option>)}
+                      </select>
+                      <select value={megaGridWithPhoto} onChange={(e) => setMegaGridWithPhoto(e.target.value)} style={inputStyle}>
+                        <option value="ALL">Foto: tutte</option>
+                        <option value="YES">Solo con foto</option>
+                        <option value="NO">Solo senza foto</option>
+                      </select>
+                      <input type="date" value={megaGridDateFrom} onChange={(e) => setMegaGridDateFrom(e.target.value)} style={inputStyle} />
+                      <input type="date" value={megaGridDateTo} onChange={(e) => setMegaGridDateTo(e.target.value)} style={inputStyle} />
+                      <select value={megaGridSort} onChange={(e) => setMegaGridSort(e.target.value as 'DESC' | 'ASC')} style={inputStyle}>
+                        <option value="DESC">Ordina: più recenti</option>
+                        <option value="ASC">Ordina: più vecchie</option>
+                      </select>
+                      <button
+                        type="button"
+                        style={{ ...btnPrimary, background: '#475569' }}
+                        onClick={() => {
+                          setMegaGridKeyword('')
+                          setMegaGridKindFilter('ALL')
+                          setMegaGridStreetFilter('ALL')
+                          setMegaGridAuthorFilter('ALL')
+                          setMegaGridContactTypeFilter('ALL')
+                          setMegaGridWithPhoto('ALL')
+                          setMegaGridDateFrom('')
+                          setMegaGridDateTo('')
+                          setMegaGridSort('DESC')
+                        }}
+                      >
+                        Reset filtri
+                      </button>
+                    </div>
+                    <div style={{ overflowX: 'auto', border: '1px solid #e2e8f0', borderRadius: '10px' }}>
+                      <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: '1300px', background: '#fff' }}>
+                        <thead>
+                          <tr style={{ background: '#f8fafc', borderBottom: '1px solid #e2e8f0' }}>
+                            {['Data/Ora', 'Tipo', 'Via', 'Autore', 'Titolo', 'Contenuto', 'Contatto', 'Tipo contatto', 'Telefono', 'Email', 'Indirizzo', 'Foto'].map((h) => (
+                              <th key={h} style={{ textAlign: 'left', padding: '9px 10px', fontSize: '0.82rem', color: '#0f172a', whiteSpace: 'nowrap' }}>{h}</th>
+                            ))}
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {megaGridRowsFiltered.length === 0 ? (
+                            <tr>
+                              <td colSpan={12} style={{ padding: '12px', color: '#64748b' }}>Nessun dato trovato con i filtri correnti.</td>
+                            </tr>
+                          ) : megaGridRowsFiltered.map((row) => (
+                            <tr
+                              key={row.id}
+                              style={{ borderBottom: '1px solid #e2e8f0', cursor: 'pointer' }}
+                              onClick={() => openMegaGridRowDetail(row)}
+                              title="Apri dettaglio"
+                            >
+                              <td style={{ padding: '8px 10px', fontSize: '0.82rem', whiteSpace: 'nowrap' }}>{fmt(row.createdAt)}</td>
+                              <td style={{ padding: '8px 10px', fontSize: '0.82rem', whiteSpace: 'nowrap' }}>{zoneKindLabel(row.kind)}</td>
+                              <td style={{ padding: '8px 10px', fontSize: '0.82rem', whiteSpace: 'nowrap' }}>{row.street || '-'}</td>
+                              <td style={{ padding: '8px 10px', fontSize: '0.82rem', whiteSpace: 'nowrap' }}>{row.createdBy || '-'}</td>
+                              <td style={{ padding: '8px 10px', fontSize: '0.82rem' }}>{row.title || '-'}</td>
+                              <td style={{ padding: '8px 10px', fontSize: '0.82rem', maxWidth: '320px' }}>{row.content || '-'}</td>
+                              <td style={{ padding: '8px 10px', fontSize: '0.82rem', whiteSpace: 'nowrap' }}>{row.fullName || '-'}</td>
+                              <td style={{ padding: '8px 10px', fontSize: '0.82rem', whiteSpace: 'nowrap' }}>{row.contactType || '-'}</td>
+                              <td style={{ padding: '8px 10px', fontSize: '0.82rem', whiteSpace: 'nowrap' }}>{row.phone || '-'}</td>
+                              <td style={{ padding: '8px 10px', fontSize: '0.82rem', whiteSpace: 'nowrap' }}>{row.email || '-'}</td>
+                              <td style={{ padding: '8px 10px', fontSize: '0.82rem' }}>{row.address || '-'}</td>
+                              <td style={{ padding: '8px 10px', fontSize: '0.82rem', whiteSpace: 'nowrap' }}>{row.hasPhoto ? 'Si' : 'No'}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                )}
+                {groupPage.mode === 'operational' && (
                   <>
                     <div
                       style={{
-                        display: 'grid',
+                        display: hideGroupOperationalLegacyBlocks ? 'none' : 'grid',
                         gridTemplateColumns: isMobileLayout ? '1fr' : 'repeat(4, minmax(0, 1fr))',
                         gap: '10px'
                       }}
@@ -2875,6 +3831,9 @@ export function AgentZoneTasksPage({ agents, onRefreshGlobalData }: AgentZoneTas
                         </button>
                         <button type="button" style={{ ...btnPrimary, background: '#475569', padding: '8px 10px' }} onClick={() => setGroupPage({ mode: 'notes_archive', assignmentId: selectedAssignmentId })}>
                           Archivio note di zona
+                        </button>
+                        <button type="button" style={{ ...btnPrimary, background: '#1e293b', padding: '8px 10px' }} onClick={() => setGroupPage({ mode: 'zone_log', assignmentId: selectedAssignmentId })}>
+                          Log di Zona
                         </button>
                         <button type="button" style={{ ...btnPrimary, background: '#334155', padding: '8px 10px' }} onClick={() => setGroupPage({ mode: 'history', assignmentId: selectedAssignmentId })}>
                           Storico assegnazione
@@ -2918,6 +3877,33 @@ export function AgentZoneTasksPage({ agents, onRefreshGlobalData }: AgentZoneTas
                         <div style={{ color: '#64748b', fontSize: '0.8rem' }}>
                           Ultimi clienti: {zoneClientRecords.slice(0, 2).map((c: any) => c.fullName || `${c.firstName} ${c.lastName}`.trim()).join(' · ') || '-'}
                         </div>
+                        <div style={{ borderTop: '1px solid #e2e8f0', marginTop: '4px', paddingTop: '6px', display: 'grid', gap: '6px' }}>
+                          <div style={{ fontSize: '0.84rem', fontWeight: 700, color: '#0f172a' }}>Log di Zona</div>
+                          <input
+                            value={zoneLogKeyword}
+                            onChange={(e) => setZoneLogKeyword(e.target.value)}
+                            placeholder="Cerca parola chiave..."
+                            style={inputStyle}
+                          />
+                          <select value={zoneLogStreetFilter} onChange={(e) => setZoneLogStreetFilter(e.target.value)} style={inputStyle}>
+                            <option value="ALL">Tutte le sotto-zone</option>
+                            {zoneLogStreetOptions.map((street) => (
+                              <option key={street} value={street}>{street}</option>
+                            ))}
+                          </select>
+                          {latestZoneLogEntries.length === 0 ? (
+                            <div style={{ color: '#64748b', fontSize: '0.82rem' }}>Nessuna informazione trovata.</div>
+                          ) : latestZoneLogEntries.map((l: any) => (
+                            <div key={l.id} style={{ border: '1px solid #e5e7eb', borderRadius: '8px', padding: '6px 8px' }}>
+                              <div style={{ fontSize: '0.82rem', fontWeight: 700 }}>{l.title || 'Aggiornamento zona'}</div>
+                              <div style={{ fontSize: '0.78rem', color: '#334155' }}>{String(l.content || '').slice(0, 120)}</div>
+                              <div style={{ fontSize: '0.74rem', color: '#64748b' }}>{fmt(l.createdAt)}{l?.metadata?.streetName ? ` · ${String(l.metadata.streetName)}` : ''}</div>
+                            </div>
+                          ))}
+                          <button type="button" style={{ ...btnPrimary, padding: '7px 10px', background: '#1e293b' }} onClick={() => setGroupPage({ mode: 'zone_log', assignmentId: selectedAssignmentId })}>
+                            Apri log completo
+                          </button>
+                        </div>
                       </div>
 
                       <div style={{ ...card, padding: '10px', display: 'grid', gap: '8px' }}>
@@ -2957,7 +3943,7 @@ export function AgentZoneTasksPage({ agents, onRefreshGlobalData }: AgentZoneTas
 
                     <div
                       style={{
-                        display: 'grid',
+                        display: hideGroupOperationalLegacyBlocks ? 'none' : 'grid',
                         gridTemplateColumns: isMobileLayout ? '1fr' : 'minmax(0, 1.1fr) minmax(0, 0.9fr)',
                         gap: '10px'
                       }}
@@ -3007,6 +3993,44 @@ export function AgentZoneTasksPage({ agents, onRefreshGlobalData }: AgentZoneTas
                         <div>{l.content}</div>
                         <div style={{ color: '#64748b', fontSize: '0.85rem' }}>
                           {fmt(l.createdAt)} - {l.createdBy.firstName} {l.createdBy.lastName}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {groupPage.mode === 'zone_log' && (
+                  <div style={{ ...card, padding: '12px', display: 'grid', gap: '10px' }}>
+                    <h3 style={{ marginTop: 0 }}>Log completo di zona</h3>
+                    <div style={{ display: 'grid', gap: '8px', gridTemplateColumns: isMobileLayout ? '1fr' : '1fr 260px' }}>
+                      <input
+                        value={zoneLogKeyword}
+                        onChange={(e) => setZoneLogKeyword(e.target.value)}
+                        placeholder="Ricerca veloce (stile chat): parola chiave"
+                        style={inputStyle}
+                      />
+                      <select value={zoneLogStreetFilter} onChange={(e) => setZoneLogStreetFilter(e.target.value)} style={inputStyle}>
+                        <option value="ALL">Tutte le sotto-zone</option>
+                        {zoneLogStreetOptions.map((street) => (
+                          <option key={street} value={street}>{street}</option>
+                        ))}
+                      </select>
+                    </div>
+                    {filteredZoneLogEntries.length === 0 && <div style={{ color: '#64748b' }}>Nessun elemento nel log con i filtri correnti.</div>}
+                    {filteredZoneLogEntries.map((l: any) => (
+                      <div key={l.id} style={{ border: '1px solid #e5e7eb', borderRadius: '8px', padding: '8px', display: 'grid', gap: '4px' }}>
+                        <strong>{l.title || 'Aggiornamento zona'}</strong>
+                        <div>{l.content}</div>
+                        {getZonePrimaryPhoto(l?.metadata) ? (
+                          <img
+                            src={String(getZonePrimaryPhoto(l?.metadata))}
+                            alt="Foto log zona"
+                            style={{ width: '220px', maxWidth: '100%', border: '1px solid #e5e7eb', borderRadius: '8px' }}
+                          />
+                        ) : null}
+                        <div style={{ color: '#64748b', fontSize: '0.85rem' }}>
+                          {fmt(l.createdAt)} - {l.createdBy.firstName} {l.createdBy.lastName}
+                          {l?.metadata?.streetName ? ` · Sotto-zona: ${String(l.metadata.streetName)}` : ''}
                         </div>
                       </div>
                     ))}
@@ -3082,96 +4106,764 @@ export function AgentZoneTasksPage({ agents, onRefreshGlobalData }: AgentZoneTas
     )
   }
 
-  if (!isAdmin) {
-    return (
-      <div>
-        <h1 style={{ fontSize: '2rem', marginTop: 0 }}>Task di zona</h1>
-        {msg && <div style={{ ...card, padding: '10px', marginBottom: '10px' }}>{msg}</div>}
-        <div style={{ display: 'grid', gap: '10px' }}>
-          {zones.map((z) => {
-            const details = zoneDetails[z.id]
-            const cap = capFromZone(z.zone)
-            const gr = details?.assignments.filter((a) => a.assignmentType === 'GROUP') || []
-            return (
-              <div key={z.id} style={{ ...card, padding: '12px' }}>
-                <h3 style={{ marginTop: 0 }}>{z.region} {'>'} {z.province} {'>'} {z.city} {z.zone ? `> ${z.zone}` : ''}</h3>
-                {gr.map((a) => (
-                  <div key={a.id} style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '6px' }}>
-                    <span>{a.group?.name || 'Gruppo'}</span>
-                    {cap && a.group?.groupIndex ? (
-                      <button type="button" style={btnPrimary} onClick={() => openWorkspace({ cap, groupIndex: a.group?.groupIndex || 0, region: z.region, province: z.province, city: z.city })}>Apri scheda gruppo</button>
-                    ) : null}
-                  </div>
-                ))}
-              </div>
-            )
-          })}
-        </div>
-      </div>
-    )
-  }
+  const dynamicCityOptions = useMemo(
+    () => Array.from(new Set(geo.map((row) => String(row.city || '').trim()).filter(Boolean))).sort((a, b) => a.localeCompare(b, 'it')),
+    [geo]
+  )
+  const visibleDynamicGroups = useMemo(() => {
+    if (isAdmin) return dynamicGroups
+    const currentAgentId = String(user?.id || '').trim()
+    if (!currentAgentId) return []
+    return dynamicGroups.filter((group) => String(group.activeAssignment?.agentId || '') === currentAgentId)
+  }, [isAdmin, user?.id, dynamicGroups])
+  const currentDynamicStreet = dynamicWorkspace?.streets.find((street) => street.id === dynamicSelectedStreetId) || null
+  const streetAwareLogs = (dynamicWorkspace?.logs || []).filter((entry) => {
+    if (!currentDynamicStreet) return true
+    const metaStreetId = String(entry?.metadata?.streetId || '').trim()
+    const metaStreetName = String(entry?.metadata?.streetName || '').trim().toLowerCase()
+    if (metaStreetId && metaStreetId === currentDynamicStreet.id) return true
+    if (metaStreetName && metaStreetName === currentDynamicStreet.name.trim().toLowerCase()) return true
+    return false
+  })
+  const megaRowsBase = streetAwareLogs
+    .filter((entry) => {
+      const kind = String(entry?.metadata?.kind || '')
+      return kind.startsWith('ZONE_')
+    })
+    .map((entry) => ({
+      id: String(entry.id),
+      createdAt: entry.createdAt,
+      kind: String(entry?.metadata?.kind || ''),
+      streetName: String(entry?.metadata?.streetName || currentDynamicStreet?.name || '-'),
+      author: `${entry.createdBy.firstName} ${entry.createdBy.lastName}`.trim(),
+      title: entry.title || '-',
+      content: entry.content || '-',
+      contactName: String(entry?.metadata?.fullName || entry?.metadata?.ownerFullName || '-'),
+      contactType: String(entry?.metadata?.contactType || '-'),
+      phone: String(entry?.metadata?.phone || '-'),
+      email: String(entry?.metadata?.email || '-'),
+      address: String(entry?.metadata?.address || '-'),
+      hasPhoto: Boolean(getZonePrimaryPhoto(entry?.metadata))
+    }))
+  const megaTypeOptions = useMemo(() => Array.from(new Set(megaRowsBase.map((row) => row.kind))).sort((a, b) => a.localeCompare(b, 'it')), [megaRowsBase])
+  const megaAuthorOptions = useMemo(() => Array.from(new Set(megaRowsBase.map((row) => row.author))).sort((a, b) => a.localeCompare(b, 'it')), [megaRowsBase])
+  const megaContactTypeOptions = useMemo(() => Array.from(new Set(megaRowsBase.map((row) => row.contactType).filter((v) => v && v !== '-'))).sort((a, b) => a.localeCompare(b, 'it')), [megaRowsBase])
+  const megaRows = megaRowsBase
+    .filter((row) => {
+      const keyword = dynamicKeyword.trim().toLowerCase()
+      if (keyword && ![row.kind, row.streetName, row.author, row.title, row.content, row.contactName, row.phone, row.email, row.address].join(' ').toLowerCase().includes(keyword)) return false
+      if (dynamicTypeFilter && row.kind !== dynamicTypeFilter) return false
+      if (dynamicAuthorFilter && row.author !== dynamicAuthorFilter) return false
+      if (dynamicContactTypeFilter && row.contactType !== dynamicContactTypeFilter) return false
+      if (dynamicPhotoFilter === 'YES' && !row.hasPhoto) return false
+      if (dynamicPhotoFilter === 'NO' && row.hasPhoto) return false
+      if (dynamicDateFromFilter) {
+        const fromTs = new Date(`${dynamicDateFromFilter}T00:00:00`).getTime()
+        if (new Date(row.createdAt).getTime() < fromTs) return false
+      }
+      if (dynamicDateToFilter) {
+        const toTs = new Date(`${dynamicDateToFilter}T23:59:59`).getTime()
+        if (new Date(row.createdAt).getTime() > toTs) return false
+      }
+      return true
+    })
+    .sort((a, b) => {
+      if (dynamicOrderBy === 'DATE_ASC') return new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
+      if (dynamicOrderBy === 'TYPE_ASC') return zoneKindLabel(a.kind).localeCompare(zoneKindLabel(b.kind), 'it')
+      if (dynamicOrderBy === 'AUTHOR_ASC') return a.author.localeCompare(b.author, 'it')
+      return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+    })
 
   return (
     <div>
       <h1 style={{ fontSize: '2rem', marginTop: 0 }}>Task di zona</h1>
-      <p style={{ color: '#64748b' }}>Assegna agli agenti gruppi di vie per CAP. Ogni gruppo puo essere assegnato a un solo agente.</p>
+      <p style={{ color: '#64748b' }}>Crea e gestisci gruppi di vie dinamici, scalabili nel tempo.</p>
       {msg && <div style={{ ...card, padding: '10px', marginBottom: '10px' }}>{msg}</div>}
-      <div
-        style={{
-          display: 'grid',
-          gridTemplateColumns: viewportWidth < 1024 ? '1fr' : '360px 1fr',
-          gap: '12px',
-          alignItems: 'start'
-        }}
-      >
-        <form onSubmit={assignGroup} style={{ ...card, padding: '12px', display: 'grid', gap: '8px' }}>
-          <h3 style={{ marginTop: 0, display: 'flex', alignItems: 'center', gap: '8px' }}><MapPin size={16} /> Nuova zona agente</h3>
-          <select value={f.agentId} onChange={(e) => setF((p) => ({ ...p, agentId: e.target.value }))} style={inputStyle} required><option value="">Agente</option>{activeAgents.map((a) => <option key={a.id} value={a.id}>{a.firstName} {a.lastName}</option>)}</select>
-          <select value={f.region} onChange={(e) => setF((p) => ({ ...p, region: e.target.value, province: '', city: '', cap: '', groupIndex: '' }))} style={inputStyle} required><option value="">Regione</option>{regions.map((r) => <option key={r} value={r}>{r}</option>)}</select>
-          <select value={f.province} onChange={(e) => setF((p) => ({ ...p, province: e.target.value, city: '', cap: '', groupIndex: '' }))} style={inputStyle} required><option value="">Provincia</option>{provinces.map((p) => <option key={p} value={p}>{p}</option>)}</select>
-          <select value={f.city} onChange={(e) => setF((p) => ({ ...p, city: e.target.value, cap: '', groupIndex: '' }))} style={inputStyle} required><option value="">Comune</option>{cities.map((c) => <option key={c} value={c}>{c}</option>)}</select>
-          <select value={f.cap} onChange={(e) => setF((p) => ({ ...p, cap: e.target.value, groupIndex: '' }))} style={inputStyle} required><option value="">CAP</option>{capOptions.map((c) => <option key={c.cap} value={c.cap}>{c.cap} ({c.streetCount})</option>)}</select>
-          <select value={f.groupIndex} onChange={(e) => setF((p) => ({ ...p, groupIndex: e.target.value }))} style={inputStyle} required><option value="">Gruppo</option>{groups.map((g) => <option key={g.groupIndex} value={String(g.groupIndex)}>{g.groupName} - {g.assigned ? g.assigned.agentName : 'Libero'}</option>)}</select>
-          <button type="submit" style={btnPrimary}>+ Assegna gruppo</button>
-        </form>
-
-        <div style={{ display: 'grid', gap: '10px' }}>
-          <div
-            style={{
-              ...card,
-              padding: '10px',
-              display: 'grid',
-              gridTemplateColumns: viewportWidth < 900 ? '1fr' : '1fr 220px auto',
-              gap: '8px',
-              alignItems: 'center'
-            }}
-          >
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <Search size={14} />
-              <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Filtra per CAP, gruppo o agente..." style={inputStyle} />
+      <div style={{ ...card, padding: '12px', marginBottom: '12px', display: 'grid', gap: '10px' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+          <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+            <Search size={14} />
+            <input
+              value={dynamicKeyword}
+              onChange={(e) => setDynamicKeyword(e.target.value)}
+              placeholder="Ricerca per città, zona, gruppo o via..."
+              style={{ ...inputStyle, minWidth: '260px' }}
+            />
+          </div>
+          {isAdmin && (
+            <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+              <button type="button" style={{ ...btnPrimary, background: '#0f766e' }} onClick={downloadDynamicCsvTemplate}>
+                Scarica template CSV
+              </button>
+              <button type="button" style={{ ...btnPrimary, background: '#1d4ed8' }} onClick={downloadDynamicCsvExample}>
+                Scarica esempio CSV
+              </button>
+              <button
+                type="button"
+                style={{ ...btnPrimary, background: '#334155' }}
+                onClick={() => {
+                  setShowDynamicImportModal(true)
+                  setDynamicImportFile(null)
+                }}
+              >
+                Importa CSV zone
+              </button>
+              <button
+                type="button"
+                style={btnPrimary}
+                onClick={() => {
+                  setDynamicCreateTargetZone(null)
+                  setDynamicCreateForm({ city: '', zoneName: '', groupName: '', streets: [''] })
+                  setShowDynamicCreateModal(true)
+                }}
+              >
+                + Crea nuovo gruppo di zona
+              </button>
             </div>
-            <select value={agentFilter} onChange={(e) => setAgentFilter(e.target.value)} style={inputStyle}><option value="ALL">Tutti agenti</option>{activeAgents.map((a) => <option key={a.id} value={a.id}>{a.firstName} {a.lastName}</option>)}</select>
-            <label style={{ fontSize: '0.85rem' }}><input type="checkbox" checked={handoverOnly} onChange={(e) => setHandoverOnly(e.target.checked)} /> Vedi solo gruppi con handover</label>
-          </div>
-          <div style={{ ...card, padding: '10px', maxHeight: viewportWidth < 900 ? 'unset' : '620px', overflowY: viewportWidth < 900 ? 'visible' : 'auto' }}>
-            {filteredSummary.map((item) => {
-              const cardGroups = handoverOnly ? item.groups.filter((g) => Boolean(g.hasHandover)) : item.groups
-              return (
-                <div key={item.cap} style={{ border: '1px solid #e5e7eb', borderRadius: '10px', padding: '10px', marginBottom: '8px', background: '#f8fafc' }}>
-                  <h3 style={{ margin: 0 }}>{f.region || 'Regione'} {'>'} {f.province || 'Provincia'} {'>'} {f.city || 'Comune'} {'>'} CAP {item.cap}</h3>
-                  <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', marginTop: '8px' }}>
-                    {cardGroups.map((g) => (
-                      <button key={`${item.cap}-${g.groupIndex}`} type="button" onClick={() => openWorkspace({ cap: item.cap, groupIndex: g.groupIndex, region: f.region, province: f.province, city: f.city })} style={{ border: '1px solid #cbd5e1', borderRadius: '999px', padding: '4px 9px', background: g.assigned ? '#f0fdf4' : '#fff', cursor: 'pointer' }}>
-                        {g.groupName}: {g.assigned ? g.assigned.agentName : 'Libero'} {g.hasHandover ? `(handover ${g.handoverCount || 0})` : ''}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              )
-            })}
-          </div>
+          )}
+        </div>
+        <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
+          <select value={dynamicCityFilter} onChange={(e) => setDynamicCityFilter(e.target.value)} style={{ ...inputStyle, maxWidth: '260px' }}>
+            <option value="">Tutte le città</option>
+            {dynamicCityOptions.map((city) => <option key={city} value={city}>{city}</option>)}
+          </select>
+          <button type="button" style={{ ...btnPrimary, padding: '9px 12px' }} onClick={() => loadDynamicGroups()}>
+            Aggiorna
+          </button>
         </div>
       </div>
+      {dynamicImportReport && (
+        <div style={{ ...card, padding: '12px', marginBottom: '12px', display: 'grid', gap: '6px' }}>
+          <div style={{ fontWeight: 800 }}>Report import CSV zone ({dynamicImportReport.mode || '-'})</div>
+          <div style={{ color: '#334155', fontSize: '0.92rem' }}>
+            Righe totali: {dynamicImportReport.totalRows ?? 0} · Valide: {dynamicImportReport.validRows ?? 0} ·
+            Zone create: {dynamicImportReport.zoneCreated ?? 0} · Gruppi creati: {dynamicImportReport.groupCreated ?? 0} ·
+            Gruppi aggiornati: {dynamicImportReport.groupUpdated ?? 0} · Vie create: {dynamicImportReport.streetsCreated ?? 0} ·
+            Duplicati ignorati: {dynamicImportReport.duplicatesIgnored ?? 0}
+          </div>
+          {Array.isArray(dynamicImportReport.rejectedRows) && dynamicImportReport.rejectedRows.length > 0 && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+              <div style={{ color: '#b45309', fontSize: '0.9rem' }}>
+                Righe scartate: {dynamicImportReport.rejectedRows.length}
+              </div>
+              <button type="button" style={{ ...btnPrimary, background: '#b45309', padding: '7px 10px', fontSize: '0.82rem' }} onClick={downloadDynamicImportErrorsCsv}>
+                Scarica errori CSV
+              </button>
+            </div>
+          )}
+        </div>
+      )}
+
+      {!dynamicSelectedGroupId && (
+        <div style={{ ...card, padding: '12px', display: 'grid', gap: '10px' }}>
+          <h3 style={{ margin: 0, fontSize: '1rem' }}>{isAdmin ? 'Lista assegnazioni gruppi (Admin)' : 'I tuoi gruppi assegnati'}</h3>
+          {dynamicLoading ? <div>Caricamento gruppi dinamici...</div> : null}
+          {!dynamicLoading && visibleDynamicGroups.length === 0 ? (
+            <div style={{ color: '#64748b' }}>{isAdmin ? 'Nessun gruppo dinamico creato.' : 'Nessun gruppo assegnato al tuo utente.'}</div>
+          ) : null}
+          {!dynamicLoading && dynamicZonesView.map((zone) => (
+            <div key={zone.zoneId} style={{ border: '1px solid #e5e7eb', borderRadius: '12px', padding: '12px', background: '#fff', display: 'grid', gap: '10px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
+                <div>
+                  <div style={{ fontWeight: 900, fontSize: '1.02rem' }}>{zone.zoneName}</div>
+                  <div style={{ color: '#64748b', fontSize: '0.9rem' }}>{zone.city} · {zone.province} · {zone.region}</div>
+                </div>
+                {isAdmin ? (
+                  <button
+                    type="button"
+                    style={{ ...btnPrimary, background: '#2563eb', padding: '8px 12px' }}
+                    onClick={() => {
+                      setDynamicCreateTargetZone({ zoneId: zone.zoneId, city: zone.city, zoneName: zone.zoneName })
+                      setDynamicCreateForm({ city: zone.city, zoneName: zone.zoneName, groupName: '', streets: [''] })
+                      setShowDynamicCreateModal(true)
+                    }}
+                  >
+                    + Nuovo gruppo
+                  </button>
+                ) : null}
+              </div>
+
+              <div
+                style={{
+                  display: 'grid',
+                  gap: '10px',
+                  gridTemplateColumns: isMobileLayout ? '1fr' : 'repeat(auto-fit, minmax(360px, 1fr))',
+                  alignItems: 'stretch'
+                }}
+              >
+                {zone.groups.map((group) => (
+                  <div
+                    key={group.groupId}
+                    style={{
+                      border: '1px solid #cfd8e3',
+                      borderRadius: '12px',
+                      padding: '12px',
+                      background: '#f8fafc',
+                      display: 'grid',
+                      gap: '10px',
+                      alignContent: 'start',
+                      minHeight: '236px'
+                    }}
+                  >
+                    <div
+                      style={{
+                        display: 'flex',
+                        justifyContent: 'space-between',
+                        gap: '10px',
+                        alignItems: 'center',
+                        flexWrap: 'wrap',
+                        borderBottom: '1px solid #e2e8f0',
+                        paddingBottom: '10px'
+                      }}
+                    >
+                      <div style={{ display: 'grid', gap: '6px' }}>
+                        <div style={{ fontWeight: 900, fontSize: '1.05rem', color: '#0f172a', lineHeight: 1.2 }}>{group.groupName}</div>
+                        <span style={{ borderRadius: '999px', padding: '4px 10px', fontSize: '0.78rem', fontWeight: 800, background: group.activeAssignment ? '#dcfce7' : '#e2e8f0', color: group.activeAssignment ? '#166534' : '#334155', width: 'fit-content' }}>
+                          {group.activeAssignment ? `Assegnato a ${group.activeAssignment.agentName}` : 'Non assegnato'}
+                        </span>
+                      </div>
+                      <button
+                        type="button"
+                        style={{ ...btnPrimary, background: group.activeAssignment ? '#2563eb' : '#0f766e', padding: '7px 10px', fontSize: '0.9rem', lineHeight: 1.1 }}
+                        onClick={() => (group.activeAssignment ? openDynamicGroupWorkspace(group.groupId) : openDynamicAssignModal(group))}
+                      >
+                        {group.activeAssignment ? 'Apri gruppo' : 'Assegna gruppo'}
+                      </button>
+                    </div>
+
+                    <div style={{ display: 'grid', gap: '6px' }}>
+                      <div style={{ fontSize: '0.84rem', fontWeight: 800, color: '#334155' }}>
+                        Vie del gruppo ({group.streets.length})
+                      </div>
+                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '7px' }}>
+                        {group.streets.length === 0 ? (
+                          <span style={{ color: '#64748b', fontSize: '0.84rem' }}>Nessuna via nel gruppo</span>
+                        ) : (
+                          group.streets.map((street) => (
+                            <span
+                              key={street.id}
+                              style={{
+                                border: '1px solid #cbd5e1',
+                                borderRadius: '999px',
+                                padding: '4px 9px',
+                                fontSize: '0.78rem',
+                                background: '#fff',
+                                color: '#334155'
+                              }}
+                            >
+                              {street.name}
+                            </span>
+                          ))
+                        )}
+                      </div>
+                    </div>
+
+                    {isAdmin ? (
+                      <div style={{ display: 'grid', gap: '6px', marginTop: 'auto', borderTop: '1px solid #e2e8f0', paddingTop: '8px' }}>
+                        <div style={{ fontSize: '0.76rem', fontWeight: 800, color: '#475569' }}>Azioni gruppo</div>
+                        <div
+                          style={{
+                            display: 'grid',
+                            gap: '6px',
+                            gridTemplateColumns: isMobileLayout ? '1fr' : 'repeat(3, minmax(0, 1fr))',
+                            alignItems: 'stretch'
+                          }}
+                        >
+                          {group.activeAssignment ? (
+                            <>
+                              <button
+                                type="button"
+                                style={{ ...btnPrimary, background: '#475569', padding: '6px 8px', fontSize: '0.78rem', lineHeight: 1.15, minHeight: '34px' }}
+                                onClick={() => closeDynamicGroupAndArchive(group.activeAssignment!.assignmentId)}
+                                disabled={dynamicClosingAssignmentId === group.activeAssignment!.assignmentId}
+                              >
+                                Chiudi e archivia
+                              </button>
+                              <button
+                                type="button"
+                                style={{ ...btnPrimary, background: '#0f766e', padding: '6px 8px', fontSize: '0.78rem', lineHeight: 1.15, minHeight: '34px' }}
+                                onClick={() => {
+                                  setDynamicReassignModal({
+                                    open: true,
+                                    zoneId: group.zoneId,
+                                    groupId: group.groupId,
+                                    assignmentId: group.activeAssignment!.assignmentId,
+                                    groupName: group.groupName
+                                  })
+                                  setDynamicReassignAgentId('')
+                                }}
+                                disabled={dynamicClosingAssignmentId === group.activeAssignment!.assignmentId}
+                              >
+                                Chiudi e riassegna
+                              </button>
+                            </>
+                          ) : (
+                            <>
+                              <div style={{ visibility: 'hidden' }} />
+                              <div style={{ visibility: 'hidden' }} />
+                            </>
+                          )}
+                          <button
+                            type="button"
+                            style={{ ...btnPrimary, background: '#dc2626', padding: '6px 8px', fontSize: '0.78rem', lineHeight: 1.15, minHeight: '34px' }}
+                            onClick={() => deleteDynamicGroup(group.groupId, group.groupName)}
+                            disabled={dynamicDeletingGroupId === group.groupId || Boolean(group.activeAssignment && dynamicClosingAssignmentId === group.activeAssignment.assignmentId)}
+                          >
+                            Elimina gruppo
+                          </button>
+                        </div>
+                      </div>
+                    ) : null}
+                  </div>
+                ))}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {dynamicSelectedGroupId && (
+        <div style={{ display: 'grid', gap: '10px' }}>
+          <button type="button" style={{ ...inputStyle, width: 'fit-content' }} onClick={() => { setDynamicSelectedGroupId(null); setDynamicWorkspace(null); setDynamicSelectedStreetId(null) }}>
+            {'<'}- Torna a Task di zona
+          </button>
+          {dynamicWorkspaceLoading ? <div style={{ ...card, padding: '12px' }}>Caricamento gruppo...</div> : null}
+          {!dynamicWorkspaceLoading && dynamicWorkspace && (
+            <>
+              <div style={{ ...card, padding: '12px', display: 'grid', gap: '8px' }}>
+                <h2 style={{ margin: 0 }}>Scheda gruppo: {dynamicWorkspace.zoneName} · {dynamicWorkspace.groupName}</h2>
+                <div style={{ color: '#64748b' }}>
+                  {dynamicWorkspace.region} {'>'} {dynamicWorkspace.province} {'>'} {dynamicWorkspace.city}
+                </div>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+                  {dynamicWorkspace.streets.map((street) => (
+                    <div key={street.id} style={{ position: 'relative', display: 'inline-flex', alignItems: 'center' }}>
+                      <button
+                        type="button"
+                        onClick={() => setDynamicSelectedStreetId(street.id)}
+                        style={{ border: '1px solid #cbd5e1', borderRadius: '999px', padding: '5px 34px 5px 10px', background: dynamicSelectedStreetId === street.id ? '#dbeafe' : '#fff', cursor: 'pointer', position: 'relative' }}
+                      >
+                        {street.name}
+                        <span
+                          onClick={(event) => {
+                            event.stopPropagation()
+                            setStreetMenuOpenId((prev) => (prev === street.id ? null : street.id))
+                          }}
+                          style={{ position: 'absolute', right: '9px', top: '50%', transform: 'translateY(-50%)', borderLeft: '1px solid #cbd5e1', paddingLeft: '7px', fontWeight: 700 }}
+                        >
+                          ⋯
+                        </span>
+                      </button>
+                      {streetMenuOpenId === street.id && (
+                        <div style={{ position: 'absolute', top: '34px', right: 0, zIndex: 20, background: '#fff', border: '1px solid #cbd5e1', borderRadius: '8px', boxShadow: '0 8px 20px rgba(15,23,42,0.12)', minWidth: '230px', padding: '6px' }}>
+                          <div style={{ padding: '6px 8px', fontSize: '0.82rem', color: '#64748b' }}>Sposta via in altro gruppo</div>
+                          <select
+                            defaultValue=""
+                            style={{ ...inputStyle, marginBottom: '6px' }}
+                            onChange={(e) => {
+                              if (!e.target.value) return
+                              moveDynamicStreet(street.id, e.target.value)
+                            }}
+                          >
+                            <option value="">Seleziona gruppo destinazione</option>
+                            {dynamicGroups
+                              .filter((g) => g.zoneId === dynamicWorkspace.zoneId && g.groupId !== dynamicWorkspace.groupId)
+                              .map((g) => (
+                                <option key={g.groupId} value={g.groupId}>{g.groupName}</option>
+                              ))}
+                          </select>
+                          <button type="button" style={{ ...btnPrimary, width: '100%', background: '#475569', marginBottom: '6px' }} onClick={() => renameDynamicStreet(street.id, street.name)}>
+                            Modifica via
+                          </button>
+                          <button type="button" style={{ ...btnPrimary, width: '100%', background: '#dc2626' }} onClick={() => deleteDynamicStreet(street.id, street.name)}>
+                            Elimina via
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+                {!!dynamicSelectedStreetId && (
+                  <button
+                    type="button"
+                    style={{ ...btnPrimary, width: 'fit-content', background: '#64748b' }}
+                    onClick={() => setDynamicSelectedStreetId(null)}
+                  >
+                    Mostra tutto il gruppo
+                  </button>
+                )}
+              </div>
+                  <div style={{ ...card, padding: '10px', display: 'grid', gap: '8px' }}>
+                    <h3 style={{ margin: 0 }}>
+                      Aggiungi informazioni di zona {currentDynamicStreet ? `· ${currentDynamicStreet.name}` : '· gruppo completo'}
+                    </h3>
+                    <div style={{ display: 'grid', gridTemplateColumns: isMobileLayout ? '1fr' : '1fr 1fr', gap: '8px' }}>
+                      <button
+                        type="button"
+                        style={{ ...btnPrimary, background: '#1d4ed8' }}
+                        onClick={async () => {
+                          if (!currentDynamicStreet) { setMsg('Seleziona una via per inserire informazioni puntuali'); return }
+                          const content = window.prompt('Dettaglio cartello di zona')
+                          if (!content) return
+                          await saveDynamicZoneLog({
+                            entryType: 'STATUS',
+                            title: `Cartello zona - ${currentDynamicStreet.name}`,
+                            content,
+                            metadata: { kind: 'ZONE_SIGN', streetId: currentDynamicStreet.id, streetName: currentDynamicStreet.name }
+                          })
+                        }}
+                      >
+                        AGGIUNGI CARTELLO DI ZONA
+                      </button>
+                      <button
+                        type="button"
+                        style={{ ...btnPrimary, background: '#2563eb' }}
+                        onClick={async () => {
+                          if (!currentDynamicStreet) { setMsg('Seleziona una via per inserire informazioni puntuali'); return }
+                          const content = window.prompt('Dettaglio immobile di zona')
+                          if (!content) return
+                          await saveDynamicZoneLog({
+                            entryType: 'STATUS',
+                            title: `Immobile zona - ${currentDynamicStreet.name}`,
+                            content,
+                            metadata: { kind: 'ZONE_PROPERTY', streetId: currentDynamicStreet.id, streetName: currentDynamicStreet.name }
+                          })
+                        }}
+                      >
+                        AGGIUNGI IMMOBILE DI ZONA
+                      </button>
+                      <button
+                        type="button"
+                        style={{ ...btnPrimary, background: '#0f766e' }}
+                        onClick={async () => {
+                          if (!currentDynamicStreet) { setMsg('Seleziona una via per inserire informazioni puntuali'); return }
+                          const content = window.prompt('Dettaglio cliente di zona')
+                          if (!content) return
+                          await saveDynamicZoneLog({
+                            entryType: 'STATUS',
+                            title: `Cliente di zona - ${currentDynamicStreet.name}`,
+                            content,
+                            metadata: { kind: 'ZONE_CLIENT', streetId: currentDynamicStreet.id, streetName: currentDynamicStreet.name }
+                          })
+                        }}
+                      >
+                        AGGIUNGI CLIENTE DI ZONA
+                      </button>
+                      <button
+                        type="button"
+                        style={{ ...btnPrimary, background: '#334155' }}
+                        onClick={async () => {
+                          if (!currentDynamicStreet) { setMsg('Seleziona una via per inserire informazioni puntuali'); return }
+                          const content = window.prompt('Inserisci informazione di zona')
+                          if (!content) return
+                          await saveDynamicZoneLog({
+                            entryType: 'NOTE',
+                            title: `Informazione zona - ${currentDynamicStreet.name}`,
+                            content,
+                            metadata: { kind: 'ZONE_NOTE', streetId: currentDynamicStreet.id, streetName: currentDynamicStreet.name }
+                          })
+                        }}
+                      >
+                        AGGIUNGI INFORMAZIONI DI ZONA
+                      </button>
+                    </div>
+                  </div>
+
+                  <div style={{ ...card, padding: '12px', display: 'grid', gap: '8px' }}>
+                    <h3 style={{ margin: 0 }}>
+                      Mega griglia informazioni zona {currentDynamicStreet ? `· ${currentDynamicStreet.name}` : '· tutte le vie del gruppo'}
+                    </h3>
+                    <div style={{ display: 'grid', gap: '8px', gridTemplateColumns: isMobileLayout ? '1fr' : 'repeat(4, minmax(0, 1fr))' }}>
+                      <select value={dynamicTypeFilter} onChange={(e) => setDynamicTypeFilter(e.target.value)} style={inputStyle}>
+                        <option value="">Tutti i tipi</option>
+                        {megaTypeOptions.map((type) => <option key={type} value={type}>{zoneKindLabel(type)}</option>)}
+                      </select>
+                      <select value={dynamicAuthorFilter} onChange={(e) => setDynamicAuthorFilter(e.target.value)} style={inputStyle}>
+                        <option value="">Tutti gli autori</option>
+                        {megaAuthorOptions.map((author) => <option key={author} value={author}>{author}</option>)}
+                      </select>
+                      <select value={dynamicContactTypeFilter} onChange={(e) => setDynamicContactTypeFilter(e.target.value)} style={inputStyle}>
+                        <option value="">Tutti i tipi contatto</option>
+                        {megaContactTypeOptions.map((contactType) => <option key={contactType} value={contactType}>{contactType}</option>)}
+                      </select>
+                      <select value={dynamicPhotoFilter} onChange={(e) => setDynamicPhotoFilter(e.target.value as any)} style={inputStyle}>
+                        <option value="ALL">Foto: tutte</option>
+                        <option value="YES">Solo con foto</option>
+                        <option value="NO">Solo senza foto</option>
+                      </select>
+                      <input type="date" value={dynamicDateFromFilter} onChange={(e) => setDynamicDateFromFilter(e.target.value)} style={inputStyle} />
+                      <input type="date" value={dynamicDateToFilter} onChange={(e) => setDynamicDateToFilter(e.target.value)} style={inputStyle} />
+                      <select value={dynamicOrderBy} onChange={(e) => setDynamicOrderBy(e.target.value as any)} style={inputStyle}>
+                        <option value="DATE_DESC">Ordina: più recenti</option>
+                        <option value="DATE_ASC">Ordina: più vecchi</option>
+                        <option value="TYPE_ASC">Ordina: tipo (A-Z)</option>
+                        <option value="AUTHOR_ASC">Ordina: autore (A-Z)</option>
+                      </select>
+                      <button
+                        type="button"
+                        style={{ ...btnPrimary, background: '#475569' }}
+                        onClick={() => {
+                          setDynamicTypeFilter('')
+                          setDynamicAuthorFilter('')
+                          setDynamicContactTypeFilter('')
+                          setDynamicPhotoFilter('ALL')
+                          setDynamicDateFromFilter('')
+                          setDynamicDateToFilter('')
+                          setDynamicOrderBy('DATE_DESC')
+                          setDynamicKeyword('')
+                        }}
+                      >
+                        Reset filtri
+                      </button>
+                    </div>
+                    <div style={{ color: '#64748b', fontSize: '0.9rem' }}>Totale righe: {megaRows.length}</div>
+                    <div style={{ overflowX: 'auto' }}>
+                      <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: '960px' }}>
+                        <thead>
+                          <tr>
+                            {['Data/Ora', 'Tipo', 'Via', 'Autore', 'Titolo', 'Contenuto', 'Contatto', 'Tipo contatto', 'Telefono', 'Email', 'Indirizzo', 'Foto'].map((header) => (
+                              <th key={header} style={{ textAlign: 'left', borderBottom: '1px solid #e5e7eb', padding: '7px', fontSize: '0.84rem' }}>{header}</th>
+                            ))}
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {megaRows.length === 0 ? (
+                            <tr><td colSpan={12} style={{ padding: '10px', color: '#64748b' }}>Nessuna informazione trovata per questa via.</td></tr>
+                          ) : megaRows.map((row) => (
+                            <tr key={row.id}>
+                              <td style={{ borderBottom: '1px solid #f1f5f9', padding: '7px' }}>{fmt(row.createdAt)}</td>
+                              <td style={{ borderBottom: '1px solid #f1f5f9', padding: '7px' }}>{zoneKindLabel(row.kind)}</td>
+                              <td style={{ borderBottom: '1px solid #f1f5f9', padding: '7px' }}>{row.streetName}</td>
+                              <td style={{ borderBottom: '1px solid #f1f5f9', padding: '7px' }}>{row.author}</td>
+                              <td style={{ borderBottom: '1px solid #f1f5f9', padding: '7px' }}>{row.title}</td>
+                              <td style={{ borderBottom: '1px solid #f1f5f9', padding: '7px' }}>{row.content}</td>
+                              <td style={{ borderBottom: '1px solid #f1f5f9', padding: '7px' }}>{row.contactName}</td>
+                              <td style={{ borderBottom: '1px solid #f1f5f9', padding: '7px' }}>{row.contactType}</td>
+                              <td style={{ borderBottom: '1px solid #f1f5f9', padding: '7px' }}>{row.phone}</td>
+                              <td style={{ borderBottom: '1px solid #f1f5f9', padding: '7px' }}>{row.email}</td>
+                              <td style={{ borderBottom: '1px solid #f1f5f9', padding: '7px' }}>{row.address}</td>
+                              <td style={{ borderBottom: '1px solid #f1f5f9', padding: '7px' }}>{row.hasPhoto ? 'Sì' : 'No'}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+            </>
+          )}
+        </div>
+      )}
+
+      {showDynamicImportModal && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(15,23,42,0.45)', display: 'grid', placeItems: 'center', zIndex: 70 }}>
+          <div style={{ ...card, width: 'min(700px, 96vw)', padding: '16px', display: 'grid', gap: '10px' }}>
+            <h3 style={{ margin: 0 }}>Importa zone da CSV</h3>
+            <div style={{ color: '#475569', fontSize: '0.9rem' }}>
+              Colonne obbligatorie: <strong>city, zone_name, group_name, street_name</strong>.
+            </div>
+            <div style={{ display: 'grid', gap: '8px', gridTemplateColumns: isMobileLayout ? '1fr' : '1fr auto' }}>
+              <select value={dynamicImportMode} onChange={(e) => setDynamicImportMode((String(e.target.value) === 'UPSERT' ? 'UPSERT' : 'APPEND'))} style={inputStyle}>
+                <option value="APPEND">APPEND (aggiunge senza toccare esistente)</option>
+                <option value="UPSERT">UPSERT (crea/aggiorna gruppi e vie)</option>
+              </select>
+              <div style={{ display: 'grid', gap: '6px' }}>
+                <button type="button" style={{ ...btnPrimary, background: '#0f766e', padding: '8px 10px' }} onClick={downloadDynamicCsvTemplate}>
+                  Scarica template
+                </button>
+                <button type="button" style={{ ...btnPrimary, background: '#1d4ed8', padding: '8px 10px' }} onClick={downloadDynamicCsvExample}>
+                  Scarica esempio
+                </button>
+              </div>
+            </div>
+            <input
+              type="file"
+              accept=".csv,text/csv"
+              onChange={(e) => setDynamicImportFile(e.target.files?.[0] || null)}
+              style={inputStyle}
+            />
+            {dynamicImportFile && (
+              <div style={{ color: '#334155', fontSize: '0.9rem' }}>
+                File selezionato: <strong>{dynamicImportFile.name}</strong>
+              </div>
+            )}
+            {dynamicImportReport && Array.isArray(dynamicImportReport.rejectedRows) && dynamicImportReport.rejectedRows.length > 0 && (
+              <div style={{ ...card, padding: '10px', borderColor: '#fdba74', background: '#fff7ed', maxHeight: '200px', overflow: 'auto' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', gap: '8px', alignItems: 'center', marginBottom: '6px', flexWrap: 'wrap' }}>
+                  <div style={{ fontWeight: 700 }}>Righe scartate ({dynamicImportReport.rejectedRows.length})</div>
+                  <button type="button" style={{ ...btnPrimary, background: '#b45309', padding: '6px 10px', fontSize: '0.8rem' }} onClick={downloadDynamicImportErrorsCsv}>
+                    Scarica errori CSV
+                  </button>
+                </div>
+                {dynamicImportReport.rejectedRows.slice(0, 100).map((row: any, idx: number) => (
+                  <div key={`rej-${idx}`} style={{ fontSize: '0.84rem', color: '#9a3412' }}>
+                    Riga {row.line}: {row.reason}
+                  </div>
+                ))}
+              </div>
+            )}
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px' }}>
+              <button
+                type="button"
+                style={{ ...btnPrimary, background: '#64748b' }}
+                onClick={() => {
+                  setShowDynamicImportModal(false)
+                  setDynamicImportFile(null)
+                }}
+              >
+                Annulla
+              </button>
+              <button type="button" style={btnPrimary} onClick={importDynamicGroupsCsv} disabled={!dynamicImportFile || dynamicImporting}>
+                {dynamicImporting ? 'Import in corso...' : 'Importa CSV'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showDynamicCreateModal && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(15,23,42,0.45)', display: 'grid', placeItems: 'center', zIndex: 70 }}>
+          <div style={{ ...card, width: 'min(760px, 96vw)', padding: '16px', display: 'grid', gap: '10px' }}>
+            <h3 style={{ margin: 0 }}>Crea nuovo gruppo di zona</h3>
+            {dynamicCreateTargetZone ? (
+              <div style={{ color: '#475569', fontSize: '0.9rem' }}>
+                Zona selezionata: <strong>{dynamicCreateTargetZone.zoneName}</strong> · {dynamicCreateTargetZone.city}
+              </div>
+            ) : null}
+            <div style={{ display: 'grid', gap: '8px', gridTemplateColumns: isMobileLayout ? '1fr' : '1fr 1fr 1fr' }}>
+              <select
+                value={dynamicCreateForm.city}
+                onChange={(e) => setDynamicCreateForm((p) => ({ ...p, city: e.target.value }))}
+                style={inputStyle}
+                disabled={Boolean(dynamicCreateTargetZone)}
+              >
+                <option value="">Città</option>
+                {dynamicCityOptions.map((city) => <option key={city} value={city}>{city}</option>)}
+              </select>
+              <input
+                value={dynamicCreateForm.zoneName}
+                onChange={(e) => setDynamicCreateForm((p) => ({ ...p, zoneName: e.target.value }))}
+                placeholder="Nome Zona"
+                style={inputStyle}
+                disabled={Boolean(dynamicCreateTargetZone)}
+              />
+              <input
+                value={dynamicCreateForm.groupName}
+                onChange={(e) => setDynamicCreateForm((p) => ({ ...p, groupName: e.target.value }))}
+                placeholder="Nome gruppo"
+                style={inputStyle}
+              />
+            </div>
+            <div style={{ display: 'grid', gap: '8px' }}>
+              <div style={{ fontWeight: 700 }}>Inserisci vie</div>
+              {dynamicCreateForm.streets.map((street, idx) => (
+                <div key={`street-input-${idx}`} style={{ display: 'flex', gap: '8px' }}>
+                  <input
+                    value={street}
+                    onChange={(e) => setDynamicCreateForm((p) => ({ ...p, streets: p.streets.map((item, i) => (i === idx ? e.target.value : item)) }))}
+                    placeholder={`Via ${idx + 1}`}
+                    style={inputStyle}
+                  />
+                  <button
+                    type="button"
+                    style={{ ...btnPrimary, background: '#dc2626', padding: '8px 11px' }}
+                    onClick={() => setDynamicCreateForm((p) => ({ ...p, streets: p.streets.filter((_, i) => i !== idx) }))}
+                    disabled={dynamicCreateForm.streets.length === 1}
+                  >
+                    -
+                  </button>
+                </div>
+              ))}
+              <button type="button" style={{ ...btnPrimary, background: '#0f766e', width: 'fit-content' }} onClick={() => setDynamicCreateForm((p) => ({ ...p, streets: [...p.streets, ''] }))}>
+                + Aggiungi via
+              </button>
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px' }}>
+              <button
+                type="button"
+                style={{ ...btnPrimary, background: '#64748b' }}
+                onClick={() => {
+                  setShowDynamicCreateModal(false)
+                  setDynamicCreateTargetZone(null)
+                }}
+              >
+                Annulla
+              </button>
+              <button type="button" style={btnPrimary} onClick={createDynamicGroup}>Crea gruppo</button>
+            </div>
+          </div>
+        </div>
+      )}
+      {dynamicReassignModal.open && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(15,23,42,0.45)', display: 'grid', placeItems: 'center', zIndex: 72 }}>
+          <div style={{ ...card, width: 'min(520px, 92vw)', padding: '16px', display: 'grid', gap: '10px' }}>
+            <h3 style={{ margin: 0 }}>Chiudi, archivia e assegna</h3>
+            <p style={{ margin: 0, color: '#64748b' }}>
+              Gruppo: <strong>{dynamicReassignModal.groupName}</strong>. Seleziona il nuovo agente per la riassegnazione.
+            </p>
+            <select value={dynamicReassignAgentId} onChange={(e) => setDynamicReassignAgentId(e.target.value)} style={inputStyle}>
+              <option value="">Seleziona agente</option>
+              {activeAgents.map((a) => (
+                <option key={a.id} value={a.id}>
+                  {a.firstName} {a.lastName} ({a.email})
+                </option>
+              ))}
+            </select>
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px' }}>
+              <button
+                type="button"
+                style={{ ...btnPrimary, background: '#64748b' }}
+                onClick={() => {
+                  setDynamicReassignModal({ open: false, zoneId: '', groupId: '', assignmentId: '', groupName: '' })
+                  setDynamicReassignAgentId('')
+                }}
+              >
+                Annulla
+              </button>
+              <button
+                type="button"
+                style={btnPrimary}
+                onClick={closeArchiveAndReassignDynamicGroup}
+                disabled={!dynamicReassignAgentId || Boolean(dynamicClosingAssignmentId)}
+              >
+                Conferma
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      {dynamicAssignModal.open && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(15,23,42,0.45)', display: 'grid', placeItems: 'center', zIndex: 72 }}>
+          <div style={{ ...card, width: 'min(520px, 92vw)', padding: '16px', display: 'grid', gap: '10px' }}>
+            <h3 style={{ margin: 0 }}>Assegna gruppo</h3>
+            <p style={{ margin: 0, color: '#64748b' }}>
+              Gruppo: <strong>{dynamicAssignModal.groupName}</strong>. Seleziona l&apos;agente.
+            </p>
+            <select value={dynamicAssignAgentId} onChange={(e) => setDynamicAssignAgentId(e.target.value)} style={inputStyle}>
+              <option value="">Seleziona agente</option>
+              {activeAgents.map((a) => (
+                <option key={a.id} value={a.id}>
+                  {a.firstName} {a.lastName} ({a.email})
+                </option>
+              ))}
+            </select>
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px' }}>
+              <button
+                type="button"
+                style={{ ...btnPrimary, background: '#64748b' }}
+                onClick={() => {
+                  setDynamicAssignModal({ open: false, zoneId: '', groupId: '', groupName: '' })
+                  setDynamicAssignAgentId('')
+                }}
+              >
+                Annulla
+              </button>
+              <button type="button" style={btnPrimary} onClick={assignDynamicGroup} disabled={!dynamicAssignAgentId}>
+                Conferma assegnazione
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

@@ -7,6 +7,9 @@ type Props = {
   onSave: (property: any) => Promise<void>
   onCancel: () => void
   currentUserRole?: 'SUPER_ADMIN' | 'AGENCY_ADMIN' | 'AGENT' | 'COLLABORATOR' | null
+  approvalMode?: boolean
+  approvalSubmitLabel?: string
+  deferImageUpload?: boolean
 }
 
 type DictState = {
@@ -25,6 +28,7 @@ type StreetSuggestion = {
   province?: string
   provinceCode?: string
   zipCode?: string
+  istatCode?: string
   latitude?: number
   longitude?: number
   fullLabel?: string
@@ -39,15 +43,40 @@ type FieldDef = {
   enumKey?: string
 }
 
+type PublicationReview = {
+  hiddenFields: string[]
+  adminNote: string
+  reviewedAt?: string
+  reviewedByRole?: string
+}
+
+const REVIEWABLE_PUBLISH_FIELDS: Array<{ key: string; label: string }> = [
+  { key: 'indirizzo', label: 'Indirizzo completo annuncio' },
+  { key: 'cap', label: 'CAP annuncio' },
+  { key: 'latitudine', label: 'Coordinate latitudine' },
+  { key: 'longitudine', label: 'Coordinate longitudine' },
+  { key: 'mappa', label: 'Mappa annuncio' },
+  { key: 'note_prezzo', label: 'Note prezzo annuncio' },
+  { key: 'descrizione_breve', label: 'Descrizione breve portali' },
+  { key: 'descrizione_ing', label: 'Descrizione inglese portali' },
+  { key: 'descrizione_ted', label: 'Descrizione tedesca portali' },
+  { key: 'descrizione_fra', label: 'Descrizione francese portali' },
+  { key: 'descrizione_spa', label: 'Descrizione spagnola portali' },
+  { key: 'link_esterno', label: 'Link esterno annuncio' },
+  { key: 'immagini', label: 'Galleria immagini' },
+  { key: 'videos', label: 'Video annuncio' }
+]
+
 let citiesCache: City[] | null = null
 let provincesCache: Province[] | null = null
 
 const STEPS = [
-  '1. Identificazione', '2. Localizzazione', '3. Prezzo e priorita', '4. Dimensioni e vani',
+  '1. Identificazione', '2. Localizzazione', '3. Prezzo e priorità', '4. Dimensioni e vani',
   '5. Caratteristiche generali', '6. Struttura edificio', '7. Spazi e accessori', '8. Dotazioni interne',
   '9. Energetica', '10. Descrizioni', '11. Date e stato', '12. Dati asta',
-  '13. Pubblicazione portali', '14. Contratto affitto', '15. Foto', '16. Video + Assegnazione'
+  '13. Pubblicazione portali', '14. Contratto affitto', '15. Foto + Video', '16. Dati proprietario + Assegnazione'
 ]
+const MIN_REQUIRED_IMAGES = 7
 
 const labelStyle: React.CSSProperties = { display: 'block', marginBottom: 4, fontWeight: 600, color: '#111827', fontSize: 13 }
 const hintStyle: React.CSSProperties = { marginTop: 3, color: '#6b7280', fontSize: 11 }
@@ -60,6 +89,42 @@ const badgeBaseStyle: React.CSSProperties = { borderRadius: 999, padding: '1px 6
 const reqBadgeStyle: React.CSSProperties = { ...badgeBaseStyle, color: '#b91c1c', borderColor: '#fca5a5', background: '#fef2f2' }
 const optBadgeStyle: React.CSSProperties = { ...badgeBaseStyle, color: '#374151', borderColor: '#d1d5db', background: '#f9fafb' }
 const helpBadgeStyle: React.CSSProperties = { ...badgeBaseStyle, color: '#1f2937', borderColor: '#cbd5e1', background: '#eff6ff', cursor: 'help' }
+
+const pad2 = (n: number) => String(n).padStart(2, '0')
+const toOneClickDateTime = (d: Date) =>
+  `${pad2(d.getDate())}/${pad2(d.getMonth() + 1)}/${d.getFullYear()} ${pad2(d.getHours())}:${pad2(d.getMinutes())}:${pad2(d.getSeconds())}`
+const toOneClickDate = (d: Date) => `${pad2(d.getDate())}/${pad2(d.getMonth() + 1)}/${d.getFullYear()}`
+const nowOneClickDateTime = () => toOneClickDateTime(new Date())
+const nowOneClickDate = () => toOneClickDate(new Date())
+
+const oneClickDateTimeToLocalInput = (value: string) => {
+  const raw = String(value || '').trim()
+  const m = raw.match(/^(\d{2})\/(\d{2})\/(\d{4})(?:\s+(\d{2}):(\d{2})(?::(\d{2}))?)?$/)
+  if (!m) return ''
+  const [, dd, mm, yyyy, hh = '00', mi = '00'] = m
+  return `${yyyy}-${mm}-${dd}T${hh}:${mi}`
+}
+const localInputToOneClickDateTime = (value: string) => {
+  const raw = String(value || '').trim()
+  if (!raw) return ''
+  const dt = new Date(raw)
+  if (!Number.isFinite(dt.getTime())) return ''
+  return toOneClickDateTime(dt)
+}
+const oneClickDateToLocalInput = (value: string) => {
+  const raw = String(value || '').trim()
+  const m = raw.match(/^(\d{2})\/(\d{2})\/(\d{4})$/)
+  if (!m) return ''
+  const [, dd, mm, yyyy] = m
+  return `${yyyy}-${mm}-${dd}`
+}
+const localInputToOneClickDate = (value: string) => {
+  const raw = String(value || '').trim()
+  if (!raw) return ''
+  const dt = new Date(`${raw}T00:00:00`)
+  if (!Number.isFinite(dt.getTime())) return ''
+  return toOneClickDate(dt)
+}
 
 const parseAddress = (address: string) => {
   const raw = String(address || '').trim()
@@ -133,6 +198,16 @@ const inferCityFromFreeAddress = (input: string, cities: City[], provinceCodeHin
   return null
 }
 
+const findCityRecord = (cityName: string, provinceCode: string, cities: City[]) => {
+  const cityNorm = normText(cityName)
+  const prov = String(provinceCode || '').trim().toUpperCase()
+  if (!cityNorm) return null
+  return cities.find((c) =>
+    normText(c.name) === cityNorm &&
+    (!prov || String(c.provinceCode || '').trim().toUpperCase() === prov)
+  ) || null
+}
+
 async function loadCities(): Promise<City[]> {
   if (citiesCache) return citiesCache
   const r = await fetch('https://raw.githubusercontent.com/matteocontrini/comuni-json/master/comuni.json')
@@ -159,8 +234,8 @@ async function loadProvinces(): Promise<Province[]> {
   return provincesCache
 }
 
-export function PropertyModalOneClick({ property, onSave, onCancel, currentUserRole }: Props) {
-  const { token } = useAuthStore()
+export function PropertyModalOneClick({ property, onSave, onCancel, currentUserRole, approvalMode = false, approvalSubmitLabel = 'Approva immobile', deferImageUpload = false }: Props) {
+  const { token, user } = useAuthStore()
   const isAdminUser = currentUserRole === 'SUPER_ADMIN' || currentUserRole === 'AGENCY_ADMIN'
 
   const [step, setStep] = useState(1)
@@ -177,6 +252,27 @@ export function PropertyModalOneClick({ property, onSave, onCancel, currentUserR
   const [streetNumberManual, setStreetNumberManual] = useState(false)
   const streetAutocompleteRef = useRef<HTMLDivElement | null>(null)
   const suppressStreetDropdownRef = useRef(false)
+  const visibleStepNumbers = useMemo(
+    () => STEPS.map((_, idx) => idx + 1),
+    [deferImageUpload]
+  )
+  const currentStepVisibleIndex = Math.max(0, visibleStepNumbers.indexOf(step))
+  const currentStepNumber = visibleStepNumbers[currentStepVisibleIndex] || visibleStepNumbers[0] || 1
+  const isLastStep = currentStepVisibleIndex === visibleStepNumbers.length - 1
+
+  useEffect(() => {
+    if (!visibleStepNumbers.includes(step)) {
+      const nextVisible = visibleStepNumbers.find((n) => n > step) ?? visibleStepNumbers[visibleStepNumbers.length - 1] ?? 1
+      setStep(nextVisible)
+    }
+  }, [step, visibleStepNumbers])
+  const readFileAsDataUrl = (file: File) =>
+    new Promise<string>((resolve, reject) => {
+      const reader = new FileReader()
+      reader.onload = () => resolve(String(reader.result || ''))
+      reader.onerror = () => reject(new Error('file_read_error'))
+      reader.readAsDataURL(file)
+    })
 
   const parsed = parseAddress(property?.address || '')
   const [form, setForm] = useState<any>({
@@ -199,11 +295,12 @@ export function PropertyModalOneClick({ property, onSave, onCancel, currentUserR
     ownerEmail: property?.ownerEmail || '',
     ownerPhone: property?.ownerPhone || '',
     ownerFiscalCode: property?.ownerFiscalCode || '',
-    agentId: property?.agentId || '',
-    agentName: property?.agentName || '',
-    agentEmail: property?.agentEmail || '',
+    agentId: property?.agentId || (currentUserRole === 'AGENT' ? String(user?.id || '').trim() : ''),
+    agentName: property?.agentName || (currentUserRole === 'AGENT' ? [String(user?.firstName || '').trim(), String(user?.lastName || '').trim()].filter(Boolean).join(' ') : ''),
+    agentEmail: property?.agentEmail || (currentUserRole === 'AGENT' ? String(user?.email || '').trim() : ''),
     agentPhone: property?.agentPhone || '',
     notes: property?.notes || '',
+    publishNow: property?.isPublished ?? isAdminUser,
     oneClickData: {
       ...(property?.oneClickData || {}),
       idtipologiaimmobile: property?.oneClickData?.idtipologiaimmobile || 5,
@@ -213,15 +310,36 @@ export function PropertyModalOneClick({ property, onSave, onCancel, currentUserR
       descrizione: property?.oneClickData?.descrizione || property?.description || '',
       titolo_annuncio: property?.oneClickData?.titolo_annuncio || property?.title || '',
       indirizzo: property?.oneClickData?.indirizzo || property?.address || '',
-      data_inserimento: property?.oneClickData?.data_inserimento || '',
-      data_aggiornamento: property?.oneClickData?.data_aggiornamento || '',
+      data_inserimento: property?.oneClickData?.data_inserimento || nowOneClickDateTime(),
+      data_aggiornamento: property?.oneClickData?.data_aggiornamento || nowOneClickDateTime(),
+      data_scadenza_asta: property?.oneClickData?.data_scadenza_asta || nowOneClickDate(),
       tipo_classe_energetica: property?.oneClickData?.tipo_classe_energetica || 'V',
       nazione: property?.oneClickData?.nazione || 'IT',
       categoria_annuncio: property?.oneClickData?.categoria_annuncio || 'residenziale',
       indirizzo_visibile: property?.oneClickData?.indirizzo_visibile || 'S',
       mappa: property?.oneClickData?.mappa || 'S',
+      doc_planimetria: property?.oneClickData?.doc_planimetria || 'N',
+      doc_visura: property?.oneClickData?.doc_visura || 'N',
+      prezzo_acquisizione: property?.oneClickData?.prezzo_acquisizione || undefined,
       selectedPortalCodes: Array.isArray(property?.oneClickData?.selectedPortalCodes) ? property.oneClickData.selectedPortalCodes : [20],
-      videos: Array.isArray(property?.oneClickData?.videos) ? property.oneClickData.videos : []
+      videos: Array.isArray(property?.oneClickData?.videos) ? property.oneClickData.videos : [],
+      publicationReview: {
+        hiddenFields: Array.isArray(property?.oneClickData?.publicationReview?.hiddenFields)
+          ? property.oneClickData.publicationReview.hiddenFields.filter((v: any) => typeof v === 'string')
+          : [],
+        adminNote:
+          typeof property?.oneClickData?.publicationReview?.adminNote === 'string'
+            ? property.oneClickData.publicationReview.adminNote
+            : '',
+        reviewedAt:
+          typeof property?.oneClickData?.publicationReview?.reviewedAt === 'string'
+            ? property.oneClickData.publicationReview.reviewedAt
+            : undefined,
+        reviewedByRole:
+          typeof property?.oneClickData?.publicationReview?.reviewedByRole === 'string'
+            ? property.oneClickData.publicationReview.reviewedByRole
+            : undefined
+      }
     }
   })
 
@@ -268,6 +386,25 @@ export function PropertyModalOneClick({ property, onSave, onCancel, currentUserR
   }, [token])
 
   useEffect(() => {
+    if (property || currentUserRole !== 'AGENT') return
+    const creatorAgentId = String(user?.id || '').trim()
+    if (!creatorAgentId) return
+    setForm((prev: any) => {
+      if (String(prev.agentId || '').trim()) return prev
+      const matchedAgent = agents.find((a) => String(a?.id || '').trim() === creatorAgentId)
+      return {
+        ...prev,
+        agentId: creatorAgentId,
+        agentName:
+          String(matchedAgent?.name || '').trim() ||
+          [String(user?.firstName || '').trim(), String(user?.lastName || '').trim()].filter(Boolean).join(' '),
+        agentEmail: String(matchedAgent?.email || user?.email || '').trim(),
+        agentPhone: String(matchedAgent?.phone || '').trim()
+      }
+    })
+  }, [property, currentUserRole, user?.id, user?.firstName, user?.lastName, user?.email, agents])
+
+  useEffect(() => {
     const composed = composeAddress(form.street, form.streetNumber)
     setForm((prev: any) => ({ ...prev, address: composed, oneClickData: { ...(prev.oneClickData || {}), indirizzo: composed } }))
   }, [form.street, form.streetNumber])
@@ -288,6 +425,8 @@ export function PropertyModalOneClick({ property, onSave, onCancel, currentUserR
     setIstatManual(false)
     suppressStreetDropdownRef.current = true
     setStreetDropdownOpen(false)
+    const matchedCity = findCityRecord(String(s.city || ''), String(s.provinceCode || ''), cities)
+    const nextIstat = String(s.istatCode || matchedCity?.istatCode || '').trim()
     setForm((prev: any) => ({
       ...prev,
       street: s.street || prev.street,
@@ -295,12 +434,17 @@ export function PropertyModalOneClick({ property, onSave, onCancel, currentUserR
       city: s.city || prev.city,
       province: s.provinceCode || prev.province,
       zipCode: s.zipCode || prev.zipCode,
+      giComuneIstat: nextIstat || prev.giComuneIstat,
       latitude: typeof s.latitude === 'number' ? s.latitude : prev.latitude,
-      longitude: typeof s.longitude === 'number' ? s.longitude : prev.longitude
+      longitude: typeof s.longitude === 'number' ? s.longitude : prev.longitude,
+      oneClickData: {
+        ...(prev.oneClickData || {}),
+        comune_istat: nextIstat || prev.oneClickData?.comune_istat || prev.giComuneIstat || '',
+        cap: s.zipCode || prev.oneClickData?.cap || prev.zipCode || '',
+        latitudine: typeof s.latitude === 'number' ? s.latitude : prev.oneClickData?.latitudine,
+        longitudine: typeof s.longitude === 'number' ? s.longitude : prev.oneClickData?.longitudine
+      }
     }))
-    if (s.zipCode) setOne('cap', s.zipCode)
-    if (typeof s.latitude === 'number') setOne('latitudine', s.latitude)
-    if (typeof s.longitude === 'number') setOne('longitudine', s.longitude)
   }
 
   useEffect(() => {
@@ -332,19 +476,19 @@ export function PropertyModalOneClick({ property, onSave, onCancel, currentUserR
       try {
         setStreetLoading(true)
         const headers: HeadersInit = token ? { Authorization: `Bearer ${token}` } : {}
-        const inferredCity = !String(form.city || '').trim()
-          ? inferCityFromFreeAddress(rawStreet, cities, String(form.province || '').trim() || undefined)
-          : null
+        const inferredCity = inferCityFromFreeAddress(rawStreet, cities, String(form.province || '').trim() || undefined)
+          || inferCityFromFreeAddress(rawStreet, cities)
         const city = String(form.city || inferredCity?.name || '').trim()
-        const province = String(form.province || '').trim()
+        const effectiveCity = String(inferredCity?.name || city).trim()
+        const province = String(inferredCity?.provinceCode || form.province || '').trim()
         const zipCode = String(form.zipCode || '').trim()
         let street = rawStreet
-        if (city) street = stripTrailingToken(street, city)
+        if (effectiveCity) street = stripTrailingToken(street, effectiveCity)
         const parsedStreet = parseStreetInput(street)
         street = String(parsedStreet.street || street).trim()
         const number = String(form.streetNumber || parsedStreet.streetNumber || '').trim()
-        const params = new URLSearchParams({ q: street || rawStreet, limit: '20' })
-        if (city) params.set('city', city)
+        const params = new URLSearchParams({ q: street || rawStreet, full: rawStreet, limit: '20' })
+        if (effectiveCity) params.set('city', effectiveCity)
         if (province) params.set('province', province)
         if (zipCode) params.set('zipCode', zipCode)
         if (number) params.set('number', number)
@@ -360,6 +504,7 @@ export function PropertyModalOneClick({ property, onSave, onCancel, currentUserR
             const cityName = String(it?.city || '').trim()
             const provinceRaw = String(it?.province || '').trim()
             const provinceCode = resolveProvinceCode(String(it?.provinceCode || provinceRaw), provinces)
+            const cityMatch = findCityRecord(cityName, provinceCode, cities)
             const zip = String(it?.postcode || '').trim()
             const lat = Number(it?.latitude)
             const lon = Number(it?.longitude)
@@ -371,6 +516,7 @@ export function PropertyModalOneClick({ property, onSave, onCancel, currentUserR
               province: provinceRaw,
               provinceCode,
               zipCode: zip,
+              istatCode: cityMatch?.istatCode || '',
               latitude: Number.isFinite(lat) ? lat : undefined,
               longitude: Number.isFinite(lon) ? lon : undefined,
               fullLabel: String(it?.label || '')
@@ -402,6 +548,27 @@ export function PropertyModalOneClick({ property, onSave, onCancel, currentUserR
     const current = Array.isArray(form.oneClickData?.selectedPortalCodes) ? form.oneClickData.selectedPortalCodes : []
     const next = current.includes(portalCode) ? current.filter((v: number) => v !== portalCode) : [...current, portalCode]
     setOne('selectedPortalCodes', next.sort((a: number, b: number) => a - b))
+  }
+
+  const toggleReviewHiddenField = (fieldKey: string) => {
+    setForm((prev: any) => {
+      const current = Array.isArray(prev?.oneClickData?.publicationReview?.hiddenFields)
+        ? prev.oneClickData.publicationReview.hiddenFields
+        : []
+      const next = current.includes(fieldKey)
+        ? current.filter((v: string) => v !== fieldKey)
+        : [...current, fieldKey]
+      return {
+        ...prev,
+        oneClickData: {
+          ...(prev.oneClickData || {}),
+          publicationReview: {
+            ...(prev.oneClickData?.publicationReview || {}),
+            hiddenFields: next
+          }
+        }
+      }
+    })
   }
 
   const pick = <T,>(arr: T[], fallback: T): T => {
@@ -617,25 +784,26 @@ export function PropertyModalOneClick({ property, onSave, onCancel, currentUserR
 
   const fieldDefs: Record<number, FieldDef[]> = {
     3: [
-      { key: 'prezzo', label: 'Prezzo', type: 'number', placeholder: 'Es. 250000' },
+      { key: 'prezzo', label: 'Prezzo pubblicita', type: 'number', placeholder: 'Es. 250000', required: true },
+      { key: 'prezzo_acquisizione', label: 'Prezzo reale acquisizione', type: 'number', placeholder: 'Prezzo reale acquisito', required: true },
       { key: 'note_prezzo', label: 'Note prezzo', type: 'text', placeholder: 'Es. Trattabile' },
-      { key: 'prezzo_settimanale', label: 'Prezzo settimanale', type: 'number', placeholder: 'Solo affitti turistici' },
-      { key: 'priorita', label: 'Priorita (1-5)', type: 'number', placeholder: '1 minimo - 5 massimo' }
+      { key: 'prezzo_settimanale', label: 'Prezzo settimanale', type: 'number', placeholder: 'Solo casa vacanze' },
+      { key: 'priorita', label: 'Priorità (1-5)', type: 'number', placeholder: '1 minimo - 5 massimo' }
     ],
     4: [
-      { key: 'mq', label: 'Superficie (mq)', type: 'number' },
-      { key: 'nr_locali', label: 'Numero locali', type: 'number' },
-      { key: 'nr_camere', label: 'Numero camere', type: 'number' },
-      { key: 'nr_servizi', label: 'Numero bagni', type: 'number' },
+      { key: 'mq', label: 'Superficie (mq)', type: 'number', required: true },
+      { key: 'nr_locali', label: 'Numero locali', type: 'number', required: true },
+      { key: 'nr_camere', label: 'Numero camere', type: 'number', required: true },
+      { key: 'nr_servizi', label: 'Numero bagni', type: 'number', required: true },
       { key: 'nr_altre_stanze', label: 'Altre stanze', type: 'number' },
       { key: 'note_locali', label: 'Note vani', type: 'text', placeholder: 'Es. soggiorno doppio' }
     ],
     11: [
-      { key: 'data_inserimento', label: 'Data inserimento *', type: 'text', required: true, placeholder: 'gg/mm/aaaa hh:mm:ss' },
-      { key: 'data_aggiornamento', label: 'Data aggiornamento *', type: 'text', required: true, placeholder: 'gg/mm/aaaa hh:mm:ss' },
-      { key: 'data_scadenza_asta', label: 'Data scadenza asta', type: 'text', placeholder: 'gg/mm/aaaa' }
+      { key: 'data_inserimento', label: 'Data inserimento', type: 'text', required: true, placeholder: 'gg/mm/aaaa hh:mm:ss' },
+      { key: 'data_aggiornamento', label: 'Data aggiornamento', type: 'text', required: true, placeholder: 'gg/mm/aaaa hh:mm:ss' }
     ],
     12: [
+      { key: 'data_scadenza_asta', label: 'Data scadenza asta', type: 'text', placeholder: 'gg/mm/aaaa' },
       { key: 'codice_rge', label: 'Codice RGE', type: 'text' },
       { key: 'lotto_asta', label: 'Lotto asta', type: 'text' },
       { key: 'valutazione_asta', label: 'Valutazione asta', type: 'number' }
@@ -658,7 +826,7 @@ export function PropertyModalOneClick({ property, onSave, onCancel, currentUserR
     prezzo: 'Prezzo richiesto dell\'immobile in euro.',
     note_prezzo: 'Note commerciali sul prezzo (es. trattabile).',
     prezzo_settimanale: 'Solo per locazioni brevi/turistiche.',
-    priorita: 'Priorita di pubblicazione da 1 (bassa) a 5 (alta).',
+    priorita: 'Priorità di pubblicazione da 1 (bassa) a 5 (alta).',
     mq: 'Superficie commerciale o principale in metri quadrati.',
     nr_locali: 'Numero totale locali principali.',
     nr_camere: 'Numero camere da letto.',
@@ -714,6 +882,8 @@ export function PropertyModalOneClick({ property, onSave, onCancel, currentUserR
 
   const renderField = (f: FieldDef) => {
     const value = form.oneClickData?.[f.key]
+    const isAdminOnlyPublishField = f.key === 'prezzo'
+    const isReadOnlyForRole = isAdminOnlyPublishField && !isAdminUser
     const helpText = fieldHelp[f.key] || f.placeholder || ''
     const badge = f.required ? <span style={reqBadgeStyle}>Obbligatorio</span> : <span style={optBadgeStyle}>Facoltativo</span>
     const help = helpText ? <span style={helpBadgeStyle} title={helpText}>?</span> : null
@@ -730,78 +900,159 @@ export function PropertyModalOneClick({ property, onSave, onCancel, currentUserR
       </div>
     }
     const label = `${f.label}${f.required ? ' *' : ''}`
+    if (f.key === 'data_inserimento' || f.key === 'data_aggiornamento') {
+      const localValue =
+        oneClickDateTimeToLocalInput(String(value || '')) ||
+        oneClickDateTimeToLocalInput(nowOneClickDateTime())
+      return <div key={f.key}>
+        <div style={labelRowStyle}>
+          <span style={labelLeftStyle}>{label}{help}</span>
+          {badge}
+        </div>
+        <input
+          type="datetime-local"
+          step={60}
+          style={inputStyle}
+          value={localValue}
+          onChange={(e) => {
+            const normalized = localInputToOneClickDateTime(e.target.value)
+            setOne(f.key, normalized || nowOneClickDateTime())
+          }}
+        />
+        <div style={hintStyle}>Seleziona velocemente data e ora dal calendario.</div>
+      </div>
+    }
+    if (f.key === 'data_scadenza_asta') {
+      const localValue =
+        oneClickDateToLocalInput(String(value || '')) ||
+        oneClickDateToLocalInput(nowOneClickDate())
+      return <div key={f.key}>
+        <div style={labelRowStyle}>
+          <span style={labelLeftStyle}>{label}{help}</span>
+          {badge}
+        </div>
+        <input
+          type="date"
+          style={inputStyle}
+          value={localValue}
+          onChange={(e) => {
+            const normalized = localInputToOneClickDate(e.target.value)
+            setOne(f.key, normalized || nowOneClickDate())
+          }}
+        />
+        <div style={hintStyle}>Data selezionabile da calendario rapido.</div>
+      </div>
+    }
     return <div key={f.key}>
       <div style={labelRowStyle}>
         <span style={labelLeftStyle}>{label}{help}</span>
         {badge}
       </div>
       {f.type === 'textarea'
-        ? <textarea rows={3} style={inputStyle} value={value || ''} placeholder={f.placeholder || ''} onChange={(e) => setOne(f.key, e.target.value)} />
-        : <input type={f.type} style={inputStyle} value={value ?? ''} placeholder={f.placeholder || ''} onChange={(e) => f.type === 'number' ? setNum(f.key, e.target.value) : setOne(f.key, e.target.value)} />
+        ? <textarea rows={3} style={inputStyle} value={value || ''} placeholder={f.placeholder || ''} onChange={(e) => setOne(f.key, e.target.value)} disabled={isReadOnlyForRole} />
+        : <input type={f.type} style={inputStyle} value={value ?? ''} placeholder={f.placeholder || ''} onChange={(e) => f.type === 'number' ? setNum(f.key, e.target.value) : setOne(f.key, e.target.value)} disabled={isReadOnlyForRole} />
       }
       {helpText && <div style={hintStyle}>{helpText}</div>}
+      {isReadOnlyForRole && (
+        <div style={hintStyle}>
+          Gestito in revisione admin: l&apos;agente non modifica il prezzo pubblicitario finale.
+        </div>
+      )}
     </div>
+  }
+
+  const renderYesNoChoice = (key: string, label: string, required = false) => {
+    const value = String(form.oneClickData?.[key] || '').toUpperCase()
+    const badge = required ? <span style={reqBadgeStyle}>Obbligatorio</span> : <span style={optBadgeStyle}>Facoltativo</span>
+    return (
+      <div style={{ border: '1px solid #d1d5db', borderRadius: 6, padding: '0.4rem 0.5rem', background: '#fff' }}>
+        <div style={labelRowStyle}>
+          <span style={labelLeftStyle}>{label}{required ? ' *' : ''}</span>
+          {badge}
+        </div>
+        <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
+          <label style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 13, color: '#111827' }}>
+            <input type="radio" name={`yn-${key}`} checked={value === 'S'} onChange={() => setOne(key, 'S')} />
+            Si
+          </label>
+          <label style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 13, color: '#111827' }}>
+            <input type="radio" name={`yn-${key}`} checked={value === 'N'} onChange={() => setOne(key, 'N')} />
+            No
+          </label>
+        </div>
+      </div>
+    )
   }
 
   const renderStep = () => {
     if (step === 1) return <div style={cardStyle}><div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 10 }}><div><label style={labelStyle}>Riferimento annuncio *</label><input style={inputStyle} value={form.oneClickData?.riferimento || form.reference || ''} placeholder="Codice univoco es. REF-12345" onChange={(e) => { setForm((p: any) => ({ ...p, reference: e.target.value })); setOne('riferimento', e.target.value) }} /><div style={hintStyle}>Identificativo unico dell'immobile</div></div><div><label style={labelStyle}>Tipologia immobile *</label><select style={inputStyle} value={form.oneClickData?.idtipologiaimmobile || ''} onChange={(e) => setOne('idtipologiaimmobile', e.target.value ? Number(e.target.value) : undefined)}><option value="">Seleziona tipologia...</option>{propertyTypes.map((r) => <option key={r.id} value={r.id}>{r.id} - {r.label}</option>)}</select></div><div><label style={labelStyle}>Tipo annuncio *</label><select style={inputStyle} value={form.oneClickData?.idtipologiaannuncio || 1} onChange={(e) => setOne('idtipologiaannuncio', Number(e.target.value))}>{announcementTypes.map((r) => <option key={r.id} value={r.id}>{r.id} - {r.label}</option>)}</select></div></div></div>
 
-    if (step === 2) return <div style={cardStyle}>
-      <div style={{ display: 'grid', gridTemplateColumns: '1.6fr 0.7fr 1fr 1fr 0.8fr', gap: 10 }}>
-        <div ref={streetAutocompleteRef} style={{ position: 'relative' }}>
-          <label style={labelStyle}>Via *</label>
-          <input
-            style={inputStyle}
-            value={form.street || ''}
-            placeholder="Es. Via Benedetto Croce 297 Pescara"
-            onChange={(e) => {
-              const raw = e.target.value
-              const parsedInput = parseStreetInput(raw)
-              const looseNumber = extractLooseHouseNumber(raw)
-              setForm((p: any) => ({
-                ...p,
-                street: raw,
-                streetNumber: !streetNumberManual
-                  ? (parsedInput.streetNumber || looseNumber || p.streetNumber)
-                  : p.streetNumber
-              }))
-              setStreetDropdownOpen(true)
-            }}
-            onFocus={() => {
-              if (streetSuggestions.length > 0) setStreetDropdownOpen(true)
-            }}
-            autoComplete="street-address"
-          />
-          {streetDropdownOpen && (
-            <div style={{ position: 'absolute', left: 0, right: 0, top: 63, zIndex: 20, border: '1px solid #d1d5db', borderRadius: 6, background: '#fff', maxHeight: 220, overflowY: 'auto' }}>
-              {streetLoading ? (
-                <div style={{ padding: '7px 8px', fontSize: 12, color: '#6b7280' }}>Cerco indirizzi in Italia...</div>
-              ) : streetSuggestions.length === 0 ? (
-                <div style={{ padding: '7px 8px', fontSize: 12, color: '#6b7280' }}>Nessun risultato</div>
-              ) : (
-                streetSuggestions.map((s, idx) => (
-                  <button
-                    key={`${s.street}-${s.houseNumber || ''}-${idx}`}
-                    type="button"
-                    style={{ display: 'block', width: '100%', textAlign: 'left', border: 'none', background: '#fff', padding: '6px 8px', cursor: 'pointer', fontSize: 12 }}
-                    onClick={() => applyStreetSuggestion(s)}
-                  >
-                    <div style={{ fontWeight: 700 }}>{s.street}{s.houseNumber ? ` ${s.houseNumber}` : ''}</div>
-                    <div style={{ color: '#6b7280', marginTop: 2 }}>{[s.city, s.provinceCode || s.province, s.zipCode].filter(Boolean).join(' - ')}</div>
-                  </button>
-                ))
-              )}
-            </div>
-          )}
-          <div style={hintStyle}>Scrivi anche civico e citta (es. \"Via Benedetto Croce 297 Pescara\")</div>
-        </div>
+    if (step === 2) return <div style={{ ...cardStyle, display: 'grid', gap: 12 }}>
+      <div ref={streetAutocompleteRef} style={{ position: 'relative' }}>
+        <label style={{ ...labelStyle, fontSize: 14 }}>Indirizzo completo *</label>
+        <input
+          style={{ ...inputStyle, padding: '0.72rem 0.75rem', fontSize: 15 }}
+          value={form.street || ''}
+          placeholder="Scrivi via, civico e comune. Es. Viale Marconi 119 Pescara"
+          onChange={(e) => {
+            const raw = e.target.value
+            const parsedInput = parseStreetInput(raw)
+            const looseNumber = extractLooseHouseNumber(raw)
+            const inferredCity = inferCityFromFreeAddress(raw, cities)
+            setForm((p: any) => ({
+              ...p,
+              street: raw,
+              streetNumber: !streetNumberManual ? (parsedInput.streetNumber || looseNumber || '') : p.streetNumber,
+              city: inferredCity?.name || p.city,
+              province: inferredCity?.provinceCode || p.province,
+              giComuneIstat: inferredCity?.istatCode || p.giComuneIstat,
+              oneClickData: {
+                ...(p.oneClickData || {}),
+                comune_istat: inferredCity?.istatCode || p.oneClickData?.comune_istat || p.giComuneIstat || ''
+              }
+            }))
+            if (inferredCity?.istatCode) setIstatManual(false)
+            setStreetDropdownOpen(true)
+          }}
+          onFocus={() => {
+            if (streetSuggestions.length > 0 || String(form.street || '').trim().length >= 2) setStreetDropdownOpen(true)
+          }}
+          autoComplete="off"
+        />
+        {streetDropdownOpen && (
+          <div style={{ position: 'absolute', left: 0, right: 0, top: 72, zIndex: 50, border: '1px solid #cbd5e1', borderRadius: 8, background: '#fff', maxHeight: 280, overflowY: 'auto', boxShadow: '0 18px 45px rgba(15,23,42,0.18)' }}>
+            {streetLoading ? (
+              <div style={{ padding: '10px 12px', fontSize: 13, color: '#475569' }}>Ricerca indirizzi in tutta Italia...</div>
+            ) : streetSuggestions.length === 0 ? (
+              <div style={{ padding: '10px 12px', fontSize: 13, color: '#64748b' }}>Scrivi almeno via e comune per vedere suggerimenti precisi.</div>
+            ) : (
+              streetSuggestions.map((s, idx) => (
+                <button
+                  key={`${s.street}-${s.houseNumber || ''}-${s.city || ''}-${idx}`}
+                  type="button"
+                  style={{ display: 'block', width: '100%', textAlign: 'left', border: 'none', borderBottom: idx === streetSuggestions.length - 1 ? 'none' : '1px solid #e2e8f0', background: '#fff', padding: '10px 12px', cursor: 'pointer', fontSize: 13 }}
+                  onMouseEnter={(e) => { e.currentTarget.style.background = '#f8fafc' }}
+                  onMouseLeave={(e) => { e.currentTarget.style.background = '#fff' }}
+                  onClick={() => applyStreetSuggestion(s)}
+                >
+                  <div style={{ fontWeight: 800, color: '#0f172a' }}>{s.street}{s.houseNumber ? `, ${s.houseNumber}` : ''}</div>
+                  <div style={{ color: '#475569', marginTop: 3 }}>{[s.zipCode, s.city, s.provinceCode || s.province].filter(Boolean).join(' - ')}</div>
+                  {s.fullLabel ? <div style={{ color: '#94a3b8', marginTop: 2, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{s.fullLabel}</div> : null}
+                </button>
+              ))
+            )}
+          </div>
+        )}
+        <div style={hintStyle}>Seleziona un suggerimento per compilare automaticamente comune, provincia, CAP, ISTAT e coordinate.</div>
+      </div>
 
+      <div style={{ display: 'grid', gridTemplateColumns: '0.7fr 1.2fr 1fr 0.7fr', gap: 10 }}>
         <div>
           <label style={labelStyle}>Numero civico</label>
           <input
             style={inputStyle}
             value={form.streetNumber || ''}
-            placeholder="Es. 12A"
+            placeholder="Es. 119"
             onChange={(e) => {
               const value = e.target.value
               setStreetNumberManual(String(value || '').trim().length > 0)
@@ -810,121 +1061,273 @@ export function PropertyModalOneClick({ property, onSave, onCancel, currentUserR
             }}
           />
         </div>
-
         <div>
-          <label style={labelStyle}>Citta *</label>
-          <input
-            style={inputStyle}
-            value={form.city || ''}
-            placeholder="Es. Pescara"
-            onChange={(e) => {
-              setIstatManual(false)
-              setForm((p: any) => ({ ...p, city: e.target.value }))
-            }}
-          />
+          <label style={labelStyle}>Città *</label>
+          <input style={inputStyle} value={form.city || ''} placeholder="Auto da indirizzo" onChange={(e) => { setIstatManual(false); setForm((p: any) => ({ ...p, city: e.target.value })) }} />
         </div>
-
         <div>
           <label style={labelStyle}>Provincia *</label>
-          <select
-            style={inputStyle}
-            value={form.province || ''}
-            onChange={(e) => {
-              setIstatManual(false)
-              setForm((p: any) => ({ ...p, province: e.target.value }))
-            }}
-          >
+          <select style={inputStyle} value={form.province || ''} onChange={(e) => { setIstatManual(false); setForm((p: any) => ({ ...p, province: e.target.value })) }}>
             <option value="">Seleziona...</option>
             {provinces.map((p) => <option key={p.code} value={p.code}>{p.code} - {p.name}</option>)}
           </select>
         </div>
-
         <div>
           <label style={labelStyle}>CAP</label>
-          <input
-            style={inputStyle}
-            value={form.zipCode || ''}
-            placeholder="Es. 65121"
-            onChange={(e) => {
-              setForm((p: any) => ({ ...p, zipCode: e.target.value }))
-              setOne('cap', e.target.value)
-            }}
-          />
+          <input style={inputStyle} value={form.zipCode || ''} placeholder="Es. 65126" onChange={(e) => { setForm((p: any) => ({ ...p, zipCode: e.target.value })); setOne('cap', e.target.value) }} />
         </div>
       </div>
 
-      <div style={{ marginTop: 10, display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr 1fr', gap: 10 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: '0.9fr 0.55fr 1fr 1fr', gap: 10 }}>
         <div>
           <label style={labelStyle}>Comune ISTAT *</label>
-          <input style={inputStyle} value={form.oneClickData?.comune_istat || form.giComuneIstat || ''} placeholder="Auto da citta/provincia" onChange={(e) => { setIstatManual(true); setForm((p: any) => ({ ...p, giComuneIstat: e.target.value })); setOne('comune_istat', e.target.value) }} />
+          <input style={inputStyle} value={form.oneClickData?.comune_istat || form.giComuneIstat || ''} placeholder="Auto da comune" onChange={(e) => { setIstatManual(true); setForm((p: any) => ({ ...p, giComuneIstat: e.target.value })); setOne('comune_istat', e.target.value) }} />
           <div style={hintStyle}>{istatManual ? 'Valore manuale' : 'Compilato automaticamente'}</div>
         </div>
         <div><label style={labelStyle}>Nazione</label><input style={inputStyle} value={form.oneClickData?.nazione || 'IT'} onChange={(e) => setOne('nazione', e.target.value)} /></div>
         <div><label style={labelStyle}>Zona</label><input style={inputStyle} value={form.oneClickData?.zona || ''} placeholder="Es. Centro" onChange={(e) => setOne('zona', e.target.value)} /></div>
         <div><label style={labelStyle}>Localita</label><input style={inputStyle} value={form.oneClickData?.localita || ''} placeholder="Alternativa a zona" onChange={(e) => setOne('localita', e.target.value)} /></div>
-        <div><label style={labelStyle}>Indirizzo completo</label><input style={inputStyle} readOnly value={composeAddress(form.street, form.streetNumber) || ''} /></div>
       </div>
 
-      <div style={{ marginTop: 10, display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr', gap: 10 }}>
-        <div><label style={labelStyle}>Latitudine</label><input type="number" style={inputStyle} value={form.latitude || ''} placeholder="Es. 42.467" onChange={(e) => { const v = e.target.value ? Number(e.target.value) : undefined; setForm((p: any) => ({ ...p, latitude: v })); setOne('latitudine', v) }} /></div>
-        <div><label style={labelStyle}>Longitudine</label><input type="number" style={inputStyle} value={form.longitude || ''} placeholder="Es. 14.210" onChange={(e) => { const v = e.target.value ? Number(e.target.value) : undefined; setForm((p: any) => ({ ...p, longitude: v })); setOne('longitudine', v) }} /></div>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1.1fr 1.1fr', gap: 10 }}>
+        <div><label style={labelStyle}>Latitudine</label><input type="number" style={inputStyle} value={form.latitude || ''} placeholder="Auto da indirizzo" onChange={(e) => { const v = e.target.value ? Number(e.target.value) : undefined; setForm((p: any) => ({ ...p, latitude: v })); setOne('latitudine', v) }} /></div>
+        <div><label style={labelStyle}>Longitudine</label><input type="number" style={inputStyle} value={form.longitude || ''} placeholder="Auto da indirizzo" onChange={(e) => { const v = e.target.value ? Number(e.target.value) : undefined; setForm((p: any) => ({ ...p, longitude: v })); setOne('longitudine', v) }} /></div>
         <label style={cellStyle}><input type="checkbox" checked={String(form.oneClickData?.indirizzo_visibile || 'S') === 'S'} onChange={(e) => setSN('indirizzo_visibile', e.target.checked)} />Mostra indirizzo sul portale</label>
         <label style={cellStyle}><input type="checkbox" checked={String(form.oneClickData?.mappa || 'S') === 'S'} onChange={(e) => setSN('mappa', e.target.checked)} />Mostra mappa sul portale</label>
       </div>
+
+      <div style={{ border: '1px solid #e2e8f0', borderRadius: 8, padding: '8px 10px', background: '#f8fafc' }}>
+        <div style={{ ...labelStyle, marginBottom: 3 }}>Indirizzo salvato</div>
+        <div style={{ color: '#0f172a', fontSize: 13 }}>{composeAddress(form.street, form.streetNumber) || '-'}</div>
+      </div>
     </div>
 
-    if (step === 3) return <div style={cardStyle}><div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,minmax(0,1fr))', gap: 10 }}>{fieldDefs[3].map(renderField)}</div></div>
+    if (step === 3) {
+      const selectedAnnouncementType = announcementTypes.find((r) => Number(r.id) === Number(form.oneClickData?.idtipologiaannuncio || 0))
+      const isCasaVacanze = /casa\s*vacanz|turistic/i.test(String(selectedAnnouncementType?.label || ''))
+      return (
+        <div style={cardStyle}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,minmax(0,1fr))', gap: 10 }}>
+            {isAdminUser ? renderField({ key: 'prezzo', label: 'Prezzo pubblicita', type: 'number', required: true, placeholder: 'Es. 250000' }) : null}
+            {renderField({ key: 'prezzo_acquisizione', label: 'Prezzo reale acquisizione', type: 'number', required: true, placeholder: 'Prezzo reale acquisito' })}
+            {renderField({ key: 'note_prezzo', label: 'Note prezzo', type: 'text', placeholder: 'Es. Trattabile' })}
+            {renderField({ key: 'priorita', label: 'Priorità (1-5)', type: 'number', placeholder: '1 minimo - 5 massimo' })}
+            {isCasaVacanze
+              ? renderField({ key: 'prezzo_settimanale', label: 'Prezzo settimanale', type: 'number', required: true, placeholder: 'Obbligatorio per casa vacanze' })
+              : null}
+          </div>
+          <div style={{ ...hintStyle, marginTop: 8 }}>
+            Il prezzo settimanale è obbligatorio quando il tipo annuncio è “Vacanze”.
+          </div>
+        </div>
+      )
+    }
 
     if (step === 4) return <div style={cardStyle}><div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,minmax(0,1fr))', gap: 10 }}>{fieldDefs[4].map(renderField)}</div></div>
 
-    if (step === 5) return <div style={cardStyle}><div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,minmax(0,1fr))', gap: 10 }}>{renderField({ key: 'ncostruzionesn', label: 'Nuova costruzione', type: 'checkbox' })}{renderField({ key: 'anno_costruzione', label: 'Anno costruzione', type: 'number', placeholder: 'Es. 2008' })}<div><label style={labelStyle}>Condizioni</label><select style={inputStyle} value={form.oneClickData?.condizioni || ''} onChange={(e) => setOne('condizioni', e.target.value)}><option value="">Seleziona...</option>{(dict.enums.condizioni || []).map((o) => <option key={o} value={o}>{o}</option>)}</select></div><div><label style={labelStyle}>Classe immobile</label><select style={inputStyle} value={form.oneClickData?.classe_immobile || ''} onChange={(e) => setOne('classe_immobile', e.target.value)}><option value="">Seleziona...</option>{(dict.enums.classe_immobile || []).map((o) => <option key={o} value={o}>{o}</option>)}</select></div><div><label style={labelStyle}>Disponibilita</label><select style={inputStyle} value={form.oneClickData?.disponibilita || ''} onChange={(e) => setOne('disponibilita', e.target.value)}><option value="">Seleziona...</option>{(dict.enums.disponibilita || []).map((o) => <option key={o} value={o}>{o}</option>)}</select></div>{renderField({ key: 'vetrina', label: 'In vetrina', type: 'checkbox' })}</div></div>
+    if (step === 5) return <div style={cardStyle}><div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,minmax(0,1fr))', gap: 10 }}>{renderField({ key: 'ncostruzionesn', label: 'Nuova costruzione', type: 'checkbox', required: true })}{renderField({ key: 'anno_costruzione', label: 'Anno costruzione', type: 'number', placeholder: 'Es. 2008', required: true })}<div><label style={labelStyle}>Condizioni</label><select style={inputStyle} value={form.oneClickData?.condizioni || ''} onChange={(e) => setOne('condizioni', e.target.value)}><option value="">Seleziona...</option>{(dict.enums.condizioni || []).map((o) => <option key={o} value={o}>{o}</option>)}</select></div><div><label style={labelStyle}>Classe immobile</label><select style={inputStyle} value={form.oneClickData?.classe_immobile || ''} onChange={(e) => setOne('classe_immobile', e.target.value)}><option value="">Seleziona...</option>{(dict.enums.classe_immobile || []).map((o) => <option key={o} value={o}>{o}</option>)}</select></div><div><label style={labelStyle}>Disponibilita</label><select style={inputStyle} value={form.oneClickData?.disponibilita || ''} onChange={(e) => setOne('disponibilita', e.target.value)}><option value="">Seleziona...</option>{(dict.enums.disponibilita || []).map((o) => <option key={o} value={o}>{o}</option>)}</select></div>{renderField({ key: 'vetrina', label: 'In vetrina', type: 'checkbox' })}</div></div>
 
-    if (step === 6) return <div style={cardStyle}><div style={{ display: 'grid', gridTemplateColumns: 'repeat(5,minmax(0,1fr))', gap: 10 }}><div><label style={labelStyle}>Piano</label><select style={inputStyle} value={form.oneClickData?.piano || ''} onChange={(e) => setOne('piano', e.target.value)}><option value="">Seleziona...</option>{(dict.enums.piano || []).map((o) => <option key={o} value={o}>{o}</option>)}</select></div>{renderField({ key: 'totale_piani', label: 'Totale piani edificio', type: 'number' })}{renderField({ key: 'unita_immobiliare', label: 'Unita immobiliari', type: 'number' })}{renderField({ key: 'spese_cond_mensili', label: 'Spese condominiali mensili', type: 'number', placeholder: 'Euro/mese' })}{renderField({ key: 'ascensore', label: 'Ascensore', type: 'checkbox' })}</div></div>
+    if (step === 6) return <div style={cardStyle}><div style={{ display: 'grid', gridTemplateColumns: 'repeat(5,minmax(0,1fr))', gap: 10 }}><div><div style={labelRowStyle}><span style={labelLeftStyle}>Piano *</span><span style={reqBadgeStyle}>Obbligatorio</span></div><select style={inputStyle} value={form.oneClickData?.piano || ''} onChange={(e) => setOne('piano', e.target.value)}><option value="">Seleziona...</option>{(dict.enums.piano || []).map((o) => <option key={o} value={o}>{o}</option>)}</select></div>{renderField({ key: 'totale_piani', label: 'Totale piani edificio', type: 'number' })}{renderField({ key: 'unita_immobiliare', label: 'Unità immobiliari', type: 'number' })}{renderField({ key: 'spese_cond_mensili', label: 'Spese condominiali mensili', type: 'number', placeholder: 'Euro/mese', required: true })}{renderYesNoChoice('ascensore', 'Ascensore', true)}</div></div>
 
-    if (step === 7) return <div style={cardStyle}><div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,minmax(0,1fr))', gap: 10 }}>{renderField({ key: 'balcone', label: 'Balcone', type: 'checkbox' })}{renderField({ key: 'nr_balconi', label: 'Numero balconi', type: 'number' })}{renderField({ key: 'terrazzo', label: 'Terrazzo', type: 'checkbox' })}{renderField({ key: 'nr_terrazzi', label: 'Numero terrazzi', type: 'number' })}<div><label style={labelStyle}>Giardino</label><select style={inputStyle} value={form.oneClickData?.giardino || ''} onChange={(e) => setOne('giardino', e.target.value)}><option value="">Seleziona...</option>{(dict.enums.giardino || []).map((o) => <option key={o} value={o}>{o}</option>)}</select></div>{renderField({ key: 'mq_giardino', label: 'Mq giardino', type: 'number' })}{renderField({ key: 'mansarda', label: 'Mansarda', type: 'checkbox' })}{renderField({ key: 'cantina', label: 'Cantina', type: 'checkbox' })}<div><label style={labelStyle}>Box auto</label><select style={inputStyle} value={form.oneClickData?.box_auto || ''} onChange={(e) => setOne('box_auto', e.target.value)}><option value="">Seleziona...</option>{(dict.enums.box_auto || []).map((o) => <option key={o} value={o}>{o}</option>)}</select></div>{renderField({ key: 'mq_box', label: 'Mq box', type: 'number' })}{renderField({ key: 'mq_esterno', label: 'Mq esterno', type: 'number' })}</div></div>
+    if (step === 7) return <div style={cardStyle}><div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,minmax(0,1fr))', gap: 10 }}>{renderYesNoChoice('balcone', 'Balcone', true)}{String(form.oneClickData?.balcone || '').toUpperCase() === 'S' ? renderField({ key: 'nr_balconi', label: 'Numero balconi', type: 'number', required: true }) : <div />}{renderYesNoChoice('terrazzo', 'Terrazzo', true)}{String(form.oneClickData?.terrazzo || '').toUpperCase() === 'S' ? renderField({ key: 'nr_terrazzi', label: 'Numero terrazzi', type: 'number', required: true }) : <div />}{renderYesNoChoice('giardino', 'Giardino', true)}{String(form.oneClickData?.giardino || '').toUpperCase() === 'S' ? renderField({ key: 'mq_giardino', label: 'Mq giardino', type: 'number', required: true }) : <div />}{renderYesNoChoice('mansarda', 'Mansarda', true)}{String(form.oneClickData?.mansarda || '').toUpperCase() === 'S' ? renderField({ key: 'mq_mansarda', label: 'Mq mansarda', type: 'number', required: true }) : <div />}{renderYesNoChoice('cantina', 'Cantina', true)}{String(form.oneClickData?.cantina || '').toUpperCase() === 'S' ? renderField({ key: 'mq_cantina', label: 'Mq cantina', type: 'number', required: true }) : <div />}<div><div style={labelRowStyle}><span style={labelLeftStyle}>Box auto *</span><span style={reqBadgeStyle}>Obbligatorio</span></div><select style={inputStyle} value={form.oneClickData?.box_auto || ''} onChange={(e) => setOne('box_auto', e.target.value)}><option value="">Seleziona...</option>{(dict.enums.box_auto || []).map((o) => <option key={o} value={o}>{o}</option>)}</select></div>{String(form.oneClickData?.box_auto || '').trim() && String(form.oneClickData?.box_auto || '').toLowerCase() !== 'nessuno' ? renderField({ key: 'mq_box', label: 'Mq box', type: 'number', required: true }) : <div />}{(String(form.oneClickData?.balcone || '').toUpperCase() === 'S' || String(form.oneClickData?.terrazzo || '').toUpperCase() === 'S' || String(form.oneClickData?.giardino || '').toUpperCase() === 'S') ? renderField({ key: 'mq_esterno', label: 'Mq esterno', type: 'number', required: true }) : <div />}</div><div style={{ marginTop: 6, fontSize: 11, color: '#6b7280' }}>Se selezioni "Si", inserisci anche il dato numerico associato (mq/numero). Se selezioni "No", il dato specifico non è richiesto.</div></div>
 
-    if (step === 8) return <div style={cardStyle}><div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,minmax(0,1fr))', gap: 10 }}>{renderField({ key: 'arredato', label: 'Arredato', type: 'checkbox' })}<div><label style={labelStyle}>Cucina</label><select style={inputStyle} value={form.oneClickData?.cucina || ''} onChange={(e) => setOne('cucina', e.target.value)}><option value="">Seleziona...</option>{(dict.enums.cucina || []).map((o) => <option key={o} value={o}>{o}</option>)}</select></div><div><label style={labelStyle}>Riscaldamento</label><select style={inputStyle} value={form.oneClickData?.riscaldamento || ''} onChange={(e) => setOne('riscaldamento', e.target.value)}><option value="">Seleziona...</option>{(dict.enums.riscaldamento || []).map((o) => <option key={o} value={o}>{o}</option>)}</select></div><div><label style={labelStyle}>Tipo riscaldamento</label><select style={inputStyle} value={form.oneClickData?.tipo_riscaldamento || ''} onChange={(e) => setOne('tipo_riscaldamento', e.target.value)}><option value="">Seleziona...</option>{(dict.enums.tipo_riscaldamento || []).map((o) => <option key={o} value={o}>{o}</option>)}</select></div>{renderField({ key: 'condizionatore', label: 'Condizionatore', type: 'checkbox' })}{renderField({ key: 'allarme_antifurto', label: 'Allarme antifurto', type: 'checkbox' })}{renderField({ key: 'portineria', label: 'Portineria', type: 'checkbox' })}{renderField({ key: 'internet', label: 'Internet', type: 'checkbox' })}{renderField({ key: 'caminetto', label: 'Caminetto', type: 'checkbox' })}{renderField({ key: 'piscina', label: 'Piscina', type: 'checkbox' })}</div></div>
+    if (step === 8) return <div style={cardStyle}><div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,minmax(0,1fr))', gap: 10 }}>{renderYesNoChoice('arredato', 'Arredato', true)}<div><div style={labelRowStyle}><span style={labelLeftStyle}>Cucina *</span><span style={reqBadgeStyle}>Obbligatorio</span></div><select style={inputStyle} value={form.oneClickData?.cucina || ''} onChange={(e) => setOne('cucina', e.target.value)}><option value="">Seleziona...</option>{(dict.enums.cucina || []).map((o) => <option key={o} value={o}>{o}</option>)}</select></div><div><div style={labelRowStyle}><span style={labelLeftStyle}>Riscaldamento *</span><span style={reqBadgeStyle}>Obbligatorio</span></div><select style={inputStyle} value={form.oneClickData?.riscaldamento || ''} onChange={(e) => setOne('riscaldamento', e.target.value)}><option value="">Seleziona...</option>{(dict.enums.riscaldamento || []).map((o) => <option key={o} value={o}>{o}</option>)}</select></div><div><div style={labelRowStyle}><span style={labelLeftStyle}>Tipo riscaldamento *</span><span style={reqBadgeStyle}>Obbligatorio</span></div><select style={inputStyle} value={form.oneClickData?.tipo_riscaldamento || ''} onChange={(e) => setOne('tipo_riscaldamento', e.target.value)}><option value="">Seleziona...</option>{(dict.enums.tipo_riscaldamento || []).map((o) => <option key={o} value={o}>{o}</option>)}</select></div>{renderYesNoChoice('condizionatore', 'Condizionatore', true)}{renderYesNoChoice('allarme_antifurto', 'Allarme antifurto', true)}{renderYesNoChoice('portineria', 'Portineria', true)}{renderYesNoChoice('internet', 'Internet', true)}{renderYesNoChoice('caminetto', 'Caminetto', true)}{renderYesNoChoice('piscina', 'Piscina', true)}</div></div>
 
-    if (step === 9) return <div style={cardStyle}><div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,minmax(0,1fr))', gap: 10 }}><div><label style={labelStyle}>Tipo classe energetica</label><select style={inputStyle} value={form.oneClickData?.tipo_classe_energetica || 'V'} onChange={(e) => setOne('tipo_classe_energetica', e.target.value)}><option value="V">V (ante 2015)</option><option value="N">N (post 2015)</option></select></div>{renderField({ key: 'classe_energetica', label: 'Classe energetica', type: 'text', placeholder: 'Es. A4, B, C...' })}{renderField({ key: 'ipe', label: 'IPE', type: 'number' })}{renderField({ key: 'ipe_rinnovabili', label: 'IPE rinnovabili', type: 'number' })}{renderField({ key: 'efficienza_estiva', label: 'Efficienza estiva', type: 'text', placeholder: 'scarsa/sufficiente/buona' })}{renderField({ key: 'efficienza_invernale', label: 'Efficienza invernale', type: 'text', placeholder: 'scarsa/sufficiente/buona' })}{renderField({ key: 'efficienza_zero', label: 'Edificio quasi zero', type: 'checkbox' })}{renderField({ key: 'ipe_certificato', label: 'IPE certificato', type: 'checkbox' })}</div></div>
+    if (step === 9) return <div style={cardStyle}><div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,minmax(0,1fr))', gap: 10 }}><div><label style={labelStyle}>Tipo classe energetica</label><select style={inputStyle} value={form.oneClickData?.tipo_classe_energetica || 'V'} onChange={(e) => setOne('tipo_classe_energetica', e.target.value)}><option value="V">V (ante 2015)</option><option value="N">N (post 2015)</option></select></div><div><label style={labelStyle}>Classe energetica</label><select style={inputStyle} value={form.oneClickData?.classe_energetica || ''} onChange={(e) => setOne('classe_energetica', e.target.value)}><option value="">Seleziona...</option>{['A4','A3','A2','A1','B','C','D','E','F','G'].map((o) => <option key={o} value={o}>{o}</option>)}</select></div>{renderField({ key: 'ipe', label: 'IPE', type: 'number' })}{renderField({ key: 'ipe_rinnovabili', label: 'IPE rinnovabili', type: 'number' })}{renderField({ key: 'efficienza_estiva', label: 'Efficienza estiva', type: 'text', placeholder: 'scarsa/sufficiente/buona' })}{renderField({ key: 'efficienza_invernale', label: 'Efficienza invernale', type: 'text', placeholder: 'scarsa/sufficiente/buona' })}{renderField({ key: 'efficienza_zero', label: 'Edificio quasi zero', type: 'checkbox' })}{renderField({ key: 'ipe_certificato', label: 'IPE certificato', type: 'checkbox' })}</div></div>
 
-    if (step === 10) return <div style={cardStyle}><div>{renderField({ key: 'descrizione', label: 'Descrizione immobile', type: 'textarea', required: true, placeholder: 'Descrizione completa (obbligatoria)' })}</div><div style={{ marginTop: 10 }}>{renderField({ key: 'titolo_annuncio', label: 'Titolo annuncio', type: 'text', placeholder: 'Max 50 caratteri' })}</div><div style={{ marginTop: 10, display: 'grid', gridTemplateColumns: 'repeat(2,minmax(0,1fr))', gap: 10 }}>{fieldDefs[10].map(renderField)}</div></div>
+    if (step === 10) return <div style={cardStyle}><div>{renderField({ key: 'descrizione', label: 'Descrizione immobile', type: 'textarea', required: true, placeholder: 'Descrizione completa (obbligatoria)' })}</div><div style={{ marginTop: 10 }}>{renderField({ key: 'titolo_annuncio', label: 'Titolo annuncio', type: 'text', required: true, placeholder: 'Max 50 caratteri' })}</div><div style={{ marginTop: 10, display: 'grid', gridTemplateColumns: 'repeat(2,minmax(0,1fr))', gap: 10 }}>{fieldDefs[10].map(renderField)}</div></div>
 
-    if (step === 11) return <div style={cardStyle}><div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,minmax(0,1fr))', gap: 10 }}>{fieldDefs[11].map(renderField)}</div></div>
-
-    if (step === 12) return <div style={cardStyle}><div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,minmax(0,1fr))', gap: 10 }}>{renderField({ key: 'asta', label: 'Immobile all\'asta', type: 'checkbox' })}{fieldDefs[12].map(renderField)}</div></div>
-
-    if (step === 13) return <div style={cardStyle}>
-      <div style={{ marginBottom: 8, fontWeight: 700, fontSize: 13, color: '#111827' }}>Seleziona i portali dove pubblicare</div>
-      <div style={{ display: 'flex', gap: 8, marginBottom: 8, flexWrap: 'wrap' }}>
-        <button
-          type="button"
-          onClick={() => setOne('selectedPortalCodes', (dict.portalCodes || []).map((p) => p.id))}
-          style={{ border: '1px solid #93c5fd', background: '#eff6ff', color: '#1d4ed8', borderRadius: 6, padding: '0.3rem 0.6rem', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}
-        >
-          Seleziona tutti
-        </button>
-        <button
-          type="button"
-          onClick={() => setOne('selectedPortalCodes', [])}
-          style={{ border: '1px solid #d1d5db', background: '#f9fafb', color: '#111827', borderRadius: 6, padding: '0.3rem 0.6rem', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}
-        >
-          Deseleziona tutti
-        </button>
+    if (step === 11) return <div style={cardStyle}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,minmax(0,1fr))', gap: 10 }}>{fieldDefs[11].map(renderField)}</div>
+      <div style={{ marginTop: 10, display: 'grid', gridTemplateColumns: 'repeat(2,minmax(0,1fr))', gap: 10 }}>
+        {renderField({ key: 'doc_planimetria', label: 'Planimetria catastale disponibile', type: 'checkbox', required: true })}
+        {renderField({ key: 'doc_visura', label: 'Visura catastale disponibile', type: 'checkbox', required: true })}
       </div>
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(220px,1fr))', gap: 8 }}>
-        {(dict.portalCodes || []).map((p) => <label key={p.id} style={{ display: 'flex', alignItems: 'center', gap: 6, border: '1px solid #d1d5db', borderRadius: 6, padding: '6px 8px', fontSize: 12 }}><input type="checkbox" checked={Array.isArray(form.oneClickData?.selectedPortalCodes) && form.oneClickData.selectedPortalCodes.includes(p.id)} onChange={() => togglePortal(p.id)} />{p.label} ({p.id})</label>)}
+      <div style={{ marginTop: 10, display: 'grid', gridTemplateColumns: 'repeat(2,minmax(0,1fr))', gap: 10 }}>
+        {String(form.oneClickData?.doc_planimetria || 'N') === 'S' && (
+          <div>
+            <label style={labelStyle}>Carica planimetria</label>
+            <input
+              type="file"
+              onChange={async (e) => {
+                const file = e.target.files?.[0]
+                if (!file) return
+                if (file.size > 15 * 1024 * 1024) {
+                  alert('File planimetria troppo grande (max 15MB)')
+                  return
+                }
+                const dataUrl = await readFileAsDataUrl(file)
+                setOne('planimetria_file', {
+                  name: file.name,
+                  mime: file.type || 'application/octet-stream',
+                  size: file.size,
+                  uploadedAt: new Date().toISOString(),
+                  dataUrl
+                })
+              }}
+            />
+            {form.oneClickData?.planimetria_file?.name ? <div style={hintStyle}>Caricato: {form.oneClickData.planimetria_file.name}</div> : null}
+          </div>
+        )}
+        {String(form.oneClickData?.doc_visura || 'N') === 'S' && (
+          <div>
+            <label style={labelStyle}>Carica visura catastale</label>
+            <input
+              type="file"
+              onChange={async (e) => {
+                const file = e.target.files?.[0]
+                if (!file) return
+                if (file.size > 15 * 1024 * 1024) {
+                  alert('File visura troppo grande (max 15MB)')
+                  return
+                }
+                const dataUrl = await readFileAsDataUrl(file)
+                setOne('visura_file', {
+                  name: file.name,
+                  mime: file.type || 'application/octet-stream',
+                  size: file.size,
+                  uploadedAt: new Date().toISOString(),
+                  dataUrl
+                })
+              }}
+            />
+            {form.oneClickData?.visura_file?.name ? <div style={hintStyle}>Caricato: {form.oneClickData.visura_file.name}</div> : null}
+          </div>
+        )}
       </div>
-      <div style={{ marginTop: 10, display: 'grid', gridTemplateColumns: 'repeat(3,minmax(0,1fr))', gap: 10 }}>{fieldDefs[13].map(renderField)}</div>
-      <div style={hintStyle}>Nota: id_localita_immobiliareit e id_zona_immobiliareit sono alternativi (non usarli insieme).</div>
     </div>
 
-    if (step === 14) return <div style={cardStyle}><div><label style={labelStyle}>Contratto affitto</label><select style={inputStyle} value={form.oneClickData?.contratto_affitto || ''} onChange={(e) => setOne('contratto_affitto', e.target.value)}><option value="">Seleziona...</option>{(dict.enums.contratto_affitto || []).map((o) => <option key={o} value={o}>{o}</option>)}</select><div style={hintStyle}>Compila solo se l'annuncio e in locazione.</div></div></div>
+    if (step === 12) return <div style={cardStyle}><div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,minmax(0,1fr))', gap: 10 }}>{renderField({ key: 'asta', label: 'Immobile all\'asta', type: 'checkbox' })}{renderField({ key: 'data_scadenza_asta', label: 'Scadenza asta', type: 'text' })}{fieldDefs[12].filter((f) => f.key !== 'data_scadenza_asta').map(renderField)}</div><div style={{ ...hintStyle, marginTop: 6 }}>Scadenza asta è facoltativa e selezionabile da calendario.</div></div>
 
-    if (step === 15) return <div style={cardStyle}><div style={{ marginBottom: 8, fontWeight: 700, fontSize: 13 }}>Foto immobile (max 40)</div><input type="file" accept="image/*" multiple onChange={uploadImages} /><div style={{ marginTop: 8, display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(110px,1fr))', gap: 8 }}>{images.map((img, i) => <div key={`${img}-${i}`} style={{ border: '1px solid #d1d5db', borderRadius: 6, overflow: 'hidden', position: 'relative' }}><img src={img} alt={`img-${i}`} style={{ width: '100%', height: 85, objectFit: 'cover' }} /><button type="button" onClick={() => setImages((prev) => prev.filter((_, x) => x !== i))} style={{ position: 'absolute', top: 2, right: 2, border: 'none', background: '#ef4444', color: '#fff', borderRadius: 4, cursor: 'pointer', fontSize: 11 }}>x</button></div>)}</div></div>
+    if (step === 13) return <div style={cardStyle}>
+      {isAdminUser ? (
+        <>
+          <div style={{ marginBottom: 8, fontWeight: 700, fontSize: 13, color: '#111827' }}>Controlli pubblicazione (solo admin)</div>
+          <label style={{ ...cellStyle, marginBottom: 10 }}>
+            <input
+              type="checkbox"
+              checked={Boolean(form.publishNow)}
+              onChange={(e) => setForm((p: any) => ({ ...p, publishNow: e.target.checked }))}
+            />
+            Pubblica subito dopo il salvataggio
+          </label>
+          <div style={{ display: 'flex', gap: 8, marginBottom: 8, flexWrap: 'wrap' }}>
+            <button
+              type="button"
+              onClick={() => setOne('selectedPortalCodes', (dict.portalCodes || []).map((p) => p.id))}
+              style={{ border: '1px solid #93c5fd', background: '#eff6ff', color: '#1d4ed8', borderRadius: 6, padding: '0.3rem 0.6rem', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}
+            >
+              Seleziona tutti
+            </button>
+            <button
+              type="button"
+              onClick={() => setOne('selectedPortalCodes', [])}
+              style={{ border: '1px solid #d1d5db', background: '#f9fafb', color: '#111827', borderRadius: 6, padding: '0.3rem 0.6rem', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}
+            >
+              Deseleziona tutti
+            </button>
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(220px,1fr))', gap: 8 }}>
+            {(dict.portalCodes || []).map((p) => <label key={p.id} style={{ display: 'flex', alignItems: 'center', gap: 6, border: '1px solid #d1d5db', borderRadius: 6, padding: '6px 8px', fontSize: 12 }}><input type="checkbox" checked={Array.isArray(form.oneClickData?.selectedPortalCodes) && form.oneClickData.selectedPortalCodes.includes(p.id)} onChange={() => togglePortal(p.id)} />{p.label} ({p.id})</label>)}
+          </div>
+          <div style={{ marginTop: 10, display: 'grid', gridTemplateColumns: 'repeat(3,minmax(0,1fr))', gap: 10 }}>{fieldDefs[13].map(renderField)}</div>
+          <div style={{ marginTop: 12, borderTop: '1px solid #e5e7eb', paddingTop: 10 }}>
+            <div style={{ marginBottom: 8, fontWeight: 700, fontSize: 13, color: '#111827' }}>Review amministrativa (campi non pubblicabili)</div>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(220px,1fr))', gap: 8 }}>
+              {REVIEWABLE_PUBLISH_FIELDS.map((field) => {
+                const selected = Array.isArray(form.oneClickData?.publicationReview?.hiddenFields)
+                  && form.oneClickData.publicationReview.hiddenFields.includes(field.key)
+                return (
+                  <label key={field.key} style={{ display: 'flex', alignItems: 'center', gap: 6, border: '1px solid #d1d5db', borderRadius: 6, padding: '6px 8px', fontSize: 12 }}>
+                    <input type="checkbox" checked={selected} onChange={() => toggleReviewHiddenField(field.key)} />
+                    {field.label}
+                  </label>
+                )
+              })}
+            </div>
+            <div style={{ marginTop: 10 }}>
+              <label style={labelStyle}>Nota admin review</label>
+              <textarea
+                rows={3}
+                style={inputStyle}
+                value={String(form.oneClickData?.publicationReview?.adminNote || '')}
+                onChange={(e) =>
+                  setForm((prev: any) => ({
+                    ...prev,
+                    oneClickData: {
+                      ...(prev.oneClickData || {}),
+                      publicationReview: {
+                        ...(prev.oneClickData?.publicationReview || {}),
+                        adminNote: e.target.value
+                      }
+                    }
+                  }))
+                }
+                placeholder="Note interne di revisione prima della pubblicazione"
+              />
+            </div>
+          </div>
+          <div style={hintStyle}>Nota: id_localita_immobiliareit e id_zona_immobiliareit sono alternativi (non usarli insieme).</div>
+        </>
+      ) : (
+        <>
+          <div style={{ marginBottom: 8, fontWeight: 700, fontSize: 13, color: '#111827' }}>Workflow approvazione admin</div>
+          <div style={{ border: '1px solid #d1d5db', borderRadius: 8, padding: '0.75rem', background: '#f9fafb', fontSize: 13, color: '#374151' }}>
+            I controlli di pubblicazione portali sono gestiti dall&apos;admin in fase di revisione.
+            L&apos;immobile verra salvato come proposta da approvare.
+          </div>
+        </>
+      )}
+    </div>
+
+    if (step === 14) {
+      const announcementTypeId = Number(form.oneClickData?.idtipologiaannuncio || 0)
+      const isRentListing = String(form.contractType || '').toUpperCase() === 'RENT' || announcementTypeId === 2
+      return <div style={cardStyle}><div><label style={labelStyle}>Contratto affitto {isRentListing ? '*' : ''}</label><select style={inputStyle} value={form.oneClickData?.contratto_affitto || ''} onChange={(e) => setOne('contratto_affitto', e.target.value)} disabled={!isRentListing}><option value="">{isRentListing ? 'Seleziona...' : 'Non richiesto'}</option>{(dict.enums.contratto_affitto || []).map((o) => <option key={o} value={o}>{o}</option>)}</select><div style={hintStyle}>{isRentListing ? 'Obbligatorio per annunci in affitto.' : 'Non richiesto: disponibile solo quando la finalità è Affitto.'}</div></div></div>
+    }
+
+    if (step === 15) {
+      const imagesInputId = 'property-images-upload-input'
+      const videos = Array.isArray(form.oneClickData?.videos) ? form.oneClickData.videos : []
+      return (
+        <div style={{ display: 'grid', gap: 10 }}>
+          <div style={cardStyle}>
+            <div style={{ marginBottom: 8, fontWeight: 700, fontSize: 13 }}>Foto immobile (max 40, minimo {MIN_REQUIRED_IMAGES})</div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+              <label
+                htmlFor={imagesInputId}
+                style={{ border: '1px solid #d1d5db', background: '#f8fafc', color: '#111827', borderRadius: 6, padding: '0.38rem 0.72rem', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}
+              >
+                Aggiungi foto
+              </label>
+              <input
+                id={imagesInputId}
+                type="file"
+                accept="image/*,.heic,.heif"
+                multiple
+                onChange={uploadImages}
+                style={{ display: 'none' }}
+              />
+              <span style={{ fontSize: 12, color: '#6b7280' }}>Formato supportato: immagini (jpg, png, webp, ...)</span>
+            </div>
+            <div style={{ marginTop: 6, fontSize: 12, color: images.length >= MIN_REQUIRED_IMAGES ? '#065f46' : '#b91c1c' }}>Foto caricate: {images.length}/{MIN_REQUIRED_IMAGES}</div>
+            <div style={{ marginTop: 8, display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(110px,1fr))', gap: 8 }}>
+              {images.map((img, i) => <div key={`${img}-${i}`} style={{ border: '1px solid #d1d5db', borderRadius: 6, overflow: 'hidden', position: 'relative' }}><img src={img} alt={`img-${i}`} style={{ width: '100%', height: 85, objectFit: 'cover' }} /><button type="button" onClick={() => setImages((prev) => prev.filter((_, x) => x !== i))} style={{ position: 'absolute', top: 2, right: 2, border: 'none', background: '#ef4444', color: '#fff', borderRadius: 4, cursor: 'pointer', fontSize: 11 }}>x</button></div>)}
+            </div>
+          </div>
+          <div style={cardStyle}>
+            <div style={{ marginBottom: 8, fontWeight: 700, fontSize: 13 }}>Video (facoltativo, max 4)</div>
+            <div style={{ display: 'grid', gap: 8 }}>
+              {videos.map((video: any, i: number) => <div key={`v-${i}`} style={{ display: 'grid', gridTemplateColumns: '1.2fr 120px 90px 120px 36px', gap: 6 }}><input style={inputStyle} value={video?.link_video || ''} placeholder="Link video" onChange={(e) => { const next = [...videos]; next[i] = { ...(next[i] || {}), link_video: e.target.value }; setOne('videos', next) }} /><input style={inputStyle} value={video?.titolo || ''} placeholder="Titolo" onChange={(e) => { const next = [...videos]; next[i] = { ...(next[i] || {}), titolo: e.target.value }; setOne('videos', next) }} /><select style={inputStyle} value={video?.tipo_video || 'V'} onChange={(e) => { const next = [...videos]; next[i] = { ...(next[i] || {}), tipo_video: e.target.value }; setOne('videos', next) }}><option value="V">V</option><option value="T">T</option></select><input style={inputStyle} value={video?.codice_embedded || ''} placeholder="Embed" onChange={(e) => { const next = [...videos]; next[i] = { ...(next[i] || {}), codice_embedded: e.target.value }; setOne('videos', next) }} /><button type="button" onClick={() => setOne('videos', videos.filter((_: any, idx: number) => idx !== i))}>x</button></div>)}
+              {videos.length < 4 && <button type="button" onClick={() => setOne('videos', [...videos, { link_video: '', titolo: '', tipo_video: 'V', codice_embedded: '' }])}>Aggiungi video</button>}
+            </div>
+          </div>
+        </div>
+      )
+    }
 
     if (step === 16) {
-      const videos = Array.isArray(form.oneClickData?.videos) ? form.oneClickData.videos : []
-      return <div style={{ display: 'grid', gap: 10 }}><div style={cardStyle}><div style={{ marginBottom: 8, fontWeight: 700, fontSize: 13 }}>Video (max 4)</div><div style={{ display: 'grid', gap: 8 }}>{videos.map((video: any, i: number) => <div key={`v-${i}`} style={{ display: 'grid', gridTemplateColumns: '1.2fr 120px 90px 120px 36px', gap: 6 }}><input style={inputStyle} value={video?.link_video || ''} placeholder="Link video" onChange={(e) => { const next = [...videos]; next[i] = { ...(next[i] || {}), link_video: e.target.value }; setOne('videos', next) }} /><input style={inputStyle} value={video?.titolo || ''} placeholder="Titolo" onChange={(e) => { const next = [...videos]; next[i] = { ...(next[i] || {}), titolo: e.target.value }; setOne('videos', next) }} /><select style={inputStyle} value={video?.tipo_video || 'V'} onChange={(e) => { const next = [...videos]; next[i] = { ...(next[i] || {}), tipo_video: e.target.value }; setOne('videos', next) }}><option value="V">V</option><option value="T">T</option></select><input style={inputStyle} value={video?.codice_embedded || ''} placeholder="Embed" onChange={(e) => { const next = [...videos]; next[i] = { ...(next[i] || {}), codice_embedded: e.target.value }; setOne('videos', next) }} /><button type="button" onClick={() => setOne('videos', videos.filter((_: any, idx: number) => idx !== i))}>x</button></div>)}{videos.length < 4 && <button type="button" onClick={() => setOne('videos', [...videos, { link_video: '', titolo: '', tipo_video: 'V', codice_embedded: '' }])}>Aggiungi video</button>}</div></div><div style={cardStyle}><div style={{ marginBottom: 8, fontWeight: 700, fontSize: 13 }}>Dati proprietario / assegnazione agente</div><div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,minmax(0,1fr))', gap: 10 }}><div><label style={labelStyle}>Nome proprietario</label><input style={inputStyle} value={form.ownerFirstName || ''} onChange={(e) => setForm((p: any) => ({ ...p, ownerFirstName: e.target.value }))} /></div><div><label style={labelStyle}>Cognome proprietario</label><input style={inputStyle} value={form.ownerLastName || ''} onChange={(e) => setForm((p: any) => ({ ...p, ownerLastName: e.target.value }))} /></div><div><label style={labelStyle}>Codice fiscale</label><input style={inputStyle} value={form.ownerFiscalCode || ''} onChange={(e) => setForm((p: any) => ({ ...p, ownerFiscalCode: e.target.value }))} /></div><div><label style={labelStyle}>Email proprietario</label><input style={inputStyle} value={form.ownerEmail || ''} onChange={(e) => setForm((p: any) => ({ ...p, ownerEmail: e.target.value }))} /></div><div><label style={labelStyle}>Telefono proprietario</label><input style={inputStyle} value={form.ownerPhone || ''} onChange={(e) => setForm((p: any) => ({ ...p, ownerPhone: e.target.value }))} /></div><div><label style={labelStyle}>Assegna agente</label><select style={inputStyle} value={form.agentId || ''} onChange={(e) => { const a = agents.find((x) => x.id === e.target.value); setForm((p: any) => ({ ...p, agentId: e.target.value, agentName: a?.name || '', agentEmail: a?.email || '', agentPhone: a?.phone || '' })) }}><option value="">Seleziona agente...</option>{agents.map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}</select></div></div><div style={{ marginTop: 10 }}><label style={labelStyle}>Note interne</label><textarea rows={3} style={inputStyle} value={form.notes || ''} onChange={(e) => setForm((p: any) => ({ ...p, notes: e.target.value }))} /></div></div></div>
+      return <div style={{ display: 'grid', gap: 10 }}><div style={cardStyle}><div style={{ marginBottom: 8, fontWeight: 700, fontSize: 13 }}>Dati proprietario / assegnazione agente</div><div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,minmax(0,1fr))', gap: 10 }}><div><label style={labelStyle}>Nome proprietario *</label><input style={inputStyle} value={form.ownerFirstName || ''} onChange={(e) => setForm((p: any) => ({ ...p, ownerFirstName: e.target.value }))} /></div><div><label style={labelStyle}>Cognome proprietario *</label><input style={inputStyle} value={form.ownerLastName || ''} onChange={(e) => setForm((p: any) => ({ ...p, ownerLastName: e.target.value }))} /></div><div><label style={labelStyle}>Codice fiscale</label><input style={inputStyle} value={form.ownerFiscalCode || ''} onChange={(e) => setForm((p: any) => ({ ...p, ownerFiscalCode: e.target.value }))} /></div><div><label style={labelStyle}>Email proprietario *</label><input style={inputStyle} value={form.ownerEmail || ''} onChange={(e) => setForm((p: any) => ({ ...p, ownerEmail: e.target.value }))} /></div><div><label style={labelStyle}>Telefono proprietario *</label><input style={inputStyle} value={form.ownerPhone || ''} onChange={(e) => setForm((p: any) => ({ ...p, ownerPhone: e.target.value }))} /></div><div><label style={labelStyle}>Assegna agente *</label><select style={inputStyle} value={form.agentId || ''} onChange={(e) => { const a = agents.find((x) => x.id === e.target.value); setForm((p: any) => ({ ...p, agentId: e.target.value, agentName: a?.name || '', agentEmail: a?.email || '', agentPhone: a?.phone || '' })) }}><option value="">Seleziona agente...</option>{agents.map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}</select></div></div><div style={{ marginTop: 10 }}><label style={labelStyle}>Note interne</label><textarea rows={3} style={inputStyle} value={form.notes || ''} onChange={(e) => setForm((p: any) => ({ ...p, notes: e.target.value }))} /></div></div></div>
     }
 
     return <div style={cardStyle}>Step non disponibile.</div>
@@ -946,6 +1349,23 @@ export function PropertyModalOneClick({ property, onSave, onCancel, currentUserR
       immagini: images.map((link, i) => ({ link, description: '', planimetria: 'N', principale: i === 0 ? 'S' : 'N' })),
       videos: Array.isArray(form.oneClickData?.videos) ? form.oneClickData.videos.slice(0, 4) : []
     }
+    if (!isAdminUser) {
+      const acquisitionPrice = Number(form.oneClickData?.prezzo_acquisizione)
+      if (
+        (oneClickData.prezzo === undefined || oneClickData.prezzo === null || oneClickData.prezzo === '') &&
+        Number.isFinite(acquisitionPrice) &&
+        acquisitionPrice > 0
+      ) {
+        oneClickData.prezzo = acquisitionPrice
+      }
+    }
+
+    const announcementTypeId = Number(oneClickData.idtipologiaannuncio || 0)
+    const selectedAnnouncementType = announcementTypes.find((r) => Number(r.id) === announcementTypeId)
+    const isCasaVacanze = /casa\s*vacanz|turistic/i.test(String(selectedAnnouncementType?.label || ''))
+    const isRentListing = String(form.contractType || '').toUpperCase() === 'RENT' || announcementTypeId === 2
+    const isYes = (v: any) => String(v || 'N').toUpperCase() === 'S'
+    const hasPositive = (v: any) => Number.isFinite(Number(v)) && Number(v) > 0
 
     const missing: string[] = []
     if (!oneClickData.riferimento) missing.push('Riferimento')
@@ -955,12 +1375,79 @@ export function PropertyModalOneClick({ property, onSave, onCancel, currentUserR
     if (!oneClickData.descrizione) missing.push('Descrizione')
     if (!oneClickData.data_inserimento) missing.push('Data inserimento')
     if (!oneClickData.data_aggiornamento) missing.push('Data aggiornamento')
-    if (!Array.isArray(oneClickData.selectedPortalCodes) || oneClickData.selectedPortalCodes.length === 0) missing.push('Portali pubblicazione')
+    if (isAdminUser && (!Array.isArray(oneClickData.selectedPortalCodes) || oneClickData.selectedPortalCodes.length === 0)) {
+      missing.push('Portali pubblicazione')
+    }
     if (oneClickData.id_localita_immobiliareit && oneClickData.id_zona_immobiliareit) missing.push('ID localita/zona immobiliare.it (inserirne solo uno)')
+    if (!String(form.title || oneClickData.titolo_annuncio || '').trim()) missing.push('Titolo immobile')
+    if (!String(form.description || oneClickData.descrizione || '').trim()) missing.push('Descrizione immobile')
+    if (!String(form.ownerFirstName || '').trim()) missing.push('Nome proprietario')
+    if (!String(form.ownerLastName || '').trim()) missing.push('Cognome proprietario')
+    if (!String(form.ownerEmail || '').trim()) missing.push('Email proprietario')
+    if (!String(form.ownerPhone || '').trim()) missing.push('Telefono proprietario')
+    if (!String(form.agentId || '').trim()) missing.push('Assegnazione agente')
+    if (String(oneClickData.doc_planimetria || 'N') !== 'S') missing.push('Planimetria catastale')
+    if (String(oneClickData.doc_visura || 'N') !== 'S') missing.push('Visura catastale')
+    if (images.length < MIN_REQUIRED_IMAGES) missing.push(`Almeno ${MIN_REQUIRED_IMAGES} foto`)
+    if (isRentListing && !String(oneClickData.contratto_affitto || '').trim()) {
+      missing.push('Contratto affitto')
+    }
+    if (!hasPositive(oneClickData.prezzo_acquisizione)) missing.push('Prezzo reale acquisizione')
+    if (isAdminUser && !hasPositive(oneClickData.prezzo)) missing.push('Prezzo pubblicita')
+    if (isCasaVacanze && !hasPositive(oneClickData.prezzo_settimanale)) missing.push('Prezzo settimanale (casa vacanze)')
+
+    if (!hasPositive(oneClickData.mq)) missing.push('Superficie (mq)')
+    if (!hasPositive(oneClickData.nr_locali)) missing.push('Numero locali')
+    if (!hasPositive(oneClickData.nr_camere)) missing.push('Numero camere')
+    if (!hasPositive(oneClickData.nr_servizi)) missing.push('Numero bagni')
+
+    if (!String(oneClickData.anno_costruzione || '').trim()) missing.push('Anno costruzione')
+    if (!String(oneClickData.ncostruzionesn || '').trim()) missing.push('Nuova costruzione')
+
+    if (!String(oneClickData.piano || '').trim()) missing.push('Piano')
+    if (!hasPositive(oneClickData.spese_cond_mensili) && Number(oneClickData.spese_cond_mensili) !== 0) missing.push('Spese condominiali mensili')
+    if (!String(oneClickData.ascensore || '').trim()) missing.push('Ascensore')
+
+    if (!String(oneClickData.balcone || '').trim()) missing.push('Balcone')
+    if (isYes(oneClickData.balcone) && !hasPositive(oneClickData.nr_balconi)) missing.push('Numero balconi')
+    if (!String(oneClickData.terrazzo || '').trim()) missing.push('Terrazzo')
+    if (isYes(oneClickData.terrazzo) && !hasPositive(oneClickData.nr_terrazzi)) missing.push('Numero terrazzi')
+    if (!String(oneClickData.giardino || '').trim()) missing.push('Giardino')
+    if (isYes(oneClickData.giardino) && !hasPositive(oneClickData.mq_giardino)) missing.push('Mq giardino')
+    if (!String(oneClickData.mansarda || '').trim()) missing.push('Mansarda')
+    if (isYes(oneClickData.mansarda) && !hasPositive(oneClickData.mq_mansarda)) missing.push('Mq mansarda')
+    if (!String(oneClickData.cantina || '').trim()) missing.push('Cantina')
+    if (isYes(oneClickData.cantina) && !hasPositive(oneClickData.mq_cantina)) missing.push('Mq cantina')
+    if (!String(oneClickData.box_auto || '').trim()) missing.push('Box auto')
+    if ((isYes(oneClickData.balcone) || isYes(oneClickData.terrazzo) || isYes(oneClickData.giardino)) && !hasPositive(oneClickData.mq_esterno) && Number(oneClickData.mq_esterno) !== 0) missing.push('Mq esterno')
+    if (String(oneClickData.box_auto || '').toLowerCase() !== 'nessuno' && !hasPositive(oneClickData.mq_box)) missing.push('Mq box')
+
+    if (!String(oneClickData.arredato || '').trim()) missing.push('Arredato')
+    if (!String(oneClickData.cucina || '').trim()) missing.push('Cucina')
+    if (!String(oneClickData.riscaldamento || '').trim()) missing.push('Riscaldamento')
+    if (!String(oneClickData.tipo_riscaldamento || '').trim()) missing.push('Tipo riscaldamento')
+    if (!String(oneClickData.condizionatore || '').trim()) missing.push('Condizionatore')
+    if (!String(oneClickData.allarme_antifurto || '').trim()) missing.push('Allarme antifurto')
+    if (!String(oneClickData.portineria || '').trim()) missing.push('Portineria')
+    if (!String(oneClickData.internet || '').trim()) missing.push('Internet')
+    if (!String(oneClickData.caminetto || '').trim()) missing.push('Caminetto')
+    if (!String(oneClickData.piscina || '').trim()) missing.push('Piscina')
+
+    if (!String(oneClickData.classe_energetica || '').trim()) missing.push('Classe energetica')
 
     if (missing.length > 0) {
       alert(`Compila i campi obbligatori: ${missing.join(', ')}`)
       return
+    }
+
+    const publicationReviewInput = form.oneClickData?.publicationReview || {}
+    const publicationReview: PublicationReview = {
+      hiddenFields: Array.isArray(publicationReviewInput.hiddenFields)
+        ? publicationReviewInput.hiddenFields.filter((v: any) => typeof v === 'string')
+        : [],
+      adminNote: typeof publicationReviewInput.adminNote === 'string' ? publicationReviewInput.adminNote.trim() : '',
+      reviewedAt: isAdminUser ? new Date().toISOString() : publicationReviewInput.reviewedAt,
+      reviewedByRole: isAdminUser ? String(currentUserRole || 'AGENCY_ADMIN') : publicationReviewInput.reviewedByRole
     }
 
     const payload = {
@@ -977,9 +1464,13 @@ export function PropertyModalOneClick({ property, onSave, onCancel, currentUserR
       giComuneIstat: String(oneClickData.comune_istat || '').trim(),
       images,
       portalTargets: ['ONECLICKANNUNCI'],
-      oneClickData,
+      oneClickData: {
+        ...oneClickData,
+        immagini: oneClickData.immagini,
+        publicationReview
+      },
       submitForApproval: !isAdminUser,
-      isPublished: isAdminUser
+      isPublished: isAdminUser ? Boolean(form.publishNow) : false
     }
 
     setIsSubmitting(true)
@@ -992,7 +1483,7 @@ export function PropertyModalOneClick({ property, onSave, onCancel, currentUserR
 
   const body = renderStep()
 
-  const modal = <div className="manus-contact-modal-overlay" style={{ position: 'fixed', inset: 0, width: '100vw', height: '100dvh', backgroundColor: 'rgba(0,0,0,0.45)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 2147483647, padding: '0.75rem' }}><div className="manus-contact-modal-panel property-upload-modal-panel" style={{ backgroundColor: '#ffffff', borderRadius: '0.95rem', padding: '0.75rem 0.85rem 0.7rem', width: '100%', maxWidth: '1080px', height: 'min(860px, calc(100dvh - 16px))', maxHeight: 'calc(100dvh - 16px)', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}><div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.55rem', borderBottom: '1px solid #e5e7eb', paddingBottom: '0.5rem' }}><div><h3 className="manus-contact-title" style={{ fontSize: '1.02rem', fontWeight: 700, margin: 0, color: '#111827' }}>{property ? 'Modifica Immobile' : 'Nuovo Immobile'}</h3><p className="manus-contact-subtitle" style={{ margin: '0.15rem 0 0', color: '#6b7280', fontSize: '0.75rem' }}>Flusso completo 1click + proprietario + assegnazione agente</p></div><div style={{ display: 'flex', alignItems: 'center', gap: 8 }}><button type="button" onClick={autofillRandom} style={{ border: '1px solid #93c5fd', background: '#eff6ff', color: '#1d4ed8', borderRadius: 8, padding: '0.35rem 0.6rem', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>Auto-fill test</button><button onClick={onCancel} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#374151', fontSize: 20, lineHeight: 1 }}>x</button></div></div><div style={{ marginBottom: '0.55rem', borderBottom: '1px solid #e5e7eb', paddingBottom: '0.5rem' }}><div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.35rem' }}><div style={{ color: '#111827', fontSize: '0.77rem', fontWeight: 700 }}>Step {step} di {STEPS.length}: {STEPS[step - 1]}</div><div style={{ color: '#6b7280', fontSize: '0.72rem' }}>1click-v6.2</div></div><div style={{ width: '100%', height: 6, borderRadius: 999, background: '#e5e7eb', overflow: 'hidden', marginBottom: '0.45rem' }}><div style={{ width: `${(step / STEPS.length) * 100}%`, height: '100%', background: 'linear-gradient(90deg,#2563eb 0%,#38bdf8 100%)' }} /></div><div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.35rem' }}>{STEPS.map((label, i) => <button key={label} type="button" onClick={() => setStep(i + 1)} style={{ border: i + 1 === step ? '1px solid #60a5fa' : '1px solid rgba(148,163,184,.25)', background: i + 1 === step ? 'rgba(37,99,235,.15)' : '#f3f4f6', color: '#111827', borderRadius: 999, padding: '0.18rem 0.5rem', fontSize: '0.65rem', fontWeight: 700, cursor: 'pointer' }}>{label}</button>)}</div></div><form onSubmit={save} style={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0 }}><div style={{ flex: 1, minHeight: 0, overflowY: 'auto', paddingRight: '0.25rem' }}>{body}</div><div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.45rem', marginTop: '0.6rem', justifyContent: 'flex-end', paddingTop: '0.55rem', borderTop: '1px solid #e5e7eb' }}>{step > 1 && <button type="button" onClick={() => setStep((s) => Math.max(1, s - 1))} style={{ padding: '0.5rem 0.9rem', backgroundColor: '#f3f4f6', border: '1px solid #d1d5db', borderRadius: '0.55rem', color: '#111827', cursor: 'pointer', fontWeight: 700, fontSize: 13 }}>Indietro</button>}{step < STEPS.length && <button type="button" onClick={() => setStep((s) => Math.min(STEPS.length, s + 1))} style={{ padding: '0.5rem 0.9rem', backgroundColor: '#2563eb', color: '#ffffff', border: 'none', borderRadius: '0.55rem', cursor: 'pointer', fontWeight: 700, fontSize: 13 }}>Avanti</button>}<button type="button" onClick={onCancel} style={{ padding: '0.5rem 0.9rem', backgroundColor: '#f3f4f6', border: '1px solid #d1d5db', borderRadius: '0.55rem', color: '#111827', cursor: 'pointer', fontWeight: 600, fontSize: 13 }}>Annulla</button>{step === STEPS.length && <button type="submit" disabled={isSubmitting} style={{ padding: '0.5rem 0.9rem', backgroundColor: isSubmitting ? '#1d4ed8' : '#2563eb', color: '#ffffff', border: 'none', borderRadius: '0.55rem', cursor: isSubmitting ? 'not-allowed' : 'pointer', opacity: isSubmitting ? 0.7 : 1, fontSize: 13 }}>{isSubmitting ? 'Salvataggio...' : property ? 'Aggiorna immobile' : 'Crea immobile'}</button>}</div></form></div></div>
+  const modal = <div className="manus-contact-modal-overlay" style={{ position: 'fixed', inset: 0, width: '100vw', height: '100dvh', backgroundColor: 'rgba(0,0,0,0.45)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 2147483647, padding: '0.75rem' }}><div className="manus-contact-modal-panel property-upload-modal-panel" style={{ backgroundColor: '#ffffff', borderRadius: '0.95rem', padding: '0.75rem 0.85rem 0.7rem', width: '100%', maxWidth: '1080px', height: 'min(860px, calc(100dvh - 16px))', maxHeight: 'calc(100dvh - 16px)', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}><div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.55rem', borderBottom: '1px solid #e5e7eb', paddingBottom: '0.5rem' }}><div><h3 className="manus-contact-title" style={{ fontSize: '1.02rem', fontWeight: 700, margin: 0, color: '#111827' }}>{approvalMode ? 'Approva Immobile' : (property ? 'Modifica Immobile' : 'Nuovo Immobile')}</h3><p className="manus-contact-subtitle" style={{ margin: '0.15rem 0 0', color: '#6b7280', fontSize: '0.75rem' }}>{approvalMode ? 'Completa i dati mancanti e approva limmobile. La pubblicazione portali resta una scelta separata admin.' : 'Flusso completo 1click + proprietario + assegnazione agente'}</p></div><div style={{ display: 'flex', alignItems: 'center', gap: 8 }}><button type="button" onClick={autofillRandom} style={{ border: '1px solid #93c5fd', background: '#eff6ff', color: '#1d4ed8', borderRadius: 8, padding: '0.35rem 0.6rem', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>Auto-fill test</button><button onClick={onCancel} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#374151', fontSize: 20, lineHeight: 1 }}>x</button></div></div><div style={{ marginBottom: '0.55rem', borderBottom: '1px solid #e5e7eb', paddingBottom: '0.5rem' }}><div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.35rem' }}><div style={{ color: '#111827', fontSize: '0.77rem', fontWeight: 700 }}>Step {step} di {STEPS.length}: {STEPS[step - 1]}</div><div style={{ color: '#6b7280', fontSize: '0.72rem' }}>1click-v6.2</div></div><div style={{ width: '100%', height: 6, borderRadius: 999, background: '#e5e7eb', overflow: 'hidden', marginBottom: '0.45rem' }}><div style={{ width: `${(step / STEPS.length) * 100}%`, height: '100%', background: 'linear-gradient(90deg,#2563eb 0%,#38bdf8 100%)' }} /></div><div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.35rem' }}>{STEPS.map((label, i) => <button key={label} type="button" onClick={() => setStep(i + 1)} style={{ border: i + 1 === step ? '1px solid #60a5fa' : '1px solid rgba(148,163,184,.25)', background: i + 1 === step ? 'rgba(37,99,235,.15)' : '#f3f4f6', color: '#111827', borderRadius: 999, padding: '0.18rem 0.5rem', fontSize: '0.65rem', fontWeight: 700, cursor: 'pointer' }}>{label}</button>)}</div></div><form onSubmit={save} style={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0 }}><div style={{ flex: 1, minHeight: 0, overflowY: 'auto', paddingRight: '0.25rem' }}>{body}</div><div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.45rem', marginTop: '0.6rem', justifyContent: 'flex-end', paddingTop: '0.55rem', borderTop: '1px solid #e5e7eb' }}>{step > 1 && <button type="button" onClick={() => setStep((s) => Math.max(1, s - 1))} style={{ padding: '0.5rem 0.9rem', backgroundColor: '#f3f4f6', border: '1px solid #d1d5db', borderRadius: '0.55rem', color: '#111827', cursor: 'pointer', fontWeight: 700, fontSize: 13 }}>Indietro</button>}{step < STEPS.length && <button type="button" onClick={() => setStep((s) => Math.min(STEPS.length, s + 1))} style={{ padding: '0.5rem 0.9rem', backgroundColor: '#2563eb', color: '#ffffff', border: 'none', borderRadius: '0.55rem', cursor: 'pointer', fontWeight: 700, fontSize: 13 }}>Avanti</button>}<button type="button" onClick={onCancel} style={{ padding: '0.5rem 0.9rem', backgroundColor: '#f3f4f6', border: '1px solid #d1d5db', borderRadius: '0.55rem', color: '#111827', cursor: 'pointer', fontWeight: 600, fontSize: 13 }}>Annulla</button>{step === STEPS.length && <button type="submit" disabled={isSubmitting} style={{ padding: '0.5rem 0.9rem', backgroundColor: isSubmitting ? '#1d4ed8' : '#2563eb', color: '#ffffff', border: 'none', borderRadius: '0.55rem', cursor: isSubmitting ? 'not-allowed' : 'pointer', opacity: isSubmitting ? 0.7 : 1, fontSize: 13 }}>{isSubmitting ? 'Salvataggio...' : approvalMode ? approvalSubmitLabel : (property ? 'Aggiorna immobile' : 'Avvia Approvazione')}</button>}</div></form></div></div>
 
   if (typeof document === 'undefined') return null
   return createPortal(modal, document.body)

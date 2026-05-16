@@ -59,6 +59,21 @@ export type MatchResultComputed = {
 
 const normalize = (value: any) => String(value ?? '').trim().toLowerCase();
 const normalizeUpper = (value: any) => String(value ?? '').trim().toUpperCase();
+const propertyTypeLabelIt = (rawType: any): string => {
+  const type = normalizeUpper(rawType);
+  const labels: Record<string, string> = {
+    APARTMENT: 'Appartamento',
+    HOUSE: 'Casa',
+    VILLA: 'Villa',
+    OFFICE: 'Ufficio',
+    SHOP: 'Negozio',
+    WAREHOUSE: 'Magazzino',
+    LAND: 'Terreno',
+    GARAGE: 'Garage',
+    OTHER: 'Altro'
+  };
+  return labels[type] || String(rawType || 'Tipologia non specificata');
+};
 const asNum = (value: any): number | null => {
   if (value === null || value === undefined || value === '') return null;
   const parsed = Number(String(value).replace(',', '.'));
@@ -92,7 +107,7 @@ export function computePropertyRequestMatch(
       (requestedContract === 'RENT' && isRent(propertyContract)) ||
       requestedContract === propertyContract;
     if (!contractOk) {
-      gaps.push('Contratto non compatibile');
+      gaps.push('Contratto non compatibile: richiesta in ' + (requestedContract === 'RENT' ? 'affitto' : 'vendita') + ', immobile con contratto diverso');
       return {
         score: 0,
         hardFiltersPassed: false,
@@ -104,14 +119,14 @@ export function computePropertyRequestMatch(
     }
     totalScore += weights.contractType;
     components.contractType = weights.contractType;
-    reasons.push(`Contratto compatibile (${requestedContract})`);
+    reasons.push(`Finalita compatibile: richiesta ${requestedContract === 'RENT' ? 'affitto' : 'vendita'} e immobile ${requestedContract === 'RENT' ? 'in affitto' : 'in vendita'}`);
   }
 
   const requestedType = normalizeUpper(criteria.type);
   const propertyType = normalizeUpper(property.type);
   if (requestedType) {
     if (requestedType !== propertyType) {
-      gaps.push('Tipologia immobile non compatibile');
+      gaps.push('Tipologia non compatibile: il cliente cerca ' + propertyTypeLabelIt(requestedType) + ' ma l\'immobile e ' + propertyTypeLabelIt(propertyType));
       return {
         score: 0,
         hardFiltersPassed: false,
@@ -123,7 +138,7 @@ export function computePropertyRequestMatch(
     }
     totalScore += weights.type;
     components.type = weights.type;
-    reasons.push(`Tipologia compatibile (${propertyType})`);
+    reasons.push(`Tipologia compatibile: ${propertyTypeLabelIt(propertyType)}`);
   }
 
   const propertyPrice = isRent(propertyContract) ? asNum(property.rentPrice) : asNum(property.salePrice);
@@ -132,21 +147,21 @@ export function computePropertyRequestMatch(
   if (minPrice !== null || maxPrice !== null) {
     let pricePoints = 0;
     if (propertyPrice === null) {
-      gaps.push('Prezzo immobile mancante');
+      gaps.push('Prezzo non valutabile: prezzo immobile mancante');
     } else {
       const min = minPrice ?? 0;
       const max = maxPrice ?? Number.MAX_SAFE_INTEGER;
       if (propertyPrice >= min && propertyPrice <= max) {
         pricePoints = weights.price;
-        reasons.push('Prezzo nel range richiesto');
+        reasons.push('Prezzo in linea con il budget richiesto');
       } else {
         const toleranceMin = min * 0.9;
         const toleranceMax = max * 1.1;
         if (propertyPrice <= toleranceMax && propertyPrice >= toleranceMin) {
           pricePoints = Math.round(weights.price * 0.5 * 100) / 100;
-          gaps.push('Prezzo fuori range ma in tolleranza');
+          gaps.push('Prezzo leggermente fuori budget ma in tolleranza');
         } else {
-          gaps.push('Prezzo fuori range');
+          gaps.push('Prezzo fuori budget richiesto');
         }
       }
     }
@@ -162,12 +177,12 @@ export function computePropertyRequestMatch(
     let locationPoints = 0;
     if (cities.length && cities.includes(propertyCity)) {
       locationPoints = weights.location;
-      reasons.push(`Citta compatibile (${property.city})`);
+      reasons.push(`Zona compatibile: stessa citta (${property.city})`);
     } else if (provinces.length && provinces.includes(propertyProvince)) {
       locationPoints = Math.round(weights.location * 0.6 * 100) / 100;
-      reasons.push(`Provincia compatibile (${property.province})`);
+      reasons.push(`Zona parzialmente compatibile: stessa provincia (${property.province})`);
     } else {
-      gaps.push('Zona/citta non compatibile');
+      gaps.push('Zona non compatibile: citta/provincia diverse dalla richiesta');
     }
     totalScore += locationPoints;
     components.location = locationPoints;
@@ -185,7 +200,7 @@ export function computePropertyRequestMatch(
     const maxValue = asNum(max);
     if (minValue === null && maxValue === null) return;
     if (actualValue === null) {
-      gaps.push(`${label} mancanti`);
+      gaps.push(`${label} non disponibili nell'immobile`);
       return;
     }
     const inMin = minValue === null || actualValue >= minValue;
@@ -193,7 +208,7 @@ export function computePropertyRequestMatch(
     if (inMin && inMax) {
       totalScore += weights[fieldKey];
       components[fieldKey] = (components[fieldKey] || 0) + weights[fieldKey];
-      reasons.push(`${label} in range`);
+      reasons.push(`${label} in linea con la richiesta`);
       return;
     }
     const toleranceMin = minValue !== null ? minValue - 1 : null;
@@ -205,10 +220,10 @@ export function computePropertyRequestMatch(
       const partial = Math.round(weights[fieldKey] * 0.5 * 100) / 100;
       totalScore += partial;
       components[fieldKey] = (components[fieldKey] || 0) + partial;
-      gaps.push(`${label} in tolleranza`);
+      gaps.push(`${label} leggermente fuori range (tolleranza)`);
       return;
     }
-    gaps.push(`${label} fuori range`);
+    gaps.push(`${label} non in linea con la richiesta`);
   };
 
   rangeScore('rooms', 'Camere', property.rooms ?? property.bedrooms, criteria.minRooms, criteria.maxRooms);

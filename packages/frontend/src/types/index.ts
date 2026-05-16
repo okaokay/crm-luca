@@ -146,6 +146,8 @@ export interface Property extends BaseEntity {
   // Prezzi
   salePrice?: number
   rentPrice?: number
+  advertisingSalePrice?: number
+  advertisingRentPrice?: number
   expenses?: number
   
   // Efficienza energetica
@@ -186,6 +188,17 @@ export interface Contact extends BaseEntity {
   birthPlace?: string
   fiscalCode?: string
   notes?: string
+  budget?: number
+  preferences?: string
+  requestApartmentType?: string
+  requestPropertyType?: string
+  requestGoal?: 'SALE' | 'RENT' | 'VACATION'
+  requestZone?: string
+  requestSurfaceSqm?: number
+  rentContractSubtype?: 'TRANSITORIO' | '3+2' | '4+4'
+  requestBedrooms?: number
+  requestBathrooms?: number
+  requestFloor?: number
   
   // Privacy GDPR
   privacyConsent: boolean
@@ -265,6 +278,10 @@ export interface Appointment extends BaseEntity {
   agency: Agency
   assignedToId: string
   assignedTo: User
+  createdById?: string
+  participantIds?: string[]
+  assignedAgents?: string[]
+  participants?: Array<Partial<User> & { id: string; name?: string }>
   contactId?: string
   contact?: Contact
   propertyId?: string
@@ -273,6 +290,7 @@ export interface Appointment extends BaseEntity {
 
 export interface Activity extends BaseEntity {
   type: ActivityType
+  typeLabel?: string
   title: string
   description?: string
   completed: boolean
@@ -413,3 +431,4 @@ export interface ChartData {
   value: number
   color?: string
 } 
+

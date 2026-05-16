@@ -108,6 +108,14 @@ export type OneClickData = {
   portalSelectionBaselineDone?: boolean;
   immagini?: OneClickImage[];
   videos?: OneClickVideo[];
+  publicationReview?: {
+    hiddenFields?: string[];
+    adminNote?: string;
+    reviewedAt?: string;
+    reviewedByRole?: string;
+    approvedAt?: string;
+    approvedById?: string;
+  };
 };
 
 export type OneClickDictionaryItem = {
@@ -476,7 +484,10 @@ export const normalizeOneClickData = (value: unknown, propertyBase?: GenericObje
 
   const inferredPrice =
     cleanNumber(source.prezzo) ??
+    cleanNumber(base.contractType === 'RENT' ? base.advertisingRentPrice : base.advertisingSalePrice) ??
     cleanNumber(base.contractType === 'RENT' ? base.rentPrice : base.salePrice) ??
+    cleanNumber(base.advertisingSalePrice) ??
+    cleanNumber(base.advertisingRentPrice) ??
     cleanNumber(base.salePrice) ??
     cleanNumber(base.rentPrice);
 
@@ -669,6 +680,47 @@ const buildExclusionBlock = (exclusions: OneClickPortalExclusion[]) => {
   return `<esclusione_portali>${entries}</esclusione_portali>`;
 };
 
+const REVIEW_MASKABLE_FIELDS = new Set<string>([
+  'indirizzo',
+  'cap',
+  'latitudine',
+  'longitudine',
+  'mappa',
+  'note_prezzo',
+  'descrizione_breve',
+  'descrizione_ing',
+  'descrizione_ted',
+  'descrizione_fra',
+  'descrizione_spa',
+  'link_esterno',
+  'immagini',
+  'videos'
+]);
+
+const applyPublicationReviewMask = (normalized: OneClickData): OneClickData => {
+  const review = normalized?.publicationReview;
+  const hiddenFields = Array.isArray(review?.hiddenFields)
+    ? review.hiddenFields.filter((item) => typeof item === 'string' && item.trim())
+    : [];
+  if (!hiddenFields.length) return normalized;
+
+  const next: OneClickData = { ...normalized };
+  for (const rawField of hiddenFields) {
+    const field = String(rawField).trim();
+    if (!REVIEW_MASKABLE_FIELDS.has(field)) continue;
+    if (field === 'immagini') {
+      next.immagini = [];
+      continue;
+    }
+    if (field === 'videos') {
+      next.videos = [];
+      continue;
+    }
+    (next as any)[field] = undefined;
+  }
+  return next;
+};
+
 export const buildOneClickAnnuncioXml = (property: GenericObject, normalized: OneClickData): string => {
   const fields = [
     oneClickTag('idtipologiaimmobile', normalized.idtipologiaimmobile),
@@ -769,7 +821,8 @@ export const buildOneClickFeedXml = (properties: GenericObject[]): string => {
       const normalized = normalizeOneClickData(property.oneClickData || {}, property);
       const validation = validateOneClickData(normalized);
       if (!validation.valid) return '';
-      return buildOneClickAnnuncioXml(property, normalized);
+      const masked = applyPublicationReviewMask(normalized);
+      return buildOneClickAnnuncioXml(property, masked);
     })
     .filter(Boolean)
     .join('');

@@ -46,6 +46,8 @@ import {
   MATCHING_WEIGHTS
 } from './matchingEngine';
 import { saveSecret, getSecret } from './secretManagerClient';
+import { buildLegacyCapZoneLabel, extractLegacyCapFromZoneLabel } from './zoneIdentity';
+import { resolveZoneScope } from './zoneScopeResolver';
 
 dotenv.config();
 
@@ -1086,7 +1088,7 @@ const startProvisioner = () => {
 
 const upload = multer({
   storage: multer.memoryStorage(),
-  limits: { fileSize: 5 * 1024 * 1024 }
+  limits: { fileSize: 25 * 1024 * 1024 }
 });
 
 const runningInDocker = fs.existsSync('/.dockerenv');
@@ -1122,6 +1124,54 @@ const minioClient = new Minio.Client({
 });
 
 const OWNER_DOCUMENTS_BUCKET = process.env.MINIO_OWNER_DOCUMENTS_BUCKET || 'owner-documents';
+
+const buildSafeFileKey = (prefix: string, originalName: string) => {
+  const safeName = String(originalName || 'file')
+    .replace(/[^\w.\-]+/g, '_')
+    .replace(/_+/g, '_')
+    .slice(0, 140);
+  return `${prefix}_${Date.now()}_${Math.random().toString(36).slice(2, 8)}_${safeName}`;
+};
+
+const normalizeStoredPropertyDocuments = (oneClickData: any) => {
+  const docs = Array.isArray(oneClickData?.propertyDocuments) ? oneClickData.propertyDocuments : [];
+  return docs.filter((doc: any) => doc && doc.id && doc.fileKey);
+};
+
+const legacyPropertyDocumentRows = (oneClickData: any, includeEmbeddedData = false) => {
+  const rows: any[] = [];
+  const plan = oneClickData?.planimetria_file;
+  const visura = oneClickData?.visura_file;
+  if (plan?.name && !plan?.fileKey) {
+    rows.push({
+      id: 'embedded-planimetria',
+      type: 'PLANIMETRIA',
+      label: 'Planimetria catastale',
+      fileName: String(plan.name),
+      fileKey: null,
+      mimeType: String(plan.mime || plan.type || 'application/octet-stream'),
+      size: Number(plan.size || 0),
+      uploadedAt: plan.uploadedAt || null,
+      legacyOnly: !plan.dataUrl,
+      ...(includeEmbeddedData && plan.dataUrl ? { dataUrl: String(plan.dataUrl) } : {})
+    });
+  }
+  if (visura?.name && !visura?.fileKey) {
+    rows.push({
+      id: 'embedded-visura',
+      type: 'VISURA',
+      label: 'Visura catastale',
+      fileName: String(visura.name),
+      fileKey: null,
+      mimeType: String(visura.mime || visura.type || 'application/octet-stream'),
+      size: Number(visura.size || 0),
+      uploadedAt: visura.uploadedAt || null,
+      legacyOnly: !visura.dataUrl,
+      ...(includeEmbeddedData && visura.dataUrl ? { dataUrl: String(visura.dataUrl) } : {})
+    });
+  }
+  return rows;
+};
 
 const storageStatObject = (bucket: string, key: string) =>
   new Promise<any>((resolve, reject) => {
@@ -1160,6 +1210,22 @@ const storageRemoveObject = (bucket: string, key: string) =>
       resolve();
     });
   });
+
+const storageEnsureBucket = async (bucket: string) => {
+  const exists = await new Promise<boolean>((resolve, reject) => {
+    minioClient.bucketExists(bucket, (err: any, found: boolean) => {
+      if (err) return reject(err);
+      resolve(Boolean(found));
+    });
+  });
+  if (exists) return;
+  await new Promise<void>((resolve, reject) => {
+    minioClient.makeBucket(bucket, '', (err: any) => {
+      if (err) return reject(err);
+      resolve();
+    });
+  });
+};
 
 const ensureOwnerDocumentsBucketExists = () => {
   if (!minioInitCheckEnabled) {
@@ -1241,11 +1307,31 @@ type PortalPerPropertyStatus =
 
 const PORTAL_IDS = new Set(PORTAL_REGISTRY.map((portal) => portal.id));
 
+const toPositivePriceOrNull = (value: unknown): number | null => {
+  if (value == null) return null;
+  const parsed = Number(value);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : null;
+};
+
+const getPreferredSalePrice = (property: any): number | null =>
+  toPositivePriceOrNull(property?.advertisingSalePrice) ?? toPositivePriceOrNull(property?.salePrice);
+
+const getPreferredRentPrice = (property: any): number | null =>
+  toPositivePriceOrNull(property?.advertisingRentPrice) ?? toPositivePriceOrNull(property?.rentPrice);
+
+const getPreferredContractPrice = (property: any): number | null => {
+  const contractType = (property?.contractType || '').toString().toUpperCase();
+  const sale = getPreferredSalePrice(property);
+  const rent = getPreferredRentPrice(property);
+
+  if (contractType === 'RENT') return rent ?? sale;
+  if (contractType === 'SALE') return sale ?? rent;
+  return sale ?? rent;
+};
+
 const isRequirementSatisfied = (requirement: PortalRequirement, property: Prisma.PropertyGetPayload<{}>) => {
   if (requirement === 'price') {
-    const sale = property.salePrice;
-    const rent = property.rentPrice;
-    const value = property.contractType === 'RENT' ? rent : sale;
+    const value = getPreferredContractPrice(property);
     return value != null && Number(value) > 0;
   }
 
@@ -1634,8 +1720,10 @@ const buildImmobiliarePropertyXml = (property: any, agency: any) => {
     throw new Error('Missing unique id for Immobiliare.it (giListingId)');
   }
 
-  const hasSale = property?.salePrice != null && Number(property.salePrice) > 0;
-  const hasRent = property?.rentPrice != null && Number(property.rentPrice) > 0;
+  const salePrice = getPreferredSalePrice(property);
+  const rentPrice = getPreferredRentPrice(property);
+  const hasSale = salePrice != null;
+  const hasRent = rentPrice != null;
   if (!hasSale && !hasRent) {
     throw new Error('Missing salePrice/rentPrice for Immobiliare.it');
   }
@@ -1663,10 +1751,10 @@ const buildImmobiliarePropertyXml = (property: any, agency: any) => {
   const buildingIdType = toImmoTypologyId(property);
   const transactionsXml = [
     hasSale
-      ? `<transaction type="S"><price currency="EUR" reserved="false">${xmlEscape(Math.round(Number(property.salePrice)))}</price></transaction>`
+      ? `<transaction type="S"><price currency="EUR" reserved="false">${xmlEscape(Math.round(Number(salePrice)))}</price></transaction>`
       : '',
     hasRent
-      ? `<transaction type="R"><price currency="EUR" reserved="false">${xmlEscape(Math.round(Number(property.rentPrice)))}</price></transaction>`
+      ? `<transaction type="R"><price currency="EUR" reserved="false">${xmlEscape(Math.round(Number(rentPrice)))}</price></transaction>`
       : ''
   ]
     .filter(Boolean)
@@ -1942,6 +2030,42 @@ const getGroqConfigOrThrow = () => {
   return { apiKey, model, baseUrl };
 };
 
+const AI_ASSIST_ALLOWED_PAGES = new Set([
+  'dashboard',
+  'immobili',
+  'contatti',
+  'incrocio',
+  'agenti',
+  'zone-tasks',
+  'appuntamenti',
+  'contratti',
+  'attivita',
+  'notifiche',
+  'report',
+  'impostazioni',
+  'portals',
+  'ai-assist'
+]);
+
+const normalizeAiAssistPage = (value: unknown): string | null => {
+  const raw = String(value || '').trim().toLowerCase();
+  if (!raw) return null;
+  return AI_ASSIST_ALLOWED_PAGES.has(raw) ? raw : null;
+};
+
+const normalizeAiAssistAction = (value: unknown): 'navigate' | 'reply' => {
+  const raw = String(value || '').trim().toLowerCase();
+  return raw === 'navigate' ? 'navigate' : 'reply';
+};
+
+const safeJsonParse = (value: string) => {
+  try {
+    return JSON.parse(value);
+  } catch {
+    return null;
+  }
+};
+
 const groqChatCompletion = async ({
   apiKey,
   baseUrl,
@@ -1987,10 +2111,10 @@ const getApimoCategoryIdForProperty = (property: any) => {
   const contractType = (property?.contractType || '').toString().toUpperCase();
   if (contractType === 'RENT') return 2;
   if (contractType === 'SALE') return 1;
-  const salePrice = property?.salePrice != null ? Number(property.salePrice) : null;
-  const rentPrice = property?.rentPrice != null ? Number(property.rentPrice) : null;
-  if (salePrice != null && Number.isFinite(salePrice) && salePrice > 0) return 1;
-  if (rentPrice != null && Number.isFinite(rentPrice) && rentPrice > 0) return 2;
+  const salePrice = getPreferredSalePrice(property);
+  const rentPrice = getPreferredRentPrice(property);
+  if (salePrice != null) return 1;
+  if (rentPrice != null) return 2;
   return 1;
 };
 
@@ -2018,14 +2142,7 @@ const buildApimoPropertyPayloadFromLocal = (property: any) => {
         ? String(property.giListingId)
         : String(property?.id || '');
 
-  const priceValue =
-    category === 2
-      ? property?.rentPrice != null
-        ? Number(property.rentPrice)
-        : null
-      : property?.salePrice != null
-        ? Number(property.salePrice)
-        : null;
+  const priceValue = category === 2 ? getPreferredRentPrice(property) : getPreferredSalePrice(property);
 
   const payload: any = {
     reference,
@@ -2882,6 +2999,8 @@ app.use(async (req, res, next) => {
     // Endpoints auth pubblici: login e refresh token
     if (req.path === '/api/auth/login' || req.path === '/api/auth/refresh') return next();
     if (req.path.startsWith('/api/public/')) return next();
+    if (req.method === 'GET' && /^\/api\/properties\/[^/]+\/images\/[^/]+$/i.test(req.path)) return next();
+    if (req.method === 'GET' && /^\/api\/properties\/[^/]+\/documents\/[^/]+$/i.test(req.path)) return next();
     if (req.method === 'POST' && req.path === '/api/contact-requests') return next();
     if (req.method === 'POST' && req.path === '/api/visit-bookings') return next();
 
@@ -3307,6 +3426,119 @@ app.get('/api/ai/status', (_req, res) => {
   }
 });
 
+app.post('/api/ai-assist/respond', async (req, res) => {
+  try {
+    const auth = getAuth(req);
+    if (!auth) return res.status(401).json({ success: false, message: 'Unauthorized' });
+
+    const text = req.body?.text != null ? String(req.body.text).trim() : '';
+    const userName = req.body?.userName != null ? String(req.body.userName).trim() : 'Utente';
+
+    if (!text) return res.status(400).json({ success: false, message: 'Missing text' });
+
+    const pages = Array.isArray(req.body?.pages)
+      ? req.body.pages
+          .map((item: any) => ({
+            page: normalizeAiAssistPage(item?.page),
+            label: String(item?.label || '').trim(),
+            keywords: Array.isArray(item?.keywords)
+              ? item.keywords
+                  .map((k: any) => String(k || '').trim())
+                  .filter(Boolean)
+                  .slice(0, 8)
+              : []
+          }))
+          .filter((item: any) => item.page && item.label)
+      : [];
+
+    const pagesContext = pages.length
+      ? pages.map((item: any) => `${item.page} => ${item.label} (${item.keywords.join(', ')})`).join('\n')
+      : 'dashboard, immobili, clienti, appuntamenti, attivita, notifiche, report, impostazioni';
+
+    const localFallback = {
+      text: 'Posso aiutarti con i comandi del gestionale. Prova: Apri immobili oppure Apri appuntamenti.',
+      action: 'reply',
+      page: null,
+      suggestion: 'Dimmi un comando operativo semplice.',
+      scope: 'in_scope',
+      source: 'local_fallback'
+    };
+
+    const configured = Boolean((process.env.GROQ_API_KEY || '').trim());
+    if (!configured) {
+      return res.json({ success: true, data: localFallback });
+    }
+
+    const { apiKey, model, baseUrl } = getGroqConfigOrThrow();
+    const result = await groqChatCompletion({
+      apiKey,
+      baseUrl,
+      model,
+      messages: [
+        {
+          role: 'system',
+          content:
+            'Sei un assistente vocale per CRM immobiliare in italiano. ' +
+            'Rispondi in modo breve e operativo. ' +
+            'Se l utente chiede di aprire una sezione, imposta action="navigate" e page valida. ' +
+            'Rispondi SOLO JSON con questa forma: ' +
+            '{"text":"...","action":"reply|navigate","page":"dashboard|immobili|contatti|incrocio|agenti|zone-tasks|appuntamenti|contratti|attivita|notifiche|report|impostazioni|portals|ai-assist|null","suggestion":"...","scope":"in_scope|out_of_scope"}. ' +
+            'Se fuori ambito gestionale usa scope="out_of_scope" e non impostare page.'
+        },
+        {
+          role: 'user',
+          content:
+            `Utente: ${userName}\n` +
+            `Comando: ${text}\n` +
+            `Sezioni disponibili:\n${pagesContext}\n` +
+            'Ricorda: testo chiaro, massimo 2 frasi.'
+        }
+      ],
+      temperature: 0.3
+    });
+
+    if (!result.ok) {
+      return res.json({ success: true, data: localFallback });
+    }
+
+    const content = String(result.json?.choices?.[0]?.message?.content || '').trim();
+    const parsed = safeJsonParse(content);
+    if (!parsed || typeof parsed !== 'object') {
+      return res.json({ success: true, data: localFallback });
+    }
+
+    const action = normalizeAiAssistAction((parsed as any).action);
+    const page = normalizeAiAssistPage((parsed as any).page);
+    const scope = (parsed as any).scope === 'out_of_scope' ? 'out_of_scope' : 'in_scope';
+    const responseText = String((parsed as any).text || '').trim() || localFallback.text;
+    const suggestion = String((parsed as any).suggestion || '').trim();
+
+    res.json({
+      success: true,
+      data: {
+        text: responseText,
+        action,
+        page: action === 'navigate' ? page : null,
+        suggestion: suggestion || undefined,
+        scope,
+        source: 'groq'
+      }
+    });
+  } catch {
+    res.json({
+      success: true,
+      data: {
+        text: 'Posso aiutarti con il gestionale. Prova con un comando semplice.',
+        action: 'reply',
+        page: null,
+        suggestion: 'Esempio: Apri clienti',
+        scope: 'in_scope',
+        source: 'local_fallback'
+      }
+    });
+  }
+});
+
 app.post('/api/ai/translate', async (req, res) => {
   try {
     const { apiKey, model, baseUrl } = getGroqConfigOrThrow();
@@ -3562,6 +3794,8 @@ app.get('/api/portals', async (req, res) => {
         isPublished: true,
         salePrice: true,
         rentPrice: true,
+        advertisingSalePrice: true,
+        advertisingRentPrice: true,
         contractType: true,
         images: true,
         giComuneIstat: true,
@@ -4144,6 +4378,8 @@ app.get('/api/portals/:portalId/stats', async (req, res) => {
         isPublished: true,
         salePrice: true,
         rentPrice: true,
+        advertisingSalePrice: true,
+        advertisingRentPrice: true,
         contractType: true,
         images: true,
         giComuneIstat: true,
@@ -4426,6 +4662,8 @@ app.get('/api/portals/:portalId/properties', async (req, res) => {
       contractType: true,
       salePrice: true,
       rentPrice: true,
+      advertisingSalePrice: true,
+      advertisingRentPrice: true,
       portalTargets: true,
       isPublished: true,
       images: true,
@@ -4520,13 +4758,7 @@ app.get('/api/portals/:portalId/properties', async (req, res) => {
       }
 
       const price =
-        property.contractType === 'RENT'
-          ? property.rentPrice != null
-            ? property.rentPrice
-            : null
-          : property.salePrice != null
-          ? property.salePrice
-          : null;
+        getPreferredContractPrice(property);
 
       let errorDetail: string | null = null;
       if (portalStatus?.kind === 'SYNC_PUSH') {
@@ -5594,6 +5826,8 @@ app.post('/api/sync/apimo/properties/:id/push', async (req, res) => {
         surface: true,
         salePrice: true,
         rentPrice: true,
+        advertisingSalePrice: true,
+        advertisingRentPrice: true,
         images: true,
         apimoPropertyId: true
       }
@@ -6408,6 +6642,8 @@ app.get('/feeds/1clickannunci.xml', async (req, res) => {
         furnished: true,
         salePrice: true,
         rentPrice: true,
+        advertisingSalePrice: true,
+        advertisingRentPrice: true,
         expenses: true,
         energyClass: true,
         buildingConstructionYear: true,
@@ -6581,9 +6817,8 @@ app.get('/api/agents', async (req, res) => {
       where.agencyId = auth.agencyId;
     }
 
-    if (auth.role === 'AGENT') {
-      where.id = auth.id;
-    }
+    // Gli agenti devono poter vedere gli altri utenti della propria agenzia
+    // per collaborazioni (es. appuntamenti multi-agente).
 
     let agents = await prisma.user.findMany({
       where,
@@ -6842,6 +7077,23 @@ const collectAssignedStreetIdsForGroup = async (groupId: string): Promise<string
   return members.map((m: any) => String(m.streetId));
 };
 
+const pruneInactiveGroupAssignments = async (
+  tx: any,
+  zoneId: string,
+  groupId: string,
+  keepAssignmentId?: string
+) => {
+  await tx.zoneAssignment.deleteMany({
+    where: {
+      zoneId,
+      groupId,
+      assignmentType: 'GROUP',
+      isActive: false,
+      ...(keepAssignmentId ? { id: { not: keepAssignmentId } } : {})
+    }
+  });
+};
+
 app.get('/api/agent-zones', async (req, res) => {
   try {
     const auth = getAuth(req);
@@ -6853,7 +7105,27 @@ app.get('/api/agent-zones', async (req, res) => {
 
     if (auth.agencyId && !isAdminRole(auth.role)) {
       where.agencyId = auth.agencyId;
-      where.agentId = auth.id;
+
+      // Agents must see zones they own OR zones where they have active assignments.
+      const assignedRows = await prismaAny.zoneAssignment.findMany({
+        where: {
+          agentId: auth.id,
+          isActive: true
+        },
+        select: { zoneId: true }
+      });
+      const assignedZoneIds = Array.from(
+        new Set(
+          (assignedRows || [])
+            .map((row: any) => String(row.zoneId || '').trim())
+            .filter(Boolean)
+        )
+      );
+
+      where.OR = [
+        { agentId: auth.id },
+        ...(assignedZoneIds.length > 0 ? [{ id: { in: assignedZoneIds } }] : [])
+      ];
     } else {
       if (auth.agencyId && auth.role !== 'SUPER_ADMIN') {
         where.agencyId = auth.agencyId;
@@ -7017,6 +7289,933 @@ app.delete('/api/agent-zones/:id', async (req, res) => {
   }
 });
 
+const DYNAMIC_ZONE_GROUP_MARKER = '[DYNAMIC_ZONE_GROUP]';
+const DYNAMIC_ZONE_PREFIX = 'DYNAMIC:';
+
+const normalizeDynamicToken = (value: string) =>
+  String(value || '')
+    .trim()
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '');
+
+const buildDynamicZoneLabel = (zoneName: string) => `${DYNAMIC_ZONE_PREFIX}${String(zoneName || '').trim()}`;
+const parseDynamicZoneLabel = (zoneValue: string | null | undefined) => {
+  const raw = String(zoneValue || '').trim();
+  if (!raw) return '';
+  return raw.startsWith(DYNAMIC_ZONE_PREFIX) ? raw.slice(DYNAMIC_ZONE_PREFIX.length).trim() : raw;
+};
+
+const ensureDynamicZoneAccess = async (auth: any, zoneId: string) => {
+  const prismaAny = prisma as any;
+  const zone = await prismaAny.agentZone.findUnique({
+    where: { id: zoneId },
+    select: {
+      id: true,
+      agencyId: true,
+      notes: true,
+      city: true,
+      province: true,
+      region: true,
+      zone: true
+    }
+  });
+  if (!zone) return { success: false, status: 404, message: 'Gruppo zona non trovato' };
+  if (String(zone.notes || '') !== DYNAMIC_ZONE_GROUP_MARKER) {
+    return { success: false, status: 400, message: 'Il gruppo selezionato non è dinamico' };
+  }
+  if (auth.agencyId && auth.role !== 'SUPER_ADMIN' && String(zone.agencyId) !== String(auth.agencyId)) {
+    return { success: false, status: 403, message: 'Forbidden' };
+  }
+  return { success: true, zone };
+};
+
+app.get('/api/agent-zones/dynamic-groups', async (req, res) => {
+  try {
+    const auth = getAuth(req);
+    if (!auth) return res.status(401).json({ success: false, message: 'Unauthorized' });
+    const prismaAny = prisma as any;
+    const cityFilter = String(req.query.city || '').trim();
+    const keyword = String(req.query.q || '').trim().toLowerCase();
+    const isAdmin = isAdminRole(auth.role);
+    const agencyId = isAdmin
+      ? await resolveAgencyIdForAdminAction(auth)
+      : String(auth.agencyId || '').trim();
+    if (!agencyId) return res.status(400).json({ success: false, message: 'Agency not found' });
+    const assignmentWhere = isAdmin
+      ? { isActive: true, assignmentType: 'GROUP' as const }
+      : { isActive: true, assignmentType: 'GROUP' as const, agentId: auth.id };
+
+    const zones = await prismaAny.agentZone.findMany({
+      where: {
+        agencyId,
+        notes: DYNAMIC_ZONE_GROUP_MARKER,
+        ...(cityFilter ? { city: cityFilter } : {}),
+        ...(!isAdmin
+          ? {
+              groups: {
+                some: {
+                  assignments: {
+                    some: assignmentWhere
+                  }
+                }
+              }
+            }
+          : {})
+      },
+      include: {
+        groups: {
+          where: !isAdmin
+            ? {
+                assignments: {
+                  some: assignmentWhere
+                }
+              }
+            : undefined,
+          orderBy: { createdAt: 'asc' },
+          include: {
+            members: {
+              orderBy: { position: 'asc' },
+              include: {
+                street: { select: { id: true, name: true } }
+              }
+            },
+            assignments: {
+              where: assignmentWhere,
+              include: { agent: { select: { id: true, firstName: true, lastName: true } } },
+              orderBy: { createdAt: 'desc' },
+              take: 1
+            }
+          }
+        }
+      },
+      orderBy: { createdAt: 'desc' }
+    });
+
+    const mapped = zones
+      .flatMap((zone: any) =>
+        (zone.groups || []).map((group: any) => ({
+          zoneId: String(zone.id),
+          groupId: String(group.id),
+          city: String(zone.city || ''),
+          province: String(zone.province || ''),
+          region: String(zone.region || ''),
+          zoneName: parseDynamicZoneLabel(zone.zone),
+          groupName: String(group.name || ''),
+          streets: (group.members || [])
+            .map((m: any) => m?.street)
+            .filter(Boolean)
+            .map((street: any) => ({ id: String(street.id), name: String(street.name) })),
+          activeAssignment: group.assignments?.[0]
+            ? {
+                assignmentId: String(group.assignments[0].id),
+                agentId: String(group.assignments[0].agent.id),
+                agentName: `${group.assignments[0].agent.firstName} ${group.assignments[0].agent.lastName}`.trim()
+              }
+            : null
+        }))
+      )
+      .filter((item: any) => {
+        if (!keyword) return true;
+        const haystack = [
+          item.city,
+          item.zoneName,
+          item.groupName,
+          ...(item.streets || []).map((s: any) => s.name)
+        ]
+          .join(' ')
+          .toLowerCase();
+        return haystack.includes(keyword);
+      });
+
+    res.json({ success: true, data: mapped });
+  } catch (error) {
+    res.status(500).json({ success: false, message: 'Error loading dynamic groups' });
+  }
+});
+
+app.get('/api/agent-zones/dynamic-groups/import-template', async (req, res) => {
+  try {
+    const auth = getAuth(req);
+    if (!auth) return res.status(401).json({ success: false, message: 'Unauthorized' });
+    if (!isAdminRole(auth.role)) return res.status(403).json({ success: false, message: 'Forbidden' });
+
+    const rows = [
+      'city,zone_name,group_name,street_name',
+      'Pescara,Zona Centro,Gruppo 1,Corso Vittorio Emanuele II',
+      'Pescara,Zona Centro,Gruppo 1,Via Nicola Fabrizi',
+      'Pescara,Zona Nord,Gruppo A,Viale Bovio'
+    ];
+    const csv = rows.join('\n');
+    res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+    res.setHeader('Content-Disposition', 'attachment; filename="template-import-zone.csv"');
+    res.status(200).send(`\uFEFF${csv}`);
+  } catch (error) {
+    res.status(500).json({ success: false, message: 'Errore download template CSV zone' });
+  }
+});
+
+app.get('/api/agent-zones/dynamic-groups/import-template-example', async (req, res) => {
+  try {
+    const auth = getAuth(req);
+    if (!auth) return res.status(401).json({ success: false, message: 'Unauthorized' });
+    if (!isAdminRole(auth.role)) return res.status(403).json({ success: false, message: 'Forbidden' });
+
+    const rows = [
+      'city,zone_name,group_name,street_name',
+      'Pescara,Zona Centro,Gruppo 1,Corso Vittorio Emanuele II',
+      'Pescara,Zona Centro,Gruppo 1,Via Nicola Fabrizi',
+      'Pescara,Zona Centro,Gruppo 1,Viale Regina Margherita',
+      'Pescara,Zona Nord,Gruppo A,Viale Bovio',
+      'Pescara,Zona Nord,Gruppo A,Via Nazionale Adriatica Nord',
+      'Pescara,Zona Colli,Gruppo B,Via di Sotto',
+      'Chieti,Zona Stazione,Gruppo C,Viale Abruzzo',
+      'Chieti,Zona Tricalle,Gruppo D,Via dei Frentani'
+    ];
+    const csv = rows.join('\n');
+    res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+    res.setHeader('Content-Disposition', 'attachment; filename="esempio-import-zone.csv"');
+    res.status(200).send(`\uFEFF${csv}`);
+  } catch (error) {
+    res.status(500).json({ success: false, message: 'Errore download esempio CSV zone' });
+  }
+});
+
+app.post('/api/agent-zones/dynamic-groups/import', upload.single('file'), async (req, res) => {
+  try {
+    const auth = getAuth(req);
+    if (!auth) return res.status(401).json({ success: false, message: 'Unauthorized' });
+    if (!isAdminRole(auth.role)) return res.status(403).json({ success: false, message: 'Forbidden' });
+    const agencyId = await resolveAgencyIdForAdminAction(auth);
+    if (!agencyId) return res.status(400).json({ success: false, message: 'Agency not found' });
+
+    const modeRaw = String(req.body?.mode || 'APPEND').trim().toUpperCase();
+    const mode: 'APPEND' | 'UPSERT' = modeRaw === 'UPSERT' ? 'UPSERT' : 'APPEND';
+    const fileBuffer = req.file?.buffer;
+    if (!fileBuffer) return res.status(400).json({ success: false, message: 'File CSV mancante' });
+
+    const raw = fileBuffer.toString('utf8');
+    const rows = parseCsvSemicolon(raw);
+    if (!rows.length) return res.status(400).json({ success: false, message: 'CSV vuoto o non valido' });
+    if (rows.length > 20000) return res.status(400).json({ success: false, message: 'CSV troppo grande: massimo 20.000 righe' });
+
+    const getCell = (row: any, aliases: string[]) => {
+      for (const k of aliases) {
+        const value = row?.[k];
+        if (value !== undefined && String(value).trim() !== '') return String(value).trim();
+      }
+      return '';
+    };
+
+    type ParsedRow = { line: number; city: string; zoneName: string; groupName: string; streetName: string };
+    const parsedRows: ParsedRow[] = [];
+    const rejectedRows: Array<{ line: number; reason: string; raw: string }> = [];
+
+    rows.forEach((row, idx) => {
+      const city = getCell(row, ['city', 'citta']);
+      const zoneName = getCell(row, ['zonename', 'zone_name', 'zona', 'nomezona']);
+      const groupName = getCell(row, ['groupname', 'group_name', 'gruppo', 'nomegruppo']);
+      const streetRaw = getCell(row, ['streetname', 'street_name', 'via', 'nomevia']);
+      const streetName = sanitizeStreetName(streetRaw);
+      const line = idx + 2;
+      if (!city || !zoneName || !groupName || !streetName) {
+        rejectedRows.push({ line, reason: 'Campi obbligatori mancanti (city, zone_name, group_name, street_name)', raw: JSON.stringify(row) });
+        return;
+      }
+      parsedRows.push({ line, city, zoneName, groupName, streetName });
+    });
+
+    if (!parsedRows.length) {
+      return res.status(400).json({
+        success: false,
+        message: 'Nessuna riga valida trovata nel CSV',
+        data: { rejectedRows }
+      });
+    }
+
+    type GroupBucket = {
+      city: string;
+      zoneName: string;
+      groupName: string;
+      cityNorm: string;
+      zoneNorm: string;
+      groupNorm: string;
+      streets: string[];
+      streetNormSet: Set<string>;
+    };
+    const buckets = new Map<string, GroupBucket>();
+    for (const row of parsedRows) {
+      const cityNorm = normalizeDynamicToken(row.city);
+      const zoneNorm = normalizeDynamicToken(row.zoneName);
+      const groupNorm = normalizeDynamicToken(row.groupName);
+      const streetNorm = normalizeStreetName(row.streetName);
+      const key = `${cityNorm}__${zoneNorm}__${groupNorm}`;
+      if (!buckets.has(key)) {
+        buckets.set(key, {
+          city: row.city,
+          zoneName: row.zoneName,
+          groupName: row.groupName,
+          cityNorm,
+          zoneNorm,
+          groupNorm,
+          streets: [],
+          streetNormSet: new Set<string>()
+        });
+      }
+      const bucket = buckets.get(key)!;
+      if (!streetNorm) {
+        rejectedRows.push({ line: row.line, reason: 'Nome via non valido', raw: row.streetName });
+        continue;
+      }
+      if (bucket.streetNormSet.has(streetNorm)) continue;
+      bucket.streetNormSet.add(streetNorm);
+      bucket.streets.push(row.streetName);
+    }
+
+    const geoRows = loadGeoLocations();
+    const summary = {
+      mode,
+      totalRows: rows.length,
+      validRows: parsedRows.length,
+      zoneCreated: 0,
+      groupCreated: 0,
+      groupUpdated: 0,
+      streetsCreated: 0,
+      duplicatesIgnored: 0,
+      rejectedRows
+    };
+
+    const prismaAny = prisma as any;
+    await prismaAny.$transaction(async (tx: any) => {
+      const existingZones = await tx.agentZone.findMany({
+        where: { agencyId, notes: DYNAMIC_ZONE_GROUP_MARKER },
+        include: {
+          groups: {
+            include: {
+              members: {
+                include: { street: { select: { id: true, name: true, normalizedName: true } } }
+              }
+            }
+          }
+        }
+      });
+
+      const zoneMap = new Map<string, any>();
+      for (const zone of existingZones) {
+        const zoneKey = `${normalizeDynamicToken(String(zone.city || ''))}__${normalizeDynamicToken(parseDynamicZoneLabel(zone.zone))}`;
+        zoneMap.set(zoneKey, zone);
+      }
+
+      const getNextGroupIndex = (zone: any) => {
+        const groups = Array.isArray(zone.groups) ? zone.groups : [];
+        const maxIndex = groups.reduce((acc: number, g: any) => Math.max(acc, Number(g.groupIndex || 0)), 0);
+        return maxIndex + 1;
+      };
+
+      for (const bucket of buckets.values()) {
+        const zoneKey = `${bucket.cityNorm}__${bucket.zoneNorm}`;
+        let zone = zoneMap.get(zoneKey);
+        if (!zone) {
+          const matchedGeo = geoRows.find((g) => normalizeDynamicToken(g.city) === bucket.cityNorm);
+          zone = await tx.agentZone.create({
+            data: {
+              agencyId,
+              agentId: auth.id,
+              region: String(matchedGeo?.region || 'N/D'),
+              province: String(matchedGeo?.province || 'N/D'),
+              city: bucket.city,
+              zone: buildDynamicZoneLabel(bucket.zoneName),
+              groupSize: 0,
+              notes: DYNAMIC_ZONE_GROUP_MARKER,
+              importStatus: 'SUCCESS',
+              lastImportedAt: new Date()
+            },
+            include: { groups: { include: { members: { include: { street: true } } } } }
+          });
+          zoneMap.set(zoneKey, zone);
+          summary.zoneCreated += 1;
+        }
+
+        let targetGroup: any = null;
+        const groups = Array.isArray(zone.groups) ? zone.groups : [];
+        if (mode === 'UPSERT') {
+          targetGroup = groups.find((g: any) => normalizeDynamicToken(String(g.name || '')) === bucket.groupNorm) || null;
+        }
+        if (!targetGroup) {
+          targetGroup = await tx.zoneStreetGroup.create({
+            data: {
+              agencyId,
+              zoneId: zone.id,
+              groupIndex: getNextGroupIndex(zone),
+              name: bucket.groupName,
+              groupSize: 0
+            },
+            include: {
+              members: { include: { street: { select: { id: true, name: true, normalizedName: true } } } }
+            }
+          });
+          zone.groups = [...groups, targetGroup];
+          summary.groupCreated += 1;
+        } else {
+          summary.groupUpdated += 1;
+        }
+
+        const existingStreetNorms = new Set<string>(
+          (targetGroup.members || [])
+            .map((m: any) => String(m?.street?.normalizedName || '').trim())
+            .filter(Boolean)
+        );
+        let nextPosition = Number(
+          (targetGroup.members || []).reduce((acc: number, m: any) => Math.max(acc, Number(m.position || 0)), -1)
+        ) + 1;
+
+        for (const streetName of bucket.streets) {
+          const normalizedName = normalizeStreetName(streetName);
+          if (!normalizedName || existingStreetNorms.has(normalizedName)) {
+            summary.duplicatesIgnored += 1;
+            continue;
+          }
+
+          const street = await tx.zoneStreet.create({
+            data: {
+              agencyId,
+              zoneId: zone.id,
+              name: streetName,
+              normalizedName,
+              orderIndex: nextPosition
+            }
+          });
+          await tx.zoneStreetGroupMember.create({
+            data: {
+              groupId: targetGroup.id,
+              streetId: street.id,
+              position: nextPosition
+            }
+          });
+          nextPosition += 1;
+          summary.streetsCreated += 1;
+          existingStreetNorms.add(normalizedName);
+        }
+
+        const refreshedGroupSize = await tx.zoneStreetGroupMember.count({ where: { groupId: targetGroup.id } });
+        await tx.zoneStreetGroup.update({
+          where: { id: targetGroup.id },
+          data: { groupSize: refreshedGroupSize }
+        });
+      }
+
+      const zoneIds = Array.from(new Set(Array.from(zoneMap.values()).map((z) => String(z.id))));
+      for (const zoneId of zoneIds) {
+        const totalStreets = await tx.zoneStreet.count({ where: { zoneId } });
+        await tx.agentZone.update({
+          where: { id: zoneId },
+          data: { groupSize: totalStreets, lastImportedAt: new Date() }
+        });
+      }
+    });
+
+    return res.json({
+      success: true,
+      message: 'Import completato',
+      data: summary
+    });
+  } catch (error) {
+    return res.status(500).json({ success: false, message: 'Errore import CSV zone' });
+  }
+});
+
+app.post('/api/agent-zones/dynamic-groups', async (req, res) => {
+  try {
+    const auth = getAuth(req);
+    if (!auth) return res.status(401).json({ success: false, message: 'Unauthorized' });
+    if (!isAdminRole(auth.role)) return res.status(403).json({ success: false, message: 'Forbidden' });
+    const prismaAny = prisma as any;
+    const zoneIdInput = String(req.body?.zoneId || '').trim();
+    const city = String(req.body?.city || '').trim();
+    const zoneNameInput = String(req.body?.zoneName || '').trim();
+    const groupName = String(req.body?.groupName || '').trim();
+    const rawStreets = Array.isArray(req.body?.streets) ? req.body.streets : [];
+    const agencyId = await resolveAgencyIdForAdminAction(auth);
+    if (!agencyId) return res.status(400).json({ success: false, message: 'Agency not found' });
+    if (!groupName) {
+      return res.status(400).json({ success: false, message: 'groupName è obbligatorio' });
+    }
+
+    const dedup = new Map<string, string>();
+    for (const raw of rawStreets) {
+      const sanitized = sanitizeStreetName(String(raw || ''));
+      const normalized = normalizeStreetName(sanitized);
+      if (!sanitized || !normalized) continue;
+      if (!dedup.has(normalized)) dedup.set(normalized, sanitized);
+    }
+    const streets = Array.from(dedup.values());
+    if (streets.length === 0) {
+      return res.status(400).json({ success: false, message: 'Inserisci almeno una via valida' });
+    }
+
+    const created = await prismaAny.$transaction(async (tx: any) => {
+      let zone: any = null;
+      if (zoneIdInput) {
+        zone = await tx.agentZone.findUnique({
+          where: { id: zoneIdInput },
+          select: {
+            id: true,
+            agencyId: true,
+            notes: true,
+            city: true,
+            province: true,
+            region: true,
+            zone: true
+          }
+        });
+        if (!zone) throw new Error('DYNAMIC_ZONE_NOT_FOUND');
+        if (String(zone.notes || '') !== DYNAMIC_ZONE_GROUP_MARKER) throw new Error('DYNAMIC_ZONE_INVALID');
+        if (String(zone.agencyId) !== String(agencyId)) throw new Error('DYNAMIC_ZONE_FORBIDDEN');
+      } else {
+        if (!city || !zoneNameInput) throw new Error('DYNAMIC_ZONE_MISSING_CREATE_FIELDS');
+        const geoRows = loadGeoLocations();
+        const cityNorm = normalizeDynamicToken(city);
+        const matchedGeo = geoRows.find((row) => normalizeDynamicToken(row.city) === cityNorm);
+        const region = String(req.body?.region || matchedGeo?.region || 'N/D').trim();
+        const province = String(req.body?.province || matchedGeo?.province || 'N/D').trim();
+        zone = await tx.agentZone.create({
+          data: {
+            agencyId,
+            agentId: auth.id,
+            region,
+            province,
+            city,
+            zone: buildDynamicZoneLabel(zoneNameInput),
+            groupSize: streets.length,
+            notes: DYNAMIC_ZONE_GROUP_MARKER,
+            importStatus: 'SUCCESS',
+            lastImportedAt: new Date()
+          }
+        });
+      }
+
+      const lastGroup = await tx.zoneStreetGroup.findFirst({
+        where: { zoneId: zone.id },
+        orderBy: { groupIndex: 'desc' },
+        select: { groupIndex: true }
+      });
+      const nextGroupIndex = Number(lastGroup?.groupIndex || 0) + 1;
+      const group = await tx.zoneStreetGroup.create({
+        data: {
+          agencyId,
+          zoneId: zone.id,
+          groupIndex: nextGroupIndex,
+          name: groupName,
+          groupSize: streets.length
+        }
+      });
+      const createdStreets = [];
+      for (let i = 0; i < streets.length; i++) {
+        const name = streets[i];
+        const street = await tx.zoneStreet.create({
+          data: {
+            agencyId,
+            zoneId: zone.id,
+            name,
+            normalizedName: normalizeStreetName(name),
+            orderIndex: i
+          }
+        });
+        createdStreets.push(street);
+      }
+      if (createdStreets.length > 0) {
+        await tx.zoneStreetGroupMember.createMany({
+          data: createdStreets.map((street: any, idx: number) => ({
+            groupId: group.id,
+            streetId: street.id,
+            position: idx
+          }))
+        });
+      }
+      await tx.agentZone.update({
+        where: { id: zone.id },
+        data: {
+          groupSize: await tx.zoneStreet.count({ where: { zoneId: zone.id } }),
+          lastImportedAt: new Date()
+        }
+      });
+      return { zone, group, createdStreets };
+    });
+
+    res.status(201).json({
+      success: true,
+      data: {
+        zoneId: String(created.zone.id),
+        groupId: String(created.group.id),
+        city: String(created.zone.city || ''),
+        province: String(created.zone.province || ''),
+        region: String(created.zone.region || ''),
+        zoneName: parseDynamicZoneLabel(created.zone.zone),
+        groupName: String(created.group.name || ''),
+        streets: created.createdStreets.map((street: any) => ({ id: String(street.id), name: String(street.name) })),
+        activeAssignment: null
+      }
+    });
+  } catch (error) {
+    const message = String((error as any)?.message || '');
+    if (message === 'DYNAMIC_ZONE_NOT_FOUND') return res.status(404).json({ success: false, message: 'Zona dinamica non trovata' });
+    if (message === 'DYNAMIC_ZONE_INVALID') return res.status(400).json({ success: false, message: 'La zona selezionata non è dinamica' });
+    if (message === 'DYNAMIC_ZONE_FORBIDDEN') return res.status(403).json({ success: false, message: 'Forbidden' });
+    if (message === 'DYNAMIC_ZONE_MISSING_CREATE_FIELDS') {
+      return res.status(400).json({ success: false, message: 'city e zoneName sono obbligatori se non passi zoneId' });
+    }
+    res.status(500).json({ success: false, message: 'Error creating dynamic group' });
+  }
+});
+
+app.delete('/api/agent-zones/dynamic-groups/:groupId', async (req, res) => {
+  try {
+    const auth = getAuth(req);
+    if (!auth) return res.status(401).json({ success: false, message: 'Unauthorized' });
+    if (!isAdminRole(auth.role)) return res.status(403).json({ success: false, message: 'Forbidden' });
+    const prismaAny = prisma as any;
+    const groupId = String(req.params.groupId || '').trim();
+    if (!groupId) return res.status(400).json({ success: false, message: 'groupId obbligatorio' });
+
+    const group = await prismaAny.zoneStreetGroup.findUnique({
+      where: { id: groupId },
+      include: {
+        zone: { select: { id: true, agencyId: true, notes: true } },
+        members: { select: { streetId: true } }
+      }
+    });
+    if (!group || !group.zone) return res.status(404).json({ success: false, message: 'Gruppo non trovato' });
+    if (String(group.zone.notes || '') !== DYNAMIC_ZONE_GROUP_MARKER) {
+      return res.status(400).json({ success: false, message: 'Il gruppo selezionato non è dinamico' });
+    }
+    if (auth.agencyId && auth.role !== 'SUPER_ADMIN' && String(group.zone.agencyId) !== String(auth.agencyId)) {
+      return res.status(403).json({ success: false, message: 'Forbidden' });
+    }
+
+    const streetIds = Array.from(new Set((group.members || []).map((m: any) => String(m.streetId)).filter(Boolean)));
+    await prismaAny.$transaction(async (tx: any) => {
+      await tx.zoneAssignment.updateMany({
+        where: {
+          zoneId: String(group.zone.id),
+          groupId: String(group.id),
+          assignmentType: 'GROUP',
+          isActive: true
+        },
+        data: {
+          isActive: false,
+          note: 'Assegnazione chiusa automaticamente: gruppo dinamico eliminato'
+        }
+      });
+
+      if (streetIds.length > 0) {
+        await tx.zoneStreet.deleteMany({
+          where: {
+            zoneId: String(group.zone.id),
+            id: { in: streetIds }
+          }
+        });
+      }
+
+      await tx.zoneStreetGroup.delete({
+        where: { id: String(group.id) }
+      });
+
+      const remainingGroups = await tx.zoneStreetGroup.count({
+        where: { zoneId: String(group.zone.id) }
+      });
+      if (remainingGroups === 0) {
+        await tx.agentZone.delete({
+          where: { id: String(group.zone.id) }
+        });
+      }
+    });
+
+    res.json({ success: true, message: 'Gruppo eliminato con successo' });
+  } catch (error) {
+    res.status(500).json({ success: false, message: 'Error deleting dynamic group' });
+  }
+});
+
+app.get('/api/agent-zones/dynamic-groups/:groupId/workspace', async (req, res) => {
+  try {
+    const auth = getAuth(req);
+    if (!auth) return res.status(401).json({ success: false, message: 'Unauthorized' });
+    const prismaAny = prisma as any;
+    const groupId = String(req.params.groupId || '').trim();
+    if (!groupId) return res.status(400).json({ success: false, message: 'groupId obbligatorio' });
+
+    const group = await prismaAny.zoneStreetGroup.findUnique({
+      where: { id: groupId },
+      include: {
+        zone: { select: { id: true, agencyId: true, city: true, province: true, region: true, zone: true, notes: true } },
+        members: {
+          orderBy: { position: 'asc' },
+          include: { street: { select: { id: true, name: true } } }
+        },
+        assignments: {
+          where: { isActive: true, assignmentType: 'GROUP' },
+          include: { agent: { select: { id: true, firstName: true, lastName: true, email: true } } },
+          orderBy: { createdAt: 'desc' },
+          take: 1
+        }
+      }
+    });
+    if (!group || !group.zone) return res.status(404).json({ success: false, message: 'Gruppo non trovato' });
+    if (String(group.zone.notes || '') !== DYNAMIC_ZONE_GROUP_MARKER) {
+      return res.status(400).json({ success: false, message: 'Gruppo non dinamico' });
+    }
+    if (auth.agencyId && auth.role !== 'SUPER_ADMIN' && String(group.zone.agencyId) !== String(auth.agencyId)) {
+      return res.status(403).json({ success: false, message: 'Forbidden' });
+    }
+
+    const logs = await prismaAny.zoneGroupWorkLog.findMany({
+      where: { zoneId: group.zone.id, groupId: group.id },
+      orderBy: { createdAt: 'desc' },
+      include: {
+        createdBy: { select: { id: true, firstName: true, lastName: true, email: true } }
+      }
+    });
+    const assignmentHistory = await prismaAny.zoneAssignment.findMany({
+      where: { zoneId: group.zone.id, groupId: group.id, assignmentType: 'GROUP' },
+      orderBy: { createdAt: 'asc' },
+      include: { agent: { select: { id: true, firstName: true, lastName: true, email: true } } }
+    });
+
+    res.json({
+      success: true,
+      data: {
+        zoneId: String(group.zone.id),
+        groupId: String(group.id),
+        groupName: String(group.name || ''),
+        groupIndex: Number(group.groupIndex || 1),
+        city: String(group.zone.city || ''),
+        province: String(group.zone.province || ''),
+        region: String(group.zone.region || ''),
+        zoneName: parseDynamicZoneLabel(group.zone.zone),
+        canWrite: isAdminRole(auth.role),
+        streets: (group.members || []).map((m: any) => ({ id: String(m.street.id), name: String(m.street.name) })),
+        activeAssignment: group.assignments?.[0]
+          ? {
+              assignmentId: String(group.assignments[0].id),
+              agentId: String(group.assignments[0].agent.id),
+              agentName: `${group.assignments[0].agent.firstName} ${group.assignments[0].agent.lastName}`.trim()
+            }
+          : null,
+        assignmentHistory: assignmentHistory.map((a: any) => ({
+          id: String(a.id),
+          isActive: Boolean(a.isActive),
+          note: a.note || null,
+          assignedAt: a.createdAt,
+          endedAt: a.isActive ? null : a.updatedAt,
+          agent: a.agent
+        })),
+        logs: logs.map((log: any) => ({
+          id: String(log.id),
+          entryType: String(log.entryType),
+          title: log.title || null,
+          content: String(log.content || ''),
+          metadata: log.metadata || null,
+          createdAt: log.createdAt,
+          createdBy: log.createdBy
+        }))
+      }
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, message: 'Error loading dynamic group workspace' });
+  }
+});
+
+app.post('/api/agent-zones/dynamic-groups/:groupId/logs', async (req, res) => {
+  try {
+    const auth = getAuth(req);
+    if (!auth) return res.status(401).json({ success: false, message: 'Unauthorized' });
+    const prismaAny = prisma as any;
+    const groupId = String(req.params.groupId || '').trim();
+    if (!groupId) return res.status(400).json({ success: false, message: 'groupId obbligatorio' });
+
+    const group = await prismaAny.zoneStreetGroup.findUnique({
+      where: { id: groupId },
+      include: { zone: { select: { id: true, agencyId: true, notes: true } } }
+    });
+    if (!group || !group.zone) return res.status(404).json({ success: false, message: 'Gruppo non trovato' });
+    if (String(group.zone.notes || '') !== DYNAMIC_ZONE_GROUP_MARKER) {
+      return res.status(400).json({ success: false, message: 'Gruppo non dinamico' });
+    }
+    if (auth.agencyId && auth.role !== 'SUPER_ADMIN' && String(group.zone.agencyId) !== String(auth.agencyId)) {
+      return res.status(403).json({ success: false, message: 'Forbidden' });
+    }
+
+    let canWrite = isAdminRole(auth.role);
+    if (!canWrite) {
+      const activeAssignment = await prismaAny.zoneAssignment.findFirst({
+        where: {
+          zoneId: group.zone.id,
+          groupId: group.id,
+          assignmentType: 'GROUP',
+          agentId: auth.id,
+          isActive: true
+        },
+        select: { id: true }
+      });
+      canWrite = Boolean(activeAssignment);
+    }
+    if (!canWrite) return res.status(403).json({ success: false, message: 'Forbidden' });
+
+    const entryTypeRaw = String(req.body?.entryType || 'NOTE').trim().toUpperCase();
+    const validTypes = ['NOTE', 'STATUS', 'STATISTICS', 'HANDOVER'];
+    const entryType = validTypes.includes(entryTypeRaw) ? entryTypeRaw : 'NOTE';
+    const title = req.body?.title != null ? String(req.body.title).trim() : '';
+    const content = String(req.body?.content || '').trim();
+    if (!content) return res.status(400).json({ success: false, message: 'Contenuto obbligatorio' });
+
+    const created = await prismaAny.zoneGroupWorkLog.create({
+      data: {
+        agencyId: String(group.zone.agencyId),
+        zoneId: String(group.zone.id),
+        groupId: String(group.id),
+        createdById: String(auth.id),
+        entryType,
+        title: title || null,
+        content,
+        metadata: req.body?.metadata && typeof req.body.metadata === 'object' ? req.body.metadata : null
+      }
+    });
+    res.status(201).json({ success: true, data: created });
+  } catch (error) {
+    res.status(500).json({ success: false, message: 'Error saving dynamic group log' });
+  }
+});
+
+app.post('/api/agent-zones/dynamic-groups/streets/:streetId/move', async (req, res) => {
+  try {
+    const auth = getAuth(req);
+    if (!auth) return res.status(401).json({ success: false, message: 'Unauthorized' });
+    if (!isAdminRole(auth.role)) return res.status(403).json({ success: false, message: 'Forbidden' });
+    const prismaAny = prisma as any;
+    const streetId = String(req.params.streetId || '').trim();
+    const targetGroupId = String(req.body?.targetGroupId || '').trim();
+    if (!streetId || !targetGroupId) {
+      return res.status(400).json({ success: false, message: 'streetId e targetGroupId sono obbligatori' });
+    }
+
+    const sourceMember = await prismaAny.zoneStreetGroupMember.findFirst({
+      where: { streetId },
+      include: { group: { select: { id: true, zoneId: true } }, street: { select: { id: true, name: true } } }
+    });
+    if (!sourceMember || !sourceMember.group) return res.status(404).json({ success: false, message: 'Via non trovata in alcun gruppo' });
+    const targetGroup = await prismaAny.zoneStreetGroup.findUnique({
+      where: { id: targetGroupId },
+      include: { zone: { select: { id: true, agencyId: true, notes: true } } }
+    });
+    if (!targetGroup || !targetGroup.zone) return res.status(404).json({ success: false, message: 'Gruppo destinazione non trovato' });
+    if (String(targetGroup.zone.notes || '') !== DYNAMIC_ZONE_GROUP_MARKER) {
+      return res.status(400).json({ success: false, message: 'Il gruppo destinazione non è dinamico' });
+    }
+    if (auth.agencyId && auth.role !== 'SUPER_ADMIN' && String(targetGroup.zone.agencyId) !== String(auth.agencyId)) {
+      return res.status(403).json({ success: false, message: 'Forbidden' });
+    }
+    if (String(sourceMember.group.zoneId) !== String(targetGroup.zoneId)) {
+      return res.status(400).json({ success: false, message: 'Puoi spostare la via solo tra gruppi della stessa zona' });
+    }
+    if (String(sourceMember.group.id) === String(targetGroup.id)) {
+      return res.status(400).json({ success: false, message: 'La via è già in questo gruppo' });
+    }
+
+    await prismaAny.$transaction(async (tx: any) => {
+      await tx.zoneStreetGroupMember.delete({
+        where: { id: sourceMember.id }
+      });
+      const lastTarget = await tx.zoneStreetGroupMember.findFirst({
+        where: { groupId: targetGroup.id },
+        orderBy: { position: 'desc' },
+        select: { position: true }
+      });
+      await tx.zoneStreetGroupMember.create({
+        data: {
+          groupId: targetGroup.id,
+          streetId,
+          position: Number(lastTarget?.position || -1) + 1
+        }
+      });
+    });
+
+    res.json({ success: true, message: 'Via spostata con successo' });
+  } catch (error) {
+    res.status(500).json({ success: false, message: 'Error moving street' });
+  }
+});
+
+app.put('/api/agent-zones/dynamic-groups/streets/:streetId', async (req, res) => {
+  try {
+    const auth = getAuth(req);
+    if (!auth) return res.status(401).json({ success: false, message: 'Unauthorized' });
+    if (!isAdminRole(auth.role)) return res.status(403).json({ success: false, message: 'Forbidden' });
+    const prismaAny = prisma as any;
+    const streetId = String(req.params.streetId || '').trim();
+    const name = sanitizeStreetName(String(req.body?.name || ''));
+    if (!streetId || !name) return res.status(400).json({ success: false, message: 'streetId e nome via sono obbligatori' });
+    const normalizedName = normalizeStreetName(name);
+    if (!normalizedName) return res.status(400).json({ success: false, message: 'Nome via non valido' });
+
+    const street = await prismaAny.zoneStreet.findUnique({
+      where: { id: streetId },
+      include: { zone: { select: { id: true, agencyId: true, notes: true } } }
+    });
+    if (!street || !street.zone) return res.status(404).json({ success: false, message: 'Via non trovata' });
+    if (String(street.zone.notes || '') !== DYNAMIC_ZONE_GROUP_MARKER) {
+      return res.status(400).json({ success: false, message: 'La via non appartiene a un gruppo dinamico' });
+    }
+    if (auth.agencyId && auth.role !== 'SUPER_ADMIN' && String(street.zone.agencyId) !== String(auth.agencyId)) {
+      return res.status(403).json({ success: false, message: 'Forbidden' });
+    }
+    const duplicate = await prismaAny.zoneStreet.findFirst({
+      where: {
+        zoneId: street.zoneId,
+        normalizedName,
+        id: { not: streetId }
+      },
+      select: { id: true }
+    });
+    if (duplicate) return res.status(400).json({ success: false, message: 'Esiste già una via con questo nome nel gruppo/zona' });
+
+    const updated = await prismaAny.zoneStreet.update({
+      where: { id: streetId },
+      data: { name, normalizedName }
+    });
+    res.json({ success: true, data: { id: String(updated.id), name: String(updated.name) } });
+  } catch (error) {
+    res.status(500).json({ success: false, message: 'Error updating street' });
+  }
+});
+
+app.delete('/api/agent-zones/dynamic-groups/streets/:streetId', async (req, res) => {
+  try {
+    const auth = getAuth(req);
+    if (!auth) return res.status(401).json({ success: false, message: 'Unauthorized' });
+    if (!isAdminRole(auth.role)) return res.status(403).json({ success: false, message: 'Forbidden' });
+    const prismaAny = prisma as any;
+    const streetId = String(req.params.streetId || '').trim();
+    if (!streetId) return res.status(400).json({ success: false, message: 'streetId obbligatorio' });
+
+    const street = await prismaAny.zoneStreet.findUnique({
+      where: { id: streetId },
+      include: { zone: { select: { id: true, agencyId: true, notes: true } } }
+    });
+    if (!street || !street.zone) return res.status(404).json({ success: false, message: 'Via non trovata' });
+    if (String(street.zone.notes || '') !== DYNAMIC_ZONE_GROUP_MARKER) {
+      return res.status(400).json({ success: false, message: 'La via non appartiene a un gruppo dinamico' });
+    }
+    if (auth.agencyId && auth.role !== 'SUPER_ADMIN' && String(street.zone.agencyId) !== String(auth.agencyId)) {
+      return res.status(403).json({ success: false, message: 'Forbidden' });
+    }
+
+    await prismaAny.zoneStreet.delete({ where: { id: streetId } });
+    res.json({ success: true });
+  } catch (error) {
+    res.status(500).json({ success: false, message: 'Error deleting street' });
+  }
+});
+
 app.get('/api/agent-zones/:zoneId/details', async (req, res) => {
   try {
     const auth = getAuth(req);
@@ -7035,7 +8234,18 @@ app.get('/api/agent-zones/:zoneId/details', async (req, res) => {
       return res.status(403).json({ success: false, message: 'Forbidden' });
     }
     if (!isAdminRole(auth.role) && zone.agentId !== auth.id) {
-      return res.status(403).json({ success: false, message: 'Forbidden' });
+      // Agents can access zone details when they have at least one active assignment in the zone.
+      const hasAssignment = await prismaAny.zoneAssignment.findFirst({
+        where: {
+          zoneId,
+          agentId: auth.id,
+          isActive: true
+        },
+        select: { id: true }
+      });
+      if (!hasAssignment) {
+        return res.status(403).json({ success: false, message: 'Forbidden' });
+      }
     }
 
     const [groups, assignments, recentImports] = await Promise.all([
@@ -7349,7 +8559,9 @@ app.post('/api/agent-zones/:zoneId/import-cap-streets', async (req, res) => {
   }
 });
 
-const zoneLabelFromCap = (cap: string) => `CAP ${cap}`;
+// Legacy mapping: zone identity currently derived from CAP label.
+// Keep this indirection so we can swap to perimeter-based identity later.
+const zoneLabelFromCap = (cap: string) => buildLegacyCapZoneLabel(cap);
 
 const resolveAgencyIdForAdminAction = async (auth: any, fallbackAgentId?: string) => {
   if (auth?.agencyId) return auth.agencyId;
@@ -7486,9 +8698,8 @@ app.get('/api/agent-zones/cap-summary', async (req, res) => {
 
     const zoneByCap = new Map<string, string>();
     for (const z of zones) {
-      const zoneLabel = String(z.zone || '');
-      const m = zoneLabel.match(/^CAP\s+(\d{5})$/i);
-      if (m) zoneByCap.set(m[1], String(z.id));
+      const cap = extractLegacyCapFromZoneLabel(String(z.zone || ''));
+      if (cap) zoneByCap.set(cap, String(z.id));
     }
 
     const zoneIds = Array.from(zoneByCap.values());
@@ -8291,6 +9502,7 @@ app.post('/api/agent-zones/group-workspace/close-assignment', async (req, res) =
     }
 
     const updated = await prismaAny.$transaction(async (tx: any) => {
+      await pruneInactiveGroupAssignments(tx, assignment.zoneId, assignment.groupId, assignment.id);
       const closed = await tx.zoneAssignment.update({
         where: { id: assignment.id },
         data: {
@@ -8353,7 +9565,43 @@ app.post('/api/agent-zones/group-workspace/logs', async (req, res) => {
     const leadsCount = req.body?.leadsCount != null ? Number(req.body.leadsCount) : null;
     const appointmentsCount = req.body?.appointmentsCount != null ? Number(req.body.appointmentsCount) : null;
     const contractsCount = req.body?.contractsCount != null ? Number(req.body.contractsCount) : null;
-    const metadata = req.body?.metadata ?? null;
+    const normalizeWorkspaceMetadata = (raw: unknown) => {
+      if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return null;
+      const base: Record<string, any> = { ...(raw as Record<string, any>) };
+      const normalizedAttachments: Array<{ type: 'image'; dataUrl: string; label?: string | null }> = [];
+      const rawAttachments = Array.isArray(base.attachments) ? base.attachments : [];
+      for (const item of rawAttachments) {
+        if (!item || typeof item !== 'object') continue;
+        const dataUrl = typeof (item as any).dataUrl === 'string' ? String((item as any).dataUrl).trim() : '';
+        if (!dataUrl) continue;
+        const label = typeof (item as any).label === 'string' ? String((item as any).label).trim() : '';
+        normalizedAttachments.push({ type: 'image', dataUrl, ...(label ? { label } : {}) });
+      }
+      const legacyPhoto = typeof base.photoDataUrl === 'string' ? String(base.photoDataUrl).trim() : '';
+      if (normalizedAttachments.length === 0 && legacyPhoto) {
+        normalizedAttachments.push({ type: 'image', dataUrl: legacyPhoto });
+      }
+      if (normalizedAttachments.length > 0) {
+        base.attachments = normalizedAttachments;
+        if (!legacyPhoto) base.photoDataUrl = normalizedAttachments[0].dataUrl;
+      }
+      return Object.keys(base).length > 0 ? base : null;
+    };
+    const metadata = normalizeWorkspaceMetadata(req.body?.metadata ?? null);
+    const attachments = Array.isArray((metadata as any)?.attachments) ? (metadata as any).attachments : [];
+    for (const attachment of attachments) {
+      const dataUrl = typeof attachment?.dataUrl === 'string' ? String(attachment.dataUrl).trim() : '';
+      if (!/^data:image\/(png|jpe?g|webp|gif);base64,/i.test(dataUrl)) {
+        return res.status(400).json({ success: false, message: 'Formato immagine non supportato (usa PNG/JPG/WEBP/GIF)' });
+      }
+      // Base64 payload length ~= bytes * 4/3. Keep a 5MB ceiling.
+      const commaIdx = dataUrl.indexOf(',');
+      const base64 = commaIdx >= 0 ? dataUrl.slice(commaIdx + 1) : '';
+      const estimatedBytes = Math.floor((base64.length * 3) / 4);
+      if (estimatedBytes > 5 * 1024 * 1024) {
+        return res.status(413).json({ success: false, message: 'Immagine troppo grande: massimo 5MB' });
+      }
+    }
     if (!cap || !region || !province || !city || !groupIndex || !content) {
       return res.status(400).json({ success: false, message: 'cap, region, province, city, groupIndex, content are required' });
     }
@@ -8411,7 +9659,7 @@ app.post('/api/agent-zones/group-workspace/logs', async (req, res) => {
         leadsCount: Number.isFinite(leadsCount as number) ? Number(leadsCount) : null,
         appointmentsCount: Number.isFinite(appointmentsCount as number) ? Number(appointmentsCount) : null,
         contractsCount: Number.isFinite(contractsCount as number) ? Number(contractsCount) : null,
-        metadata: metadata && typeof metadata === 'object' ? metadata : null
+        metadata
       },
       include: {
         createdBy: { select: { id: true, firstName: true, lastName: true, email: true } }
@@ -8429,7 +9677,7 @@ app.post('/api/agent-zones/group-workspace/logs', async (req, res) => {
         leadsCount: created.leadsCount,
         appointmentsCount: created.appointmentsCount,
         contractsCount: created.contractsCount,
-        metadata: created.metadata,
+        metadata: normalizeWorkspaceMetadata(created.metadata),
         createdAt: created.createdAt,
         createdBy: created.createdBy
       }
@@ -8577,7 +9825,42 @@ app.post('/api/agent-zones/street-workspace/logs', async (req, res) => {
     const entryType = ['NOTE', 'STATUS', 'STATISTICS', 'HANDOVER'].includes(entryTypeRaw) ? entryTypeRaw : 'NOTE';
     const title = req.body?.title != null ? String(req.body.title).trim() : '';
     const content = req.body?.content != null ? String(req.body.content).trim() : '';
-    const metadata = req.body?.metadata && typeof req.body.metadata === 'object' ? req.body.metadata : null;
+    const normalizeWorkspaceMetadata = (raw: unknown) => {
+      if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return null;
+      const base: Record<string, any> = { ...(raw as Record<string, any>) };
+      const normalizedAttachments: Array<{ type: 'image'; dataUrl: string; label?: string | null }> = [];
+      const rawAttachments = Array.isArray(base.attachments) ? base.attachments : [];
+      for (const item of rawAttachments) {
+        if (!item || typeof item !== 'object') continue;
+        const dataUrl = typeof (item as any).dataUrl === 'string' ? String((item as any).dataUrl).trim() : '';
+        if (!dataUrl) continue;
+        const label = typeof (item as any).label === 'string' ? String((item as any).label).trim() : '';
+        normalizedAttachments.push({ type: 'image', dataUrl, ...(label ? { label } : {}) });
+      }
+      const legacyPhoto = typeof base.photoDataUrl === 'string' ? String(base.photoDataUrl).trim() : '';
+      if (normalizedAttachments.length === 0 && legacyPhoto) {
+        normalizedAttachments.push({ type: 'image', dataUrl: legacyPhoto });
+      }
+      if (normalizedAttachments.length > 0) {
+        base.attachments = normalizedAttachments;
+        if (!legacyPhoto) base.photoDataUrl = normalizedAttachments[0].dataUrl;
+      }
+      return Object.keys(base).length > 0 ? base : null;
+    };
+    const metadata = normalizeWorkspaceMetadata(req.body?.metadata ?? null);
+    const attachments = Array.isArray((metadata as any)?.attachments) ? (metadata as any).attachments : [];
+    for (const attachment of attachments) {
+      const dataUrl = typeof attachment?.dataUrl === 'string' ? String(attachment.dataUrl).trim() : '';
+      if (!/^data:image\/(png|jpe?g|webp|gif);base64,/i.test(dataUrl)) {
+        return res.status(400).json({ success: false, message: 'Formato immagine non supportato (usa PNG/JPG/WEBP/GIF)' });
+      }
+      const commaIdx = dataUrl.indexOf(',');
+      const base64 = commaIdx >= 0 ? dataUrl.slice(commaIdx + 1) : '';
+      const estimatedBytes = Math.floor((base64.length * 3) / 4);
+      if (estimatedBytes > 5 * 1024 * 1024) {
+        return res.status(413).json({ success: false, message: 'Immagine troppo grande: massimo 5MB' });
+      }
+    }
     if (!cap || !region || !province || !city || !groupIndex || !streetId || !content) {
       return res.status(400).json({ success: false, message: 'cap, region, province, city, groupIndex, streetId, content are required' });
     }
@@ -8629,7 +9912,7 @@ app.post('/api/agent-zones/street-workspace/logs', async (req, res) => {
         entryType,
         title: title || null,
         content,
-        metadata: metadata || null
+        metadata
       },
       include: {
         createdBy: { select: { id: true, firstName: true, lastName: true, email: true } }
@@ -8643,7 +9926,7 @@ app.post('/api/agent-zones/street-workspace/logs', async (req, res) => {
         entryType: created.entryType,
         title: created.title,
         content: created.content,
-        metadata: created.metadata || null,
+        metadata: normalizeWorkspaceMetadata(created.metadata) || null,
         createdAt: created.createdAt,
         createdBy: created.createdBy
       }
@@ -8872,146 +10155,318 @@ app.get('/api/agent-zones/street-listings', async (req, res) => {
     let warningMessage: string | null = latestSnapshot?.warning || null;
     let refreshed = false;
 
-    if (shouldRefresh) {
-      let scrapeResult = await scrapeIdealistaStreetWithLock({
-        streetId: scope.street.id,
-        streetName: scope.street.name,
-        city: scope.city,
-        province: scope.province,
-        sourceUrl: idealistaSourceUrl
-      });
+    const refreshStreetListingsSnapshot = async () => {
+      const refreshKey = `${scope.street.id}::${cap}::${scope.city}::${scope.province}`;
+      const running = zoneStreetListingRefreshLocks.get(refreshKey);
+      if (running) return running;
 
-      if ((!Array.isArray(scrapeResult.listings) || scrapeResult.listings.length === 0) &&
-        /403|forbidden|no listings found/i.test(String(scrapeResult.warning || ''))) {
-        const crmProperties = await prismaAny.property.findMany({
-          where: {
-            agencyId: scope.zone.agencyId,
-            city: { equals: scope.city, mode: 'insensitive' },
-            province: { equals: scope.province, mode: 'insensitive' },
-            zipCode: cap,
-            address: { contains: scope.street.name, mode: 'insensitive' }
-          },
-          orderBy: { updatedAt: 'desc' },
-          take: 80
-        });
-
-        if (crmProperties.length > 0) {
-          scrapeResult = {
-            status: 'PARTIAL',
-            warning: `${scrapeResult.warning || 'Idealista blocked'} | fallback=crm-properties`,
-            listings: crmProperties.map((p: any) => ({
-              sourceListingId: `crm-${p.id}`,
-              sourceUrl: 'crm://property',
-              listingUrl: `/immobili/${p.id}`,
-              title: p.title || `${p.address} - ${p.city}`,
-              priceText: formatEuroText(p.salePrice ?? p.rentPrice),
-              surfaceText: typeof p.surface === 'number' ? `${Math.round(p.surface)} m2` : null,
-              roomsText: typeof p.rooms === 'number' ? `${p.rooms} locali` : null,
-              floorText: typeof p.floor === 'number' ? `${p.floor} piano` : null,
-              description: p.description || null,
-              energyClass: p.energyClass || null,
-              addressText: p.address || null,
-              agencyName: 'Archivio CRM',
-              phoneVisible: null,
-              mainImageUrl: Array.isArray(p.images) && p.images.length > 0 ? p.images[0] : null,
-              metadata: {
-                via: 'crm-fallback',
-                propertyId: p.id
-              }
-            })),
-            rawPayload: {
-              mode: 'crm-fallback',
-              originalWarning: scrapeResult.warning || null,
-              propertyCount: crmProperties.length
-            }
-          };
-        }
-      }
-      refreshed = true;
-
-      snapshot = await prismaAny.$transaction(async (tx: any) => {
-        const createdSnapshot = await tx.zoneStreetListingSnapshot.create({
-          data: {
-            agencyId: scope.zone.agencyId,
-            zoneId: scope.zone.id,
-            groupId: scope.group.id,
-            streetId: scope.street.id,
-            sourceUrl: scrapeResult.sourceUrl,
-            status: scrapeResult.status,
-            warning: scrapeResult.warning || null,
-            fetchedAt: new Date(),
-            expiresAt: new Date(Date.now() + snapshotMaxAgeMs),
-            rawPayload: scrapeResult.rawPayload || null
-          }
+      const task = (async () => {
+        let scrapeResult = await scrapeIdealistaStreetWithLock({
+          streetId: scope.street.id,
+          streetName: scope.street.name,
+          city: scope.city,
+          province: scope.province,
+          sourceUrl: idealistaSourceUrl
         });
 
         if (Array.isArray(scrapeResult.listings) && scrapeResult.listings.length > 0) {
-          const incomingIds = Array.from(
-            new Set(
-              scrapeResult.listings
-                .map((listing: any) => String(listing?.sourceListingId || '').trim())
-                .filter(Boolean)
-            )
-          );
+          scrapeResult = {
+            ...scrapeResult,
+            listings: await enrichNestoriaListingsWithDetailGeo(scrapeResult.listings)
+          };
+        }
 
-          const existing = incomingIds.length > 0
-            ? await tx.zoneStreetListing.findMany({
-                where: {
-                  streetId: scope.street.id,
-                  sourceListingId: { in: incomingIds }
-                },
-                select: { sourceListingId: true }
-              })
-            : [];
+        const geoFiltered = filterListingsByStreetScope(scrapeResult.listings, {
+          streetName: scope.street.name,
+          city: scope.city,
+          province: scope.province,
+          cap
+        });
+      scrapeResult = {
+        ...scrapeResult,
+        listings: geoFiltered.listings,
+        warning: [
+          scrapeResult.warning || null,
+          geoFiltered.acceptedSoftCount > 0
+            ? `Geo soft-match accepted ${geoFiltered.acceptedSoftCount} listing (city/cap coherent)`
+            : null,
+          geoFiltered.rejectedCount > 0
+            ? `Geo filter removed ${geoFiltered.rejectedCount} listing fuori zona (${geoFiltered.rejectedSummary || 'via/citta/cap mismatch'})`
+            : null
+        ]
+            .filter(Boolean)
+            .join(' | ') || null
+        };
 
-          const existingIds = new Set(existing.map((row: any) => String(row.sourceListingId)));
-          const now = new Date();
+        if (!Array.isArray(scrapeResult.listings) || scrapeResult.listings.length === 0) {
+          const historicalRows = await prismaAny.zoneStreetListing.findMany({
+            where: { streetId: scope.street.id },
+            orderBy: [{ lastSeenAt: 'desc' }, { updatedAt: 'desc' }],
+            take: 80
+          });
 
-          for (const listing of scrapeResult.listings) {
-            const sourceListingId = String(listing?.sourceListingId || '').trim();
-            if (!sourceListingId || existingIds.has(sourceListingId)) {
-              continue;
+          if (historicalRows.length > 0) {
+            scrapeResult = {
+              status: 'PARTIAL',
+              warning: `${scrapeResult.warning || 'No precise external listings'} | fallback=historical-street-cache`,
+              listings: historicalRows.map((row: any) => ({
+                sourceListingId: row.sourceListingId,
+                sourceUrl: row.sourceUrl || null,
+                listingUrl: row.listingUrl || '',
+                title: row.title || null,
+                priceText: row.priceText || null,
+                surfaceText: row.surfaceText || null,
+                roomsText: row.roomsText || null,
+                floorText: row.floorText || null,
+                description: row.description || null,
+                energyClass: row.energyClass || null,
+                addressText: row.addressText || null,
+                agencyName: row.agencyName || null,
+                phoneVisible: row.phoneVisible || null,
+                mainImageUrl: row.mainImageUrl || null,
+                metadata: row.metadata || { via: 'historical-street-cache' }
+              })),
+              rawPayload: {
+                mode: 'historical-street-cache',
+                originalWarning: scrapeResult.warning || null,
+                listingCount: historicalRows.length
+              }
+            };
+          } else {
+            const groupRows = await prismaAny.zoneStreetListing.findMany({
+              where: {
+                zoneId: scope.zone.id,
+                groupId: scope.group.id
+              },
+              orderBy: [{ lastSeenAt: 'desc' }, { updatedAt: 'desc' }],
+              take: 240
+            });
+            const groupMatchedRows = (Array.isArray(groupRows) ? groupRows : []).filter((row: any) =>
+              isListingInsideStreetScope(row, {
+                streetName: scope.street.name,
+                city: scope.city,
+                province: scope.province,
+                cap
+              }).ok
+            );
+
+            if (groupMatchedRows.length > 0) {
+              scrapeResult = {
+                status: 'PARTIAL',
+                warning: `${scrapeResult.warning || 'No precise external listings'} | fallback=group-street-cache`,
+                listings: groupMatchedRows.map((row: any) => ({
+                  sourceListingId: row.sourceListingId,
+                  sourceUrl: row.sourceUrl || null,
+                  listingUrl: row.listingUrl || '',
+                  title: row.title || null,
+                  priceText: row.priceText || null,
+                  surfaceText: row.surfaceText || null,
+                  roomsText: row.roomsText || null,
+                  floorText: row.floorText || null,
+                  description: row.description || null,
+                  energyClass: row.energyClass || null,
+                  addressText: row.addressText || null,
+                  agencyName: row.agencyName || null,
+                  phoneVisible: row.phoneVisible || null,
+                  mainImageUrl: row.mainImageUrl || null,
+                  metadata: row.metadata || { via: 'group-street-cache' }
+                })),
+                rawPayload: {
+                  mode: 'group-street-cache',
+                  originalWarning: scrapeResult.warning || null,
+                  listingCount: groupMatchedRows.length
+                }
+              };
             }
 
-            await tx.zoneStreetListing.create({
-              data: {
+            if (!Array.isArray(scrapeResult.listings) || scrapeResult.listings.length === 0) {
+            const streetName = String(scope.street.name || '').trim();
+            const streetCore = stripStreetPrefix(streetName);
+            const addressMatches: any[] = streetName
+              ? [{ address: { contains: streetName, mode: 'insensitive' } }]
+              : [];
+            if (streetCore && streetCore.length >= 4 && normalizeGeoToken(streetCore) !== normalizeGeoToken(streetName)) {
+              addressMatches.push({ address: { contains: streetCore, mode: 'insensitive' } });
+            }
+
+            const crmProperties = await prismaAny.property.findMany({
+              where: {
                 agencyId: scope.zone.agencyId,
-                zoneId: scope.zone.id,
-                groupId: scope.group.id,
-                streetId: scope.street.id,
-                snapshotId: createdSnapshot.id,
-                sourceListingId,
-                sourceUrl: scrapeResult.sourceUrl,
-                listingUrl: listing.listingUrl,
-                title: listing.title || null,
-                priceText: listing.priceText || null,
-                surfaceText: listing.surfaceText || null,
-                roomsText: listing.roomsText || null,
-                floorText: listing.floorText || null,
-                description: listing.description || null,
-                energyClass: listing.energyClass || null,
-                addressText: listing.addressText || null,
-                agencyName: listing.agencyName || null,
-                phoneVisible: listing.phoneVisible || null,
-                mainImageUrl: listing.mainImageUrl || null,
-                isActive: true,
-                firstSeenAt: now,
-                lastSeenAt: now,
-                metadata: listing.metadata || null
-              }
+                city: { equals: scope.city, mode: 'insensitive' },
+                province: { equals: scope.province, mode: 'insensitive' },
+                zipCode: cap,
+                ...(addressMatches.length > 0 ? { OR: addressMatches } : {})
+              },
+              orderBy: { updatedAt: 'desc' },
+              take: 80
             });
+
+              if (crmProperties.length > 0) {
+                scrapeResult = {
+                  status: 'PARTIAL',
+                  warning: `${scrapeResult.warning || 'No precise external listings'} | fallback=crm-properties`,
+                  listings: crmProperties.map((p: any) => ({
+                    sourceListingId: `crm-${p.id}`,
+                    sourceUrl: 'crm://property',
+                    listingUrl: `/immobili/${p.id}`,
+                    title: p.title || `${p.address} - ${p.city}`,
+                    priceText: formatEuroText(p.salePrice ?? p.rentPrice),
+                    surfaceText: typeof p.surface === 'number' ? `${Math.round(p.surface)} m2` : null,
+                    roomsText: typeof p.rooms === 'number' ? `${p.rooms} locali` : null,
+                    floorText: typeof p.floor === 'number' ? `${p.floor} piano` : null,
+                    description: p.description || null,
+                    energyClass: p.energyClass || null,
+                    addressText: p.address || null,
+                    agencyName: 'Archivio CRM',
+                    phoneVisible: null,
+                    mainImageUrl: Array.isArray(p.images) && p.images.length > 0 ? p.images[0] : null,
+                    metadata: {
+                      via: 'crm-fallback',
+                      propertyId: p.id
+                    }
+                  })),
+                  rawPayload: {
+                    mode: 'crm-fallback',
+                    originalWarning: scrapeResult.warning || null,
+                    propertyCount: crmProperties.length
+                  }
+                };
+              }
+            }
           }
         }
 
-        return createdSnapshot;
-      });
+        const savedSnapshot = await prismaAny.$transaction(async (tx: any) => {
+          const createdSnapshot = await tx.zoneStreetListingSnapshot.create({
+            data: {
+              agencyId: scope.zone.agencyId,
+              zoneId: scope.zone.id,
+              groupId: scope.group.id,
+              streetId: scope.street.id,
+              sourceUrl: scrapeResult.sourceUrl,
+              status: scrapeResult.status,
+              warning: scrapeResult.warning || null,
+              fetchedAt: new Date(),
+              expiresAt: new Date(Date.now() + snapshotMaxAgeMs),
+              rawPayload: scrapeResult.rawPayload || null
+            }
+          });
 
-      warningMessage = scrapeResult.warning || null;
+          const now = new Date();
+          const existingRows = await tx.zoneStreetListing.findMany({
+            where: { streetId: scope.street.id },
+            select: { id: true, sourceListingId: true }
+          });
+          const existingBySourceId = new Map(
+            existingRows.map((row: any) => [String(row.sourceListingId), row.id])
+          );
+          const seenIds = new Set<string>();
+
+          for (const listing of Array.isArray(scrapeResult.listings) ? scrapeResult.listings : []) {
+            const sourceListingId = String(listing?.sourceListingId || '').trim();
+            if (!sourceListingId) continue;
+            seenIds.add(sourceListingId);
+
+            const data = {
+              agencyId: scope.zone.agencyId,
+              zoneId: scope.zone.id,
+              groupId: scope.group.id,
+              streetId: scope.street.id,
+              snapshotId: createdSnapshot.id,
+              sourceListingId,
+              sourceUrl: scrapeResult.sourceUrl,
+              listingUrl: listing.listingUrl || '',
+              title: listing.title || null,
+              priceText: listing.priceText || null,
+              surfaceText: listing.surfaceText || null,
+              roomsText: listing.roomsText || null,
+              floorText: listing.floorText || null,
+              description: listing.description || null,
+              energyClass: listing.energyClass || null,
+              addressText: listing.addressText || null,
+              agencyName: listing.agencyName || null,
+              phoneVisible: listing.phoneVisible || null,
+              mainImageUrl: listing.mainImageUrl || null,
+              isActive: true,
+              lastSeenAt: now,
+              metadata: listing.metadata || null
+            };
+
+            const existingId = existingBySourceId.get(sourceListingId);
+            if (existingId) {
+              await tx.zoneStreetListing.update({
+                where: { id: existingId },
+                data
+              });
+            } else {
+              await tx.zoneStreetListing.create({
+                data: {
+                  ...data,
+                  firstSeenAt: now
+                }
+              });
+            }
+          }
+
+          const canDeactivateStale = scrapeResult.status !== 'FAILED' && seenIds.size > 0;
+          if (existingRows.length > 0 && canDeactivateStale) {
+            const staleIds = existingRows
+              .map((row: any) => String(row.sourceListingId))
+              .filter((sourceId: string) => !seenIds.has(sourceId));
+            if (staleIds.length > 0) {
+              await tx.zoneStreetListing.updateMany({
+                where: {
+                  streetId: scope.street.id,
+                  sourceListingId: { in: staleIds }
+                },
+                data: {
+                  isActive: false
+                }
+              });
+            }
+          }
+
+          return createdSnapshot;
+        });
+
+        return {
+          snapshot: savedSnapshot,
+          warning: humanizeStreetListingWarning(scrapeResult.warning)
+        };
+      })()
+        .finally(() => {
+          zoneStreetListingRefreshLocks.delete(refreshKey);
+        });
+
+      zoneStreetListingRefreshLocks.set(refreshKey, task);
+      return task;
+    };
+
+    if (shouldRefresh) {
+      const activeListingsCount = snapshot
+        ? await prismaAny.zoneStreetListing.count({
+            where: {
+              streetId: scope.street.id,
+              isActive: true
+            }
+          })
+        : 0;
+
+      if (!forceRefresh && snapshot && activeListingsCount > 0) {
+        // Serve last snapshot immediately; refresh is done in background.
+        void refreshStreetListingsSnapshot().catch(() => null);
+      } else {
+        const refreshedData = await refreshStreetListingsSnapshot();
+        snapshot = refreshedData.snapshot;
+        warningMessage = refreshedData.warning;
+        refreshed = true;
+      }
     }
 
-    const listings = await prismaAny.zoneStreetListing.findMany({
+    const rawListings = await prismaAny.zoneStreetListing.findMany({
       where: {
-        streetId: scope.street.id
+        streetId: scope.street.id,
+        isActive: true
       },
       orderBy: [{ updatedAt: 'desc' }],
       select: {
@@ -9023,13 +10478,46 @@ app.get('/api/agent-zones/street-listings', async (req, res) => {
         surfaceText: true,
         roomsText: true,
         floorText: true,
+        description: true,
+        addressText: true,
         agencyName: true,
         mainImageUrl: true,
         listingStatus: true,
         lastSeenAt: true,
-        updatedAt: true
+        updatedAt: true,
+        metadata: true
       }
     });
+
+    const geoValidatedListings = filterListingsByStreetScope(rawListings, {
+      streetName: scope.street.name,
+      city: scope.city,
+      province: scope.province,
+      cap
+    });
+    if (geoValidatedListings.rejectedCount > 0) {
+      const geoWarning = `Geo filter removed ${geoValidatedListings.rejectedCount} listing fuori zona (${geoValidatedListings.rejectedSummary || 'via/citta/cap mismatch'})`;
+      warningMessage = warningMessage ? `${warningMessage} | ${geoWarning}` : geoWarning;
+    }
+    if (geoValidatedListings.acceptedSoftCount > 0) {
+      const softWarning = `Geo soft-match accepted ${geoValidatedListings.acceptedSoftCount} listing (city/cap coherent)`;
+      warningMessage = warningMessage ? `${warningMessage} | ${softWarning}` : softWarning;
+    }
+    const listings = geoValidatedListings.listings.map((row: any) => ({
+      id: row.id,
+      sourceListingId: row.sourceListingId,
+      listingUrl: row.listingUrl,
+      title: row.title,
+      priceText: row.priceText,
+      surfaceText: row.surfaceText,
+      roomsText: row.roomsText,
+      floorText: row.floorText,
+      agencyName: row.agencyName,
+      mainImageUrl: row.mainImageUrl,
+      listingStatus: row.listingStatus,
+      lastSeenAt: row.lastSeenAt,
+      updatedAt: row.updatedAt
+    }));
 
     res.json({
       success: true,
@@ -9038,6 +10526,7 @@ app.get('/api/agent-zones/street-listings', async (req, res) => {
         cap,
         sourceUrl: snapshot?.sourceUrl || idealistaSourceUrl,
         refreshed,
+        refreshQueued: Boolean(shouldRefresh && !forceRefresh && snapshot && !refreshed),
         snapshot: snapshot
           ? {
               id: snapshot.id,
@@ -9047,7 +10536,7 @@ app.get('/api/agent-zones/street-listings', async (req, res) => {
               expiresAt: snapshot.expiresAt
             }
           : null,
-        warning: warningMessage,
+        warning: humanizeStreetListingWarning(warningMessage),
         listings
       }
     });
@@ -9591,6 +11080,7 @@ app.post('/api/agent-zones/assign-cap-group', async (req, res) => {
     }
     const created = await prismaAny.$transaction(async (tx: any) => {
       if (alreadyAssigned && alreadyAssigned.agentId !== agentId) {
+        await pruneInactiveGroupAssignments(tx, zone.id, group.id, alreadyAssigned.id);
         reassignFrom = {
           agentId: String(alreadyAssigned.agent.id),
           agentName: `${alreadyAssigned.agent.firstName} ${alreadyAssigned.agent.lastName}`.trim()
@@ -9963,6 +11453,7 @@ type GeoLocationRow = {
 let cachedGeoLocations: GeoLocationRow[] | null = null;
 let cachedPescaraCapCatalog: any[] | null = null;
 const zoneStreetListingScrapeLocks = new Map<string, Promise<any>>();
+const zoneStreetListingRefreshLocks = new Map<string, Promise<any>>();
 
 async function resolveStreetScopeForZoneTask(params: {
   prismaAny: any;
@@ -9981,10 +11472,18 @@ async function resolveStreetScopeForZoneTask(params: {
   if (!agencyId) {
     return { success: false, status: 400, message: 'Agency not found' };
   }
-  const zone = await prismaAny.agentZone.findFirst({
-    where: { agencyId, region, province, city, zone: zoneLabelFromCap(cap) },
-    select: { id: true, agencyId: true, region: true, province: true, city: true, zone: true }
+  const resolved = await resolveZoneScope({
+    prismaAny,
+    agencyId,
+    identity: {
+      zoneKind: 'legacy_cap',
+      cap,
+      region,
+      province,
+      city
+    }
   });
+  const zone = resolved.zone;
   if (!zone) return { success: false, status: 404, message: 'Zone not found' };
   const group = await prismaAny.zoneStreetGroup.findFirst({
     where: { zoneId: zone.id, groupIndex },
@@ -10023,49 +11522,60 @@ const loadGeoLocations = () => {
   const path = require('path') as typeof import('path');
   const candidates = [
     path.resolve(process.cwd(), 'zone.csv'),
+    path.resolve(process.cwd(), 'data', 'zone.csv'),
+    path.resolve(process.cwd(), 'packages', 'backend', 'data', 'zone.csv'),
+    path.resolve(__dirname, '..', 'data', 'zone.csv'),
     path.resolve(__dirname, '..', '..', '..', 'zone.csv')
   ];
   const csvPath = candidates.find((p) => fs.existsSync(p));
-  if (!csvPath) {
-    cachedGeoLocations = [];
-    return cachedGeoLocations;
-  }
-  const raw = fs.readFileSync(csvPath, 'utf8');
-  const lines = raw.split(/\r?\n/).filter((line) => line.trim().length > 0);
-  if (lines.length <= 1) {
-    cachedGeoLocations = [];
-    return cachedGeoLocations;
-  }
   const rows: GeoLocationRow[] = [];
-  for (let i = 1; i < lines.length; i++) {
-    const line = lines[i];
-    const cols: string[] = [];
-    let current = '';
-    let inQuotes = false;
-    for (let j = 0; j < line.length; j++) {
-      const ch = line[j];
-      if (ch === '"') {
-        if (inQuotes && j + 1 < line.length && line[j + 1] === '"') {
-          current += '"';
-          j++;
+  if (csvPath) {
+    const raw = fs.readFileSync(csvPath, 'utf8');
+    const lines = raw.split(/\r?\n/).filter((line) => line.trim().length > 0);
+    for (let i = 1; i < lines.length; i++) {
+      const line = lines[i];
+      const cols: string[] = [];
+      let current = '';
+      let inQuotes = false;
+      for (let j = 0; j < line.length; j++) {
+        const ch = line[j];
+        if (ch === '"') {
+          if (inQuotes && j + 1 < line.length && line[j + 1] === '"') {
+            current += '"';
+            j++;
+          } else {
+            inQuotes = !inQuotes;
+          }
+        } else if (ch === ',' && !inQuotes) {
+          cols.push(current);
+          current = '';
         } else {
-          inQuotes = !inQuotes;
+          current += ch;
         }
-      } else if (ch === ',' && !inQuotes) {
-        cols.push(current);
-        current = '';
-      } else {
-        current += ch;
       }
+      cols.push(current);
+      if (cols.length < 5) continue;
+      const region = cols[1]?.trim();
+      const province = cols[2]?.trim();
+      const city = cols[3]?.trim();
+      const zone = cols[4]?.trim();
+      if (!region || !province || !city) continue;
+      rows.push({ region, province, city, zone });
     }
-    cols.push(current);
-    if (cols.length < 5) continue;
-    const region = cols[1]?.trim();
-    const province = cols[2]?.trim();
-    const city = cols[3]?.trim();
-    const zone = cols[4]?.trim();
-    if (!region || !province || !city) continue;
-    rows.push({ region, province, city, zone });
+  }
+  if (rows.length === 0) {
+    const capCatalog = loadPescaraCapCatalog();
+    const seen = new Set<string>();
+    for (const item of capCatalog) {
+      const region = String(item?.region || '').trim();
+      const province = String(item?.province || '').trim();
+      const city = String(item?.city || '').trim();
+      if (!region || !province || !city) continue;
+      const key = `${region}|${province}|${city}`;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      rows.push({ region, province, city, zone: '' });
+    }
   }
   cachedGeoLocations = rows;
   return cachedGeoLocations;
@@ -10111,6 +11621,7 @@ const decodeHtmlText = (value: string) =>
     .replace(/&nbsp;/g, ' ')
     .replace(/&amp;/g, '&')
     .replace(/&quot;/g, '"')
+    .replace(/&apos;/g, "'")
     .replace(/&#x27;|&#39;/g, "'")
     .replace(/&#x2F;/g, '/')
     .replace(/\s+/g, ' ')
@@ -10128,6 +11639,277 @@ const normalizeSpace = (value: string) =>
   String(value || '')
     .replace(/\s+/g, ' ')
     .trim();
+
+const normalizeGeoToken = (value: string) =>
+  normalizeSpace(String(value || ''))
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .replace(/[^a-z0-9\s]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+
+const stripStreetPrefix = (value: string) =>
+  normalizeGeoToken(value).replace(
+    /^(via|viale|piazza|corso|largo|strada|vicolo|salita|lungomare|contrada|traversa)\s+/i,
+    ''
+  );
+
+const extractFiveDigitCaps = (text: string) => {
+  const matches = String(text || '').match(/\b\d{5}\b/g) || [];
+  return Array.from(new Set(matches));
+};
+
+const STREET_TOKEN_STOPWORDS = new Set([
+  'via',
+  'viale',
+  'piazza',
+  'corso',
+  'largo',
+  'strada',
+  'vicolo',
+  'salita',
+  'lungomare',
+  'contrada',
+  'traversa',
+  'di',
+  'del',
+  'della',
+  'dello',
+  'dei',
+  'degli',
+  'delle',
+  'da',
+  'la',
+  'le',
+  'il',
+  'lo'
+]);
+
+const tokenizeStreet = (streetName: string) =>
+  normalizeGeoToken(streetName)
+    .split(' ')
+    .map((token) => token.trim())
+    .filter((token) => token.length >= 4 && !STREET_TOKEN_STOPWORDS.has(token));
+
+const buildListingAddressEvidenceText = (listing: any) => {
+  const metadata = listing?.metadata && typeof listing.metadata === 'object' ? listing.metadata : {};
+  const sourceVia = String(metadata?.via || '').toLowerCase();
+  const listingUrl = String(listing?.listingUrl || '').toLowerCase();
+  const isNestoriaDerived =
+    sourceVia.includes('nestoria') ||
+    listingUrl.includes('nestoria-it-') ||
+    (listingUrl.includes('clk.thribee.com') && listingUrl.includes('adid=nestoria-it-'));
+  const detailAddressText = String(metadata?.detailAddressText || '').trim();
+  if (isNestoriaDerived && !detailAddressText) {
+    return '';
+  }
+  if (detailAddressText) {
+    return normalizeGeoToken(detailAddressText);
+  }
+  return normalizeGeoToken(
+    [
+      listing?.addressText,
+      metadata?.locationText,
+      metadata?.subtitle
+    ]
+      .filter(Boolean)
+      .join(' ')
+  );
+};
+
+const buildListingGeoEvidenceText = (listing: any) => {
+  const metadata = listing?.metadata && typeof listing.metadata === 'object' ? listing.metadata : {};
+  return normalizeGeoToken(
+    [
+      listing?.title,
+      listing?.description,
+      listing?.addressText,
+      listing?.agencyName,
+      metadata?.keywords,
+      metadata?.locationText,
+      metadata?.subtitle,
+      metadata?.geoText
+    ]
+      .filter(Boolean)
+      .join(' ')
+  );
+};
+
+const hasProvinceConflictInEvidence = (evidenceText: string, provinceNorm: string, cityMatch: boolean) => {
+  if (!provinceNorm) return false;
+  return (
+    (evidenceText.includes(' padova ') ||
+      evidenceText.includes(' milano ') ||
+      evidenceText.includes(' roma ') ||
+      evidenceText.includes(' teramo ') ||
+      evidenceText.includes(' pescara ') ||
+      evidenceText.includes(' chieti ')) &&
+    !evidenceText.includes(` ${provinceNorm} `) &&
+    !cityMatch
+  );
+};
+
+const isListingInsideStreetScope = (
+  listing: any,
+  scope: { streetName: string; city: string; province: string; cap: string }
+) => {
+  const streetNorm = normalizeGeoToken(scope.streetName);
+  const streetCore = stripStreetPrefix(scope.streetName);
+  const cityNorm = normalizeGeoToken(scope.city);
+  const provinceNorm = normalizeGeoToken(scope.province);
+  const streetSlug = idealistaSlug(scope.streetName);
+
+  const addressEvidence = buildListingAddressEvidenceText(listing);
+  const textualEvidence = buildListingGeoEvidenceText(listing);
+  const primaryEvidence = normalizeGeoToken(
+    [listing?.title, listing?.addressText]
+      .filter(Boolean)
+      .join(' ')
+  );
+  const fullText = normalizeGeoToken(
+    [listing?.title, listing?.description, listing?.addressText, listing?.agencyName, listing?.listingUrl]
+      .filter(Boolean)
+      .join(' ')
+  );
+  const streetTokens = tokenizeStreet(scope.streetName);
+  const metadata = listing?.metadata && typeof listing.metadata === 'object' ? listing.metadata : {};
+  const sourceVia = String(metadata?.via || '').toLowerCase();
+  const listingUrl = String(listing?.listingUrl || '').toLowerCase();
+  const isNestoriaDerived =
+    sourceVia.includes('nestoria') ||
+    listingUrl.includes('nestoria-it-') ||
+    (listingUrl.includes('clk.thribee.com') && listingUrl.includes('adid=nestoria-it-'));
+  const detailAddressText = String(metadata?.detailAddressText || '').trim();
+
+  const listedCaps = extractFiveDigitCaps(
+    [listing?.addressText, listing?.title, listing?.description, listing?.listingUrl]
+      .filter(Boolean)
+      .join(' ')
+  );
+  const hasCapEvidence = listedCaps.length > 0;
+  const capMismatch = hasCapEvidence && !listedCaps.includes(scope.cap);
+
+  const strongCityMatch =
+    cityNorm.length > 0 && primaryEvidence.includes(cityNorm);
+
+  // City match must be based on street-address evidence (not generic title/description context).
+  const cityMatch =
+    cityNorm.length > 0 && (addressEvidence.includes(cityNorm) || (hasCapEvidence && !capMismatch));
+
+  const tokenMatches = streetTokens.filter((token) => addressEvidence.includes(token));
+  const hasTokenFallbackMatch =
+    streetTokens.length >= 2
+      ? tokenMatches.length >= 2
+      : streetTokens.length === 1
+        ? tokenMatches.length === 1
+        : false;
+
+  const streetMatch =
+    (streetNorm.length > 0 && addressEvidence.includes(streetNorm)) ||
+    (streetCore.length > 2 && addressEvidence.includes(streetCore)) ||
+    hasTokenFallbackMatch;
+  const titleNorm = normalizeGeoToken(String(listing?.title || ''));
+  const titleHasStreetPrefix = /(^|\s)(via|viale|piazza|corso|largo|strada|vicolo|salita|lungomare|contrada|traversa)\s/.test(
+    titleNorm
+  );
+  const titleHasTargetStreetToken = streetTokens.some((token) => titleNorm.includes(token));
+
+  const provinceConflict = hasProvinceConflictInEvidence(fullText, provinceNorm, cityMatch);
+  const primaryProvinceConflict = hasProvinceConflictInEvidence(primaryEvidence, provinceNorm, strongCityMatch);
+
+  if (isNestoriaDerived && !detailAddressText) {
+    return { ok: false, reason: 'Missing validated detail address' };
+  }
+  if (isNestoriaDerived && titleHasStreetPrefix && !titleHasTargetStreetToken) {
+    return { ok: false, reason: 'Title street mismatch' };
+  }
+  if (capMismatch) return { ok: false, reason: `CAP mismatch (${listedCaps.join(',')})` };
+  if (primaryProvinceConflict) return { ok: false, reason: 'Primary listing city/province conflict' };
+  if (provinceConflict) return { ok: false, reason: 'Province/city conflict in listing text' };
+  if (!streetMatch) return { ok: false, reason: 'Street mismatch (textual evidence)' };
+  if (!cityMatch) return { ok: false, reason: 'City mismatch in address evidence' };
+
+  return { ok: true, reason: null as string | null };
+};
+
+const isListingInsideStreetScopeSoft = (
+  listing: any,
+  scope: { streetName: string; city: string; province: string; cap: string }
+) => {
+  const cityNorm = normalizeGeoToken(scope.city);
+  const provinceNorm = normalizeGeoToken(scope.province);
+  const citySlug = idealistaSlug(scope.city);
+  const evidenceText = buildListingGeoEvidenceText(listing);
+  const urlText = String(listing?.listingUrl || '').toLowerCase();
+  const listedCaps = extractFiveDigitCaps(
+    [listing?.addressText, listing?.title, listing?.description, listing?.listingUrl]
+      .filter(Boolean)
+      .join(' ')
+  );
+  const hasCapEvidence = listedCaps.length > 0;
+  const capMismatch = hasCapEvidence && !listedCaps.includes(scope.cap);
+  const cityMatch =
+    (cityNorm.length > 0 && evidenceText.includes(cityNorm)) ||
+    (citySlug.length > 0 &&
+      (urlText.includes(`-${citySlug}-`) || urlText.includes(`_${citySlug}_`) || urlText.includes(citySlug)));
+  const provinceConflict = hasProvinceConflictInEvidence(evidenceText, provinceNorm, cityMatch);
+  if (capMismatch) return { ok: false, reason: `CAP mismatch (${listedCaps.join(',')})` };
+  if (provinceConflict) return { ok: false, reason: 'Province/city conflict in listing text' };
+  if (!cityMatch) return { ok: false, reason: 'City mismatch (soft)' };
+  return { ok: true, reason: null as string | null };
+};
+
+const filterListingsByStreetScope = (
+  listings: any[],
+  scope: { streetName: string; city: string; province: string; cap: string }
+) => {
+  const acceptedStrict: any[] = [];
+  const acceptedSoft: any[] = [];
+  const rejectedReasons: string[] = [];
+  const source = Array.isArray(listings) ? listings : [];
+  const strictRejected: any[] = [];
+  for (const listing of source) {
+    const decision = isListingInsideStreetScope(listing, scope);
+    if (decision.ok) acceptedStrict.push(listing);
+    else {
+      strictRejected.push(listing);
+      if (decision.reason) rejectedReasons.push(decision.reason);
+    }
+  }
+
+  if (STREET_LISTINGS_ALLOW_SOFT_MATCH) {
+    for (const listing of strictRejected) {
+      const softDecision = isListingInsideStreetScopeSoft(listing, scope);
+      if (softDecision.ok) {
+        acceptedSoft.push(listing);
+      }
+    }
+  }
+
+  const accepted = STREET_LISTINGS_ALLOW_SOFT_MATCH
+    ? [...acceptedStrict, ...acceptedSoft]
+    : acceptedStrict;
+
+  return {
+    listings: accepted,
+    rejectedCount: Math.max(0, source.length - accepted.length),
+    rejectedSummary: rejectedReasons.slice(0, 3).join(' | '),
+    acceptedStrictCount: acceptedStrict.length,
+    acceptedSoftCount: acceptedSoft.length
+  };
+};
+
+const humanizeStreetListingWarning = (warning: string | null | undefined) => {
+  const raw = String(warning || '').trim();
+  if (!raw) return null;
+  return raw
+    .replace(/fallback fetch list failed\s*\(403\)/gi, 'Provider esterno temporaneamente bloccato (403)')
+    .replace(/nestoria-fetch:nestoria fetch failed\s*\(404\)/gi, 'Fonte secondaria non disponibile (404)')
+    .replace(/no listings found/gi, 'Nessun annuncio trovato dalla fonte esterna')
+    .replace(/\s+/g, ' ')
+    .trim();
+};
 
 const groupStreetGeocodeCache = new Map<string, { lat: number; lng: number; expiresAt: number }>();
 
@@ -10167,6 +11949,34 @@ const buildNestoriaStreetUrl = (streetName: string, city: string) => {
   return `https://www.nestoria.it/immobiliare/vendita/${streetSlug}_${citySlug}`;
 };
 
+const buildNestoriaStreetUrlCandidates = (streetName: string, city: string) => {
+  const normalizedStreet = String(streetName || '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .trim();
+  const apostropheCollapsedStreet = normalizedStreet.replace(/([a-z])['’]([a-z])/g, '$1$2');
+  const streetSlugVariants = Array.from(
+    new Set([
+      idealistaSlug(streetName),
+      idealistaSlug(apostropheCollapsedStreet)
+    ].filter(Boolean))
+  );
+  const citySlug = idealistaSlug(city).replace(/-/g, '_');
+
+  const fullQuery = `${String(streetName || '').trim()} ${String(city || '').trim()}`.trim();
+  const streetCore = stripStreetPrefix(streetName);
+  const coreQuery = `${String(streetCore || '').trim()} ${String(city || '').trim()}`.trim();
+  const candidates = [
+    ...streetSlugVariants.map((streetSlug) => `https://www.nestoria.it/immobiliare/vendita/${streetSlug}_${citySlug}`),
+    fullQuery ? `https://www.nestoria.it/immobiliare/vendita?q=${encodeURIComponent(fullQuery)}` : null,
+    streetCore && coreQuery ? `https://www.nestoria.it/immobiliare/vendita?q=${encodeURIComponent(coreQuery)}` : null,
+    citySlug ? `https://www.nestoria.it/immobiliare/vendita/${citySlug}` : null,
+    city ? `https://www.nestoria.it/immobiliare/vendita?q=${encodeURIComponent(String(city).trim())}` : null
+  ].filter(Boolean) as string[];
+  return Array.from(new Set(candidates));
+};
+
 const parseBooleanEnv = (value: string | undefined, fallback: boolean) => {
   if (value == null) return fallback;
   const normalized = String(value).trim().toLowerCase();
@@ -10178,7 +11988,16 @@ const SCRAPE_TIMEOUT_MS = Math.max(10_000, Number(process.env.SCRAPE_TIMEOUT_MS 
 const SCRAPE_RETRIES = Math.max(0, Math.min(3, Number(process.env.SCRAPE_RETRIES || 1)));
 const SCRAPE_RETRY_BACKOFF_MS = Math.max(500, Number(process.env.SCRAPE_RETRY_BACKOFF_MS || 1200));
 const SCRAPER_ENABLE_NESTORIA_FALLBACK = parseBooleanEnv(process.env.SCRAPER_ENABLE_NESTORIA_FALLBACK, true);
+const SCRAPER_ENABLE_IDEALISTA_FALLBACK = parseBooleanEnv(process.env.SCRAPER_ENABLE_IDEALISTA_FALLBACK, true);
 const SCRAPER_ALLOW_BROWSER_ON_VERCEL = parseBooleanEnv(process.env.SCRAPER_ALLOW_BROWSER_ON_VERCEL, false);
+const STREET_LISTINGS_PRIMARY_SOURCE = String(process.env.STREET_LISTINGS_PRIMARY_SOURCE || 'nestoria')
+  .trim()
+  .toLowerCase();
+// Keep strict mode globally enabled: soft-match reintroduces off-street listings.
+const STREET_LISTINGS_ALLOW_SOFT_MATCH = false;
+const STREET_LISTINGS_RESOLVE_NESTORIA_DETAIL = parseBooleanEnv(process.env.STREET_LISTINGS_RESOLVE_NESTORIA_DETAIL, true);
+const STREET_LISTINGS_DETAIL_RESOLVE_MAX = Math.max(1, Math.min(40, Number(process.env.STREET_LISTINGS_DETAIL_RESOLVE_MAX || 20)));
+const STREET_LISTINGS_DETAIL_RESOLVE_CONCURRENCY = Math.max(1, Math.min(6, Number(process.env.STREET_LISTINGS_DETAIL_RESOLVE_CONCURRENCY || 4)));
 
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
@@ -10235,6 +12054,110 @@ const runScrapeWithRetry = async <T>(label: string, fn: () => Promise<T>) => {
   throw new Error(`${code}: ${message}`);
 };
 
+const nestoriaDetailCache = new Map<string, { detailGeoText: string | null; detailAddressText: string | null; expiresAt: number }>();
+
+const buildNestoriaDetailCandidateUrl = (listing: any) => {
+  const rawUrl = String(listing?.listingUrl || '').trim();
+  const sourceId = String(listing?.sourceListingId || '').trim();
+  const candidates = [rawUrl];
+  try {
+    if (rawUrl) {
+      const parsed = new URL(rawUrl);
+      const detailPageUrl = parsed.searchParams.get('detailPageUrl');
+      if (detailPageUrl) candidates.push(decodeURIComponent(detailPageUrl));
+      const adId = parsed.searchParams.get('adId');
+      if (adId && /^nestoria-IT-\d+$/i.test(adId)) {
+        candidates.push(`https://www.nestoria.it/adclickdetail/${adId}`);
+      }
+    }
+  } catch {
+    // keep resilient on invalid URLs
+  }
+  if (/^\d{8,}$/.test(sourceId)) {
+    candidates.push(`https://www.nestoria.it/adclickdetail/nestoria-IT-${sourceId}`);
+  }
+  return candidates.find((u) => /^https:\/\/www\.nestoria\.it\/adclickdetail\//i.test(String(u || ''))) || null;
+};
+
+const fetchNestoriaDetailGeoText = async (detailUrl: string) => {
+  const cacheKey = detailUrl.toLowerCase();
+  const cached = nestoriaDetailCache.get(cacheKey);
+  if (cached && cached.expiresAt > Date.now()) {
+    return {
+      detailGeoText: cached.detailGeoText,
+      detailAddressText: cached.detailAddressText
+    };
+  }
+
+  const res = await withTimeout(
+    fetch(detailUrl, {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36'
+      }
+    }),
+    12_000
+  );
+  if (!res.ok) throw new Error(`nestoria detail fetch failed (${res.status})`);
+  const html = await res.text();
+  const titleRaw = (html.match(/<title[^>]*>([\s\S]*?)<\/title>/i) || [])[1] || '';
+  const titleText = decodeHtmlText(normalizeSpace(titleRaw));
+  const listingAddressSegment =
+    (titleText.match(/in vendita(?:[^|]{0,120})\sin\s([^|]{4,180})/i) || [])[1] ||
+    (titleText.match(/in vendita a ([^|]{4,180})/i) || [])[1] ||
+    '';
+  const bodyText = decodeHtmlText(
+    normalizeSpace(
+      html
+        .replace(/<script[\s\S]*?<\/script>/gi, ' ')
+        .replace(/<style[\s\S]*?<\/style>/gi, ' ')
+    )
+  );
+  const bodySnippet = bodyText.slice(0, 1400);
+  const detailGeoText = normalizeSpace([listingAddressSegment, titleText, bodySnippet].filter(Boolean).join(' ')) || null;
+  const detailAddressText = normalizeSpace(listingAddressSegment || '') || null;
+  nestoriaDetailCache.set(cacheKey, {
+    detailGeoText,
+    detailAddressText,
+    expiresAt: Date.now() + 1000 * 60 * 60 * 24
+  });
+  return {
+    detailGeoText,
+    detailAddressText
+  };
+};
+
+const enrichNestoriaListingsWithDetailGeo = async (listings: any[]) => {
+  const source = Array.isArray(listings) ? listings : [];
+  if (!STREET_LISTINGS_RESOLVE_NESTORIA_DETAIL || source.length === 0) return source;
+  const targetListings = source
+    .map((listing) => ({ listing, detailUrl: buildNestoriaDetailCandidateUrl(listing) }))
+    .filter((row) => Boolean(row.detailUrl))
+    .slice(0, STREET_LISTINGS_DETAIL_RESOLVE_MAX);
+  if (targetListings.length === 0) return source;
+
+  let cursor = 0;
+  const workers = Array.from({ length: Math.min(STREET_LISTINGS_DETAIL_RESOLVE_CONCURRENCY, targetListings.length) }, async () => {
+    while (true) {
+      const index = cursor;
+      cursor += 1;
+      if (index >= targetListings.length) break;
+      const row = targetListings[index];
+      try {
+        const detailMeta = await fetchNestoriaDetailGeoText(String(row.detailUrl));
+        row.listing.metadata = {
+          ...(row.listing.metadata && typeof row.listing.metadata === 'object' ? row.listing.metadata : {}),
+          detailGeoText: detailMeta?.detailGeoText || null,
+          detailAddressText: detailMeta?.detailAddressText || null
+        };
+      } catch {
+        // keep scraping resilient if detail page is blocked/unavailable
+      }
+    }
+  });
+  await Promise.all(workers);
+  return source;
+};
+
 const scrapeIdealistaStreetWithLock = async (params: {
   streetId: string;
   streetName: string;
@@ -10263,123 +12186,168 @@ const scrapeIdealistaStreetListings = async (params: {
   province: string;
   sourceUrl: string;
 }) => {
-  const { streetName, city, province, sourceUrl } = params;
+  const { streetName, city, sourceUrl } = params;
   const maxPages = Math.max(1, Math.min(6, Number(process.env.IDEALISTA_MAX_PAGES_PER_STREET || 3)));
   const preferredMode = String(process.env.IDEALISTA_SCRAPER_MODE || 'fetch').toLowerCase();
-  const preferBrowser = preferredMode !== 'fetch';
-  const browserRuntimeEnabled = preferBrowser && (!IS_VERCEL_RUNTIME || SCRAPER_ALLOW_BROWSER_ON_VERCEL);
+  const browserRuntimeEnabled = preferredMode !== 'fetch' && (!IS_VERCEL_RUNTIME || SCRAPER_ALLOW_BROWSER_ON_VERCEL);
   const startedAt = new Date().toISOString();
-  let browserError: string | null = null;
+  const warnings: string[] = [];
+  let totalPagesVisited = 0;
 
-  if (preferBrowser && !browserRuntimeEnabled) {
-    browserError = 'Browser scraping disabled in Vercel runtime, using HTTP fallback';
-  }
+  const nestoriaUrls = buildNestoriaStreetUrlCandidates(streetName, city);
+  const primaryNestoriaUrl = nestoriaUrls[0] || buildNestoriaStreetUrl(streetName, city);
 
-  if (browserRuntimeEnabled) {
-    try {
-      const browserData = await runScrapeWithRetry('idealista-browser', () => scrapeIdealistaWithBrowser({
+  const tryNestoriaFetch = async () => {
+    for (const nestoriaUrl of nestoriaUrls) {
+      const data = await runScrapeWithRetry('nestoria-fetch', () =>
+        scrapeNestoriaWithFetchFallback({
+          sourceUrl: nestoriaUrl,
+          maxPages
+        })
+      );
+      totalPagesVisited += Number(data?.pagesVisited || 0);
+      if (Array.isArray(data.listings) && data.listings.length > 0) {
+        return {
+          sourceUrl: nestoriaUrl,
+          status: data.warning ? 'PARTIAL' : 'SUCCESS',
+          warning: data.warning || null,
+          listings: data.listings,
+          rawPayload: {
+            mode: 'nestoria-fetch-primary',
+            startedAt,
+            endedAt: new Date().toISOString(),
+            pagesVisited: totalPagesVisited,
+            listingCount: data.listings.length
+          }
+        };
+      }
+      if (data.warning) warnings.push(`nestoria-fetch:${data.warning}`);
+    }
+    return null;
+  };
+
+  const tryNestoriaBrowser = async () => {
+    if (!browserRuntimeEnabled) return null;
+    const data = await runScrapeWithRetry('nestoria-browser', () =>
+      scrapeNestoriaWithBrowser({
+        sourceUrl: primaryNestoriaUrl,
+        maxPages
+      })
+    );
+    totalPagesVisited += Number(data?.pagesVisited || 0);
+    if (Array.isArray(data.listings) && data.listings.length > 0) {
+      return {
+        sourceUrl: primaryNestoriaUrl,
+        status: data.warning ? 'PARTIAL' : 'SUCCESS',
+        warning: data.warning || null,
+        listings: data.listings,
+        rawPayload: {
+          mode: 'nestoria-browser-primary',
+          startedAt,
+          endedAt: new Date().toISOString(),
+          pagesVisited: totalPagesVisited,
+          listingCount: data.listings.length
+        }
+      };
+    }
+    if (data.warning) warnings.push(`nestoria-browser:${data.warning}`);
+    return null;
+  };
+
+  const tryIdealistaFetch = async () => {
+    const data = await runScrapeWithRetry('idealista-fetch', () =>
+      scrapeIdealistaWithFetchFallback({
         sourceUrl,
         maxPages
-      }));
-      if (Array.isArray(browserData.listings) && browserData.listings.length > 0) {
-        return {
-          sourceUrl,
-          status: browserData.warning ? 'PARTIAL' : 'SUCCESS',
-          warning: browserData.warning || null,
-          listings: browserData.listings,
-          rawPayload: {
-            mode: 'browser',
-            startedAt,
-            endedAt: new Date().toISOString(),
-            pagesVisited: browserData.pagesVisited,
-            listingCount: browserData.listings.length
-          }
-        };
-      }
-      browserError = 'No listings found in browser scraping';
-    } catch (error: any) {
-      browserError = compactScrapeErrorMessage(error || 'SCRAPE_ERROR: Browser scraping error');
+      })
+    );
+    totalPagesVisited += Number(data?.pagesVisited || 0);
+    if (Array.isArray(data.listings) && data.listings.length > 0) {
+      return {
+        sourceUrl,
+        status: data.warning ? 'PARTIAL' : 'SUCCESS',
+        warning: data.warning || null,
+        listings: data.listings,
+        rawPayload: {
+          mode: 'idealista-fetch-fallback',
+          startedAt,
+          endedAt: new Date().toISOString(),
+          pagesVisited: totalPagesVisited,
+          listingCount: data.listings.length
+        }
+      };
     }
+    if (data.warning) warnings.push(`idealista-fetch:${data.warning}`);
+    return null;
+  };
+
+  const tryIdealistaBrowser = async () => {
+    if (!browserRuntimeEnabled) return null;
+    const data = await runScrapeWithRetry('idealista-browser', () =>
+      scrapeIdealistaWithBrowser({
+        sourceUrl,
+        maxPages
+      })
+    );
+    totalPagesVisited += Number(data?.pagesVisited || 0);
+    if (Array.isArray(data.listings) && data.listings.length > 0) {
+      return {
+        sourceUrl,
+        status: data.warning ? 'PARTIAL' : 'SUCCESS',
+        warning: data.warning || null,
+        listings: data.listings,
+        rawPayload: {
+          mode: 'idealista-browser-fallback',
+          startedAt,
+          endedAt: new Date().toISOString(),
+          pagesVisited: totalPagesVisited,
+          listingCount: data.listings.length
+        }
+      };
+    }
+    if (data.warning) warnings.push(`idealista-browser:${data.warning}`);
+    return null;
+  };
+
+  const tryNestoriaFirst = STREET_LISTINGS_PRIMARY_SOURCE !== 'idealista';
+
+  try {
+    if (tryNestoriaFirst) {
+      const fromNestoriaFetch = await tryNestoriaFetch();
+      if (fromNestoriaFetch) return fromNestoriaFetch;
+      const fromNestoriaBrowser = await tryNestoriaBrowser();
+      if (fromNestoriaBrowser) return fromNestoriaBrowser;
+    }
+
+    if (SCRAPER_ENABLE_IDEALISTA_FALLBACK) {
+      const fromIdealistaFetch = await tryIdealistaFetch();
+      if (fromIdealistaFetch) return fromIdealistaFetch;
+      const fromIdealistaBrowser = await tryIdealistaBrowser();
+      if (fromIdealistaBrowser) return fromIdealistaBrowser;
+    }
+
+    if (!tryNestoriaFirst && SCRAPER_ENABLE_NESTORIA_FALLBACK) {
+      const fromNestoriaFetch = await tryNestoriaFetch();
+      if (fromNestoriaFetch) return fromNestoriaFetch;
+      const fromNestoriaBrowser = await tryNestoriaBrowser();
+      if (fromNestoriaBrowser) return fromNestoriaBrowser;
+    }
+  } catch (error: any) {
+    warnings.push(compactScrapeErrorMessage(error));
   }
 
-  const nestoriaUrl = buildNestoriaStreetUrl(streetName, city);
-  if (browserRuntimeEnabled && SCRAPER_ENABLE_NESTORIA_FALLBACK) {
-    try {
-      const nestoriaData = await runScrapeWithRetry('nestoria-browser', () => scrapeNestoriaWithBrowser({
-        sourceUrl: nestoriaUrl,
-        maxPages
-      }));
-      if (Array.isArray(nestoriaData.listings) && nestoriaData.listings.length > 0) {
-        return {
-          sourceUrl: nestoriaUrl,
-          status: 'PARTIAL',
-          warning: `${browserError || 'Idealista unavailable'} | fallback=nestoria`,
-          listings: nestoriaData.listings,
-          rawPayload: {
-            mode: 'nestoria-browser-fallback',
-            startedAt,
-            endedAt: new Date().toISOString(),
-            browserError,
-            pagesVisited: nestoriaData.pagesVisited,
-            listingCount: nestoriaData.listings.length
-          }
-        };
-      }
-    } catch (error: any) {
-      browserError = `${browserError || 'SCRAPE_ERROR: Browser scraping error'} | nestoria:${compactScrapeErrorMessage(error)}`;
-    }
-  }
-
-  const fetchData = await scrapeIdealistaWithFetchFallback({
-    sourceUrl,
-    maxPages
-  });
-  if (
-    SCRAPER_ENABLE_NESTORIA_FALLBACK &&
-    (!Array.isArray(fetchData.listings) || fetchData.listings.length === 0)
-  ) {
-    try {
-      const nestoriaFetchData = await scrapeNestoriaWithFetchFallback({
-        sourceUrl: nestoriaUrl,
-        maxPages
-      });
-      if (Array.isArray(nestoriaFetchData.listings) && nestoriaFetchData.listings.length > 0) {
-        return {
-          sourceUrl: nestoriaUrl,
-          status: 'PARTIAL',
-          warning: null,
-          listings: nestoriaFetchData.listings,
-          rawPayload: {
-            mode: 'nestoria-fetch-fallback',
-            startedAt,
-            endedAt: new Date().toISOString(),
-            browserError,
-            fetchWarning: fetchData.warning || null,
-            pagesVisited: nestoriaFetchData.pagesVisited,
-            listingCount: nestoriaFetchData.listings.length
-          }
-        };
-      }
-      if (nestoriaFetchData.warning) {
-        browserError = `${browserError || fetchData.warning || 'Idealista unavailable'} | nestoria-fetch:${nestoriaFetchData.warning}`;
-      }
-    } catch (error: any) {
-      browserError = `${browserError || fetchData.warning || 'Idealista unavailable'} | nestoria-fetch:${compactScrapeErrorMessage(error)}`;
-    }
-  }
-  const warning = browserError || fetchData.warning || null;
+  const mergedWarning = warnings.filter(Boolean).slice(0, 4).join(' | ') || null;
   return {
-    sourceUrl,
-    status: fetchData.listings.length > 0 ? 'PARTIAL' : 'FAILED',
-    warning,
-    listings: fetchData.listings,
+    sourceUrl: tryNestoriaFirst ? primaryNestoriaUrl : sourceUrl,
+    status: 'FAILED',
+    warning: mergedWarning || 'All listing sources failed',
+    listings: [],
     rawPayload: {
-      mode: 'fetch-fallback',
+      mode: 'all-sources-failed',
       startedAt,
       endedAt: new Date().toISOString(),
-      browserError,
-      pagesVisited: fetchData.pagesVisited,
-      listingCount: fetchData.listings.length
+      pagesVisited: totalPagesVisited,
+      listingCount: 0
     }
   };
 };
@@ -10694,6 +12662,154 @@ const scrapeNestoriaWithFetchFallback = async (params: { sourceUrl: string; maxP
     return m && m[group] ? decodeHtmlText(normalizeSpace(m[group])) : null;
   };
 
+  const upsertListing = (raw: any, metaVia: string) => {
+    const sourceListingId = String(raw?.sourceListingId || '').trim();
+    if (!sourceListingId) return;
+    const listingUrl = String(raw?.listingUrl || '').trim() || `${params.sourceUrl}#${sourceListingId}`;
+    const existing = listingsMap.get(sourceListingId);
+    const merged = {
+      sourceListingId,
+      listingUrl,
+      sourceUrl: params.sourceUrl,
+      title: raw?.title || existing?.title || null,
+      priceText: raw?.priceText || existing?.priceText || null,
+      roomsText: raw?.roomsText || existing?.roomsText || null,
+      surfaceText: raw?.surfaceText || existing?.surfaceText || null,
+      floorText: raw?.floorText || existing?.floorText || null,
+      description: raw?.description || existing?.description || null,
+      agencyName: raw?.agencyName || existing?.agencyName || 'Nestoria',
+      mainImageUrl: raw?.mainImageUrl || existing?.mainImageUrl || null,
+      metadata: {
+        ...(existing?.metadata || {}),
+        ...(raw?.metadata || {}),
+        via: metaVia
+      }
+    };
+    listingsMap.set(sourceListingId, merged);
+  };
+
+  const parseNestoriaHtmlBlocks = (html: string) => {
+    const blockRegexes = [
+      /<li[^>]*class="[^"]*listing_list[^"]*"[\s\S]*?(?=<li[^>]*class="[^"]*listing_list[^"]*"|<\/ul>|<\/ol>|$)/gim,
+      /<article[^>]*class="[^"]*listing[^"]*"[\s\S]*?<\/article>/gim
+    ];
+    for (const blockRegex of blockRegexes) {
+      let item: RegExpExecArray | null = null;
+      while ((item = blockRegex.exec(html)) !== null) {
+        const block = item[0];
+        const blockPlainText = decodeHtmlText(normalizeSpace(block));
+        const sourceListingId =
+          extractByRegex(block, /data-id="([^"]+)"/i) ||
+          extractByRegex(block, /listing[_-](\d{6,})/i) ||
+          extractByRegex(block, /href="[^"]*\/(?:annuncio|immobile)\/(\d{6,})/i) ||
+          `nestoria-${pagesVisited}-${blockRegex.lastIndex}`;
+        const dataHref = extractByRegex(block, /data-href="([^"]+)"/i);
+        const href =
+          extractByRegex(block, /href="([^"]+)"/i) ||
+          extractByRegex(block, /data-url="([^"]+)"/i);
+        const listingPath = dataHref || href || null;
+        const listingUrl = listingPath
+          ? listingPath.startsWith('http')
+            ? listingPath
+            : `https://www.nestoria.it${listingPath}`
+          : `${params.sourceUrl}#${sourceListingId}`;
+        const title =
+          extractByRegex(block, /class="listing__title__text"[^>]*>([\s\S]*?)<\/(?:div|span|h2)>/i) ||
+          extractByRegex(block, /class="[^"]*title[^"]*"[^>]*>([\s\S]*?)<\/(?:div|span|h2|a)>/i);
+        const priceText =
+          extractByRegex(block, /class="result__details__price[^"]*"[^>]*>\s*<span>([\s\S]*?)<\/span>/i) ||
+          extractByRegex(block, /([0-9\.\s]+(?:€|eur))/i);
+        const keywords = extractByRegex(block, /class="listing__keywords"[^>]*>([\s\S]*?)<\/div>/i);
+        const description =
+          extractByRegex(block, /class="listing__description"[^>]*>([\s\S]*?)<\/div>/i) ||
+          extractByRegex(block, /class="[^"]*description[^"]*"[^>]*>([\s\S]*?)<\/(?:div|p)>/i);
+        const locationText =
+          extractByRegex(block, /class="[^"]*(?:location|address|subtitle)[^"]*"[^>]*>([\s\S]*?)<\/(?:div|span|p)>/i) ||
+          extractByRegex(block, /<h2[^>]*>[\s\S]*?<\/h2>\s*<p[^>]*>([\s\S]*?)<\/p>/i) ||
+          null;
+        const agencyName =
+          extractByRegex(block, /<span class="text--muted">da<\/span>\s*<span[^>]*>([\s\S]*?)<\/span>/i) ||
+          extractByRegex(block, /class="[^"]*agency[^"]*"[^>]*>([\s\S]*?)<\/(?:div|span|a)>/i);
+        const imageUrl =
+          extractByRegex(block, /data-lazy="([^"]+)"/i) ||
+          extractByRegex(block, /src="(https:\/\/imgs\.nestimg\.com[^"]+)"/i) ||
+          extractByRegex(block, /src="([^"]+\.(?:jpg|jpeg|png|webp)[^"]*)"/i);
+        const normalizedKeywords = decodeHtmlText(normalizeSpace(String(keywords || '')));
+        const keywordLocationText = normalizedKeywords
+          ? normalizeSpace(String(normalizedKeywords).split('·')[0] || '')
+          : '';
+        const surfaceText = normalizedKeywords ? extractByRegex(normalizedKeywords, /([0-9]+(?:[\.,][0-9]+)?\s*m2)/i) : null;
+        const roomsText = normalizedKeywords ? extractByRegex(normalizedKeywords, /([0-9]+\s+Locali?)/i) : null;
+        const floorText = normalizedKeywords ? extractByRegex(normalizedKeywords, /([0-9]+\s+Piano)/i) : null;
+
+        upsertListing(
+          {
+            sourceListingId,
+            listingUrl,
+            title,
+            priceText,
+            roomsText,
+            surfaceText,
+            floorText,
+            description,
+            agencyName: agencyName || 'Nestoria',
+            mainImageUrl: imageUrl,
+            metadata: {
+              keywords: normalizedKeywords || null,
+              locationText:
+                keywordLocationText ||
+                (locationText ? decodeHtmlText(normalizeSpace(locationText)) : null),
+              geoText: decodeHtmlText(
+                normalizeSpace(
+                  `${title || ''} ${normalizedKeywords || ''} ${locationText || ''} ${blockPlainText || ''}`
+                )
+              )
+            }
+          },
+          'nestoria-fetch-html'
+        );
+      }
+    }
+  };
+
+  const parseNestoriaJsonLd = (html: string) => {
+    const scriptRegex = /<script[^>]*type="application\/ld\+json"[^>]*>([\s\S]*?)<\/script>/gim;
+    let scriptMatch: RegExpExecArray | null = null;
+    while ((scriptMatch = scriptRegex.exec(html)) !== null) {
+      const raw = scriptMatch[1];
+      if (!raw || !raw.includes('ListItem')) continue;
+      try {
+        const parsed = JSON.parse(raw);
+        const candidates = Array.isArray(parsed) ? parsed : [parsed];
+        for (const obj of candidates) {
+          const itemListElement = Array.isArray(obj?.itemListElement) ? obj.itemListElement : [];
+          for (const el of itemListElement) {
+            const item = el?.item || {};
+            const url = String(item?.url || '').trim();
+            if (!url) continue;
+            const idFromUrl =
+              (url.match(/\/(?:annuncio|immobile)\/(\d{6,})/i) || [])[1] ||
+              (url.match(/listing[_-](\d{6,})/i) || [])[1] ||
+              '';
+            const sourceListingId = idFromUrl || `nestoria-jsonld-${pagesVisited}-${Math.random().toString(36).slice(2, 9)}`;
+            upsertListing(
+              {
+                sourceListingId,
+                listingUrl: url,
+                title: String(item?.name || '').trim() || null,
+                description: String(item?.description || '').trim() || null,
+                mainImageUrl: String(item?.image || '').trim() || null
+              },
+              'nestoria-fetch-jsonld'
+            );
+          }
+        }
+      } catch {
+        // keep scraping resilient on malformed JSON-LD
+      }
+    }
+  };
+
   for (let i = 0; i < params.maxPages && currentUrl; i += 1) {
     pagesVisited += 1;
     const response = await fetch(currentUrl, {
@@ -10709,58 +12825,28 @@ const scrapeNestoriaWithFetchFallback = async (params: { sourceUrl: string; maxP
       break;
     }
     const html = await response.text();
-    const itemRegex = /<a[^>]*class=\"results__link\"[\s\S]*?<\/a>\s*<\/li>/gim;
-    let item: RegExpExecArray | null = null;
-    while ((item = itemRegex.exec(html)) !== null) {
-      const block = item[0];
-      const sourceListingId =
-        extractByRegex(block, /data-id=\"([^\"]+)\"/i) ||
-        `nestoria-${pagesVisited}-${itemRegex.lastIndex}`;
-      const dataHref = extractByRegex(block, /data-href=\"([^\"]+)\"/i);
-      const href = extractByRegex(block, /href=\"([^\"]+)\"/i);
-      const listingPath = dataHref || href || null;
-      const listingUrl = listingPath
-        ? listingPath.startsWith('http')
-          ? listingPath
-          : `https://www.nestoria.it${listingPath}`
-        : `${params.sourceUrl}#${sourceListingId}`;
-      const title = extractByRegex(block, /class=\"listing__title__text\"[^>]*>([\s\S]*?)<\/div>/i);
-      const priceText = extractByRegex(block, /class=\"result__details__price[^>]*>\s*<span>([\s\S]*?)<\/span>/i);
-      const keywords = extractByRegex(block, /class=\"listing__keywords\"[^>]*>([\s\S]*?)<\/div>/i);
-      const description = extractByRegex(block, /class=\"listing__description\"[^>]*>([\s\S]*?)<\/div>/i);
-      const agencyName = extractByRegex(block, /<span class=\"text--muted\">da<\/span>\s*<span[^>]*>([\s\S]*?)<\/span>/i);
-      const imageUrl =
-        extractByRegex(block, /data-lazy=\"([^\"]+)\"/i) ||
-        extractByRegex(block, /src=\"(https:\/\/imgs\.nestimg\.com[^\"]+)\"/i);
-      const surfaceText = keywords ? extractByRegex(keywords, /([0-9]+(?:[\.,][0-9]+)?\s*m2)/i) : null;
-      const roomsText = keywords ? extractByRegex(keywords, /([0-9]+\s+Locali?)/i) : null;
-
-      listingsMap.set(String(sourceListingId), {
-        sourceListingId: String(sourceListingId),
-        listingUrl,
-        sourceUrl: params.sourceUrl,
-        title,
-        priceText,
-        roomsText,
-        surfaceText,
-        floorText: null,
-        description,
-        agencyName: agencyName || 'Nestoria',
-        mainImageUrl: imageUrl,
-        metadata: {
-          via: 'nestoria-fetch',
-          keywords
-        }
-      });
-    }
+    parseNestoriaHtmlBlocks(html);
+    parseNestoriaJsonLd(html);
 
     const targetPage = String(i + 2);
-    const nextPageRegex = new RegExp(
-      `class=\\\"pagination__link\\\"[^>]*href=\\\"([^\\\"]+)\\\"[^>]*data-page=\\\"${targetPage}\\\"`,
-      'i'
-    );
-    const nextMatch = html.match(nextPageRegex);
-    currentUrl = nextMatch?.[1] || null;
+    const nextPagePatterns = [
+      new RegExp(`class="pagination__link"[^>]*href="([^"]+)"[^>]*data-page="${targetPage}"`, 'i'),
+      /<a[^>]*rel="next"[^>]*href="([^"]+)"/i,
+      /<a[^>]*href="([^"]+)"[^>]*>\s*(?:Next|Successivo|›|»)\s*<\/a>/i
+    ];
+    let nextHref: string | null = null;
+    for (const pattern of nextPagePatterns) {
+      const m = html.match(pattern);
+      if (m?.[1]) {
+        nextHref = m[1];
+        break;
+      }
+    }
+    currentUrl = nextHref
+      ? nextHref.startsWith('http')
+        ? nextHref
+        : `https://www.nestoria.it${nextHref}`
+      : null;
   }
 
   return {
@@ -10995,7 +13081,7 @@ app.get('/api/geo/locations', async (req, res) => {
   try {
     const auth = getAuth(req);
     if (!auth) return res.status(401).json({ success: false, message: 'Unauthorized' });
-    if (!isAdminRole(auth.role)) return res.status(403).json({ success: false, message: 'Forbidden' });
+    // Shared catalog used by both admin and agent zone workflows.
     const rows = loadGeoLocations();
     res.json({ success: true, data: rows });
   } catch (error) {
@@ -13624,6 +15710,59 @@ const clearPendingApprovalTag = (notes: string | null | undefined) => {
     .join('\n');
 };
 
+const sanitizePublicationReviewPayload = (value: any) => {
+  if (!value || typeof value !== 'object') return null;
+  const hiddenFields = Array.isArray(value.hiddenFields)
+    ? value.hiddenFields.filter((item: any) => typeof item === 'string' && item.trim())
+    : [];
+  const adminNote = typeof value.adminNote === 'string' ? value.adminNote.trim() : '';
+  const reviewedAt = typeof value.reviewedAt === 'string' && value.reviewedAt.trim() ? value.reviewedAt.trim() : undefined;
+  const reviewedByRole = typeof value.reviewedByRole === 'string' && value.reviewedByRole.trim()
+    ? value.reviewedByRole.trim()
+    : undefined;
+  return {
+    hiddenFields,
+    adminNote,
+    ...(reviewedAt ? { reviewedAt } : {}),
+    ...(reviewedByRole ? { reviewedByRole } : {})
+  };
+};
+
+const enforcePropertyPublicationControlsByRole = (
+  role: string | null | undefined,
+  nextOneClickData: any,
+  previousOneClickData?: any
+) => {
+  const current = nextOneClickData && typeof nextOneClickData === 'object' ? { ...nextOneClickData } : {};
+  const previous = previousOneClickData && typeof previousOneClickData === 'object' ? previousOneClickData : {};
+  const adminRole = isAdminRole(role);
+
+  if (adminRole) {
+    const nextReview = sanitizePublicationReviewPayload(current.publicationReview);
+    if (nextReview) {
+      current.publicationReview = nextReview;
+    } else {
+      delete current.publicationReview;
+    }
+    return current;
+  }
+
+  if (Array.isArray(previous?.selectedPortalCodes)) {
+    current.selectedPortalCodes = previous.selectedPortalCodes;
+  } else if (!Array.isArray(current.selectedPortalCodes) || current.selectedPortalCodes.length === 0) {
+    current.selectedPortalCodes = [20];
+  }
+
+  const previousReview = sanitizePublicationReviewPayload(previous?.publicationReview);
+  if (previousReview) {
+    current.publicationReview = previousReview;
+  } else {
+    delete current.publicationReview;
+  }
+
+  return current;
+};
+
 const geocodeStreetCache = new Map<string, { expiresAt: number; data: any[] }>();
 
 app.get('/api/geocoding/streets/autocomplete', async (req, res) => {
@@ -13632,6 +15771,7 @@ app.get('/api/geocoding/streets/autocomplete', async (req, res) => {
     if (!auth) return res.status(401).json({ success: false, message: 'Unauthorized' });
 
     const street = String(req.query?.q || '').trim();
+    const full = String(req.query?.full || '').trim();
     const city = String(req.query?.city || '').trim();
     const province = String(req.query?.province || '').trim();
     const zipCode = String(req.query?.zipCode || '').trim();
@@ -13651,7 +15791,7 @@ app.get('/api/geocoding/streets/autocomplete', async (req, res) => {
         .replace(/\s+/g, ' ')
         .trim();
 
-    const cacheKey = `${street}|${number}|${city}|${province}|${zipCode}|${limit}`.toLowerCase();
+    const cacheKey = `${street}|${full}|${number}|${city}|${province}|${zipCode}|${limit}`.toLowerCase();
     const cached = geocodeStreetCache.get(cacheKey);
     if (cached && cached.expiresAt > Date.now()) {
       return res.json({ success: true, data: cached.data });
@@ -13661,6 +15801,7 @@ app.get('/api/geocoding/streets/autocomplete', async (req, res) => {
       new Set(
         [
           [street, number, city, province, zipCode, 'Italia'].filter(Boolean).join(', '),
+          full ? [full, 'Italia'].filter(Boolean).join(', ') : '',
           [street, city, province, zipCode, 'Italia'].filter(Boolean).join(', '),
           [street, number, city, 'Italia'].filter(Boolean).join(', '),
           [street, number, 'Italia'].filter(Boolean).join(', '),
@@ -13674,19 +15815,68 @@ app.get('/api/geocoding/streets/autocomplete', async (req, res) => {
       const controller = new AbortController();
       const timeout = setTimeout(() => controller.abort(), 7000);
       const url = `https://nominatim.openstreetmap.org/search?format=jsonv2&addressdetails=1&countrycodes=it&limit=50&dedupe=0&q=${encodeURIComponent(candidate)}`;
-      const response = await fetch(url, {
-        signal: controller.signal,
-        headers: {
-          'User-Agent': 'CosmoCasaCRM/1.0 (geocoding autocomplete)',
-          'Accept-Language': 'it-IT,it;q=0.9'
-        }
-      });
-      clearTimeout(timeout);
-      if (!response.ok) continue;
-      const raw = await response.json().catch(() => []);
-      const items = Array.isArray(raw) ? raw : [];
-      collected.push(...items);
+      try {
+        const response = await fetch(url, {
+          signal: controller.signal,
+          headers: {
+            'User-Agent': 'CosmoCasaCRM/1.0 (geocoding autocomplete)',
+            'Accept-Language': 'it-IT,it;q=0.9'
+          }
+        });
+        clearTimeout(timeout);
+        if (!response.ok) continue;
+        const raw = await response.json().catch(() => []);
+        const items = Array.isArray(raw) ? raw : [];
+        collected.push(...items);
+      } catch {
+        clearTimeout(timeout);
+      }
       if (collected.length >= 120) break;
+    }
+
+    if (collected.length === 0) {
+      for (const candidate of queryCandidates.slice(0, 3)) {
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), 7000);
+        try {
+          const url = `https://photon.komoot.io/api/?limit=30&q=${encodeURIComponent(candidate)}`;
+          const response = await fetch(url, {
+            signal: controller.signal,
+            headers: { 'User-Agent': 'CosmoCasaCRM/1.0 (geocoding autocomplete fallback)' }
+          });
+          clearTimeout(timeout);
+          if (!response.ok) continue;
+          const raw = await response.json().catch(() => null);
+          const features = Array.isArray(raw?.features) ? raw.features : [];
+          collected.push(...features.map((feature: any) => {
+            const p = feature?.properties || {};
+            const coords = Array.isArray(feature?.geometry?.coordinates) ? feature.geometry.coordinates : [];
+            return {
+              display_name: [
+                p.street ? `${p.street}${p.housenumber ? ` ${p.housenumber}` : ''}` : p.name,
+                p.postcode,
+                p.city,
+                p.county || p.state,
+                p.country
+              ].filter(Boolean).join(', '),
+              lat: coords.length >= 2 ? coords[1] : undefined,
+              lon: coords.length >= 2 ? coords[0] : undefined,
+              importance: 0.5,
+              address: {
+                road: p.street || p.name || '',
+                house_number: p.housenumber || '',
+                city: p.city || p.town || p.village || '',
+                county: p.county || '',
+                state: p.state || '',
+                postcode: p.postcode || ''
+              }
+            };
+          }));
+        } catch {
+          clearTimeout(timeout);
+        }
+        if (collected.length >= 60) break;
+      }
     }
 
     if (collected.length === 0) {
@@ -13737,12 +15927,20 @@ app.get('/api/geocoding/streets/autocomplete', async (req, res) => {
       const streetNorm = norm(street);
       const cityNorm = norm(row.city);
       const reqCityNorm = norm(city);
+      const labelNorm = norm(String(row.label || ''));
       const provNorm = norm(row.provinceCode || row.province);
       const reqProvNorm = norm(province);
       const zipNorm = String(row.postcode || '').trim();
       const reqZipNorm = String(zipCode || '').trim();
       const houseNorm = norm(row.houseNumber);
       const reqHouseNorm = norm(number);
+
+      if (reqCityNorm && cityNorm !== reqCityNorm && !labelNorm.includes(reqCityNorm)) {
+        return null;
+      }
+      if (reqZipNorm && zipNorm && zipNorm !== reqZipNorm) {
+        return null;
+      }
 
       let score = 0;
       if (roadNorm === streetNorm) score += 100;
@@ -13756,8 +15954,10 @@ app.get('/api/geocoding/streets/autocomplete', async (req, res) => {
       if (row.houseNumber) score += 2;
       if (Number.isFinite(row.importance)) score += Math.max(0, Math.min(10, row.importance * 10));
 
+      if (full && labelNorm.includes(norm(full))) score += 20;
+
       return { ...row, score };
-    }).filter((item: any) => item.road && item.city);
+    }).filter((item: any) => item && item.road && item.city);
 
     const unique = new Map<string, any>();
     for (const item of mapped) {
@@ -14218,6 +16418,85 @@ app.get('/api/properties', async (req, res) => {
   }
 });
 
+app.get('/api/properties/non-compliant', async (req, res) => {
+  try {
+    const auth = getAuth(req);
+    if (!auth) return res.status(401).json({ success: false, message: 'Unauthorized' });
+    if (!isAdminRole(auth.role)) return res.status(403).json({ success: false, message: 'Forbidden' });
+
+    const where: any = {};
+    if (auth.agencyId) where.agencyId = auth.agencyId;
+
+    const properties = await prisma.property.findMany({
+      where,
+      orderBy: { updatedAt: 'desc' },
+      select: {
+        id: true,
+        reference: true,
+        title: true,
+        contractType: true,
+        city: true,
+        ownerFirstName: true,
+        ownerLastName: true,
+        ownerEmail: true,
+        ownerPhone: true,
+        images: true,
+        oneClickData: true,
+        isPublished: true,
+        updatedAt: true
+      }
+    });
+
+    const MIN_PROPERTY_IMAGES = 7;
+    const readFlag = (value: any) => String(value || '').trim().toUpperCase() === 'S';
+
+    const rows = properties
+      .map((property) => {
+        const oneClickData = (property.oneClickData && typeof property.oneClickData === 'object')
+          ? (property.oneClickData as any)
+          : {};
+        const missing: string[] = [];
+        const images = Array.isArray(property.images) ? property.images.filter((img: any) => typeof img === 'string' && img.trim()) : [];
+
+        if (!String(property.title || '').trim()) missing.push('title');
+        if (!String(property.ownerFirstName || '').trim()) missing.push('ownerFirstName');
+        if (!String(property.ownerLastName || '').trim()) missing.push('ownerLastName');
+        if (!String(property.ownerEmail || '').trim()) missing.push('ownerEmail');
+        if (!String(property.ownerPhone || '').trim()) missing.push('ownerPhone');
+        if (images.length < MIN_PROPERTY_IMAGES) missing.push(`images(min:${MIN_PROPERTY_IMAGES})`);
+        if (!readFlag(oneClickData?.doc_planimetria)) missing.push('doc_planimetria');
+        if (!readFlag(oneClickData?.doc_visura)) missing.push('doc_visura');
+        if (String(property.contractType || '').trim().toUpperCase() === 'RENT' && !String(oneClickData?.contratto_affitto || '').trim()) {
+          missing.push('contratto_affitto');
+        }
+
+        return {
+          id: property.id,
+          reference: property.reference || null,
+          title: property.title || null,
+          contractType: property.contractType || null,
+          city: property.city || null,
+          isPublished: Boolean(property.isPublished),
+          updatedAt: property.updatedAt,
+          missing
+        };
+      })
+      .filter((row) => row.missing.length > 0);
+
+    return res.json({
+      success: true,
+      data: rows,
+      summary: {
+        totalNonCompliant: rows.length,
+        publishedNonCompliant: rows.filter((row) => row.isPublished).length
+      }
+    });
+  } catch (error) {
+    console.error('Error fetching non-compliant properties:', error);
+    return res.status(500).json({ success: false, message: 'Error fetching non-compliant properties' });
+  }
+});
+
 app.get('/api/properties/:id', async (req, res) => {
   try {
     const auth = getAuth(req);
@@ -14319,8 +16598,28 @@ const normalizePropertyStatusValue = (rawStatus: any): 'AVAILABLE' | 'RESERVED' 
   return 'AVAILABLE';
 };
 
+const resolveRequestContractForMatching = (request: any): 'SALE' | 'RENT' | null => {
+  const rawContract = String(request?.contractType || '').trim().toUpperCase();
+  if (rawContract === 'SALE' || rawContract === 'RENT') return rawContract as 'SALE' | 'RENT';
+
+  const rawGoal = String(request?.requestGoal || request?.goal || '').trim().toUpperCase();
+  if (['SALE', 'VENDITA', 'BUY', 'ACQUISTO'].includes(rawGoal)) return 'SALE';
+  if (['RENT', 'AFFITTO', 'LOCAZIONE', 'VACATION'].includes(rawGoal)) return 'RENT';
+
+  const notes = String(request?.notes || '');
+  const goalMatch = notes.match(/\[CRM_REQ_GOAL=([^\]]+)\]/i);
+  const notesGoal = String(goalMatch?.[1] || '').trim().toUpperCase();
+  if (['SALE', 'VENDITA', 'BUY', 'ACQUISTO'].includes(notesGoal)) return 'SALE';
+  if (['RENT', 'AFFITTO', 'LOCAZIONE', 'VACATION'].includes(notesGoal)) return 'RENT';
+
+  const contactType = String(request?.contact?.type || '').trim().toUpperCase();
+  if (contactType === 'TENANT') return 'RENT';
+  if (contactType === 'BUYER') return 'SALE';
+  return null;
+};
+
 const buildCriteriaFromRequest = (request: any) => ({
-  contractType: request?.contractType || null,
+  contractType: resolveRequestContractForMatching(request),
   type: request?.type || null,
   minPrice: request?.minPrice ?? null,
   maxPrice: request?.maxPrice ?? null,
@@ -15061,6 +17360,69 @@ app.post('/api/properties', async (req, res) => {
       });
     }
     const normalizedOneClickFinal = applyOneClickPortalSelectionDelta(normalizedOneClickFromInput.normalized);
+    const oneClickDataForPersistence = enforcePropertyPublicationControlsByRole(
+      auth.role,
+      normalizedOneClickFinal,
+      null
+    );
+    const requiredErrors: string[] = [];
+    if (!String(body?.title || '').trim()) requiredErrors.push('title');
+    if (!String(body?.description || '').trim()) requiredErrors.push('description');
+    if (!String(body?.ownerFirstName || '').trim()) requiredErrors.push('ownerFirstName');
+    if (!String(body?.ownerLastName || '').trim()) requiredErrors.push('ownerLastName');
+    if (!String(body?.ownerEmail || '').trim()) requiredErrors.push('ownerEmail');
+    if (!String(body?.ownerPhone || '').trim()) requiredErrors.push('ownerPhone');
+    if (!String(body?.agentId || body?.ownerId || '').trim()) requiredErrors.push('agentId');
+    const oneClickRequired = (normalizedOneClickFinal || {}) as any;
+    const hasPositive = (v: any) => Number.isFinite(Number(v)) && Number(v) > 0;
+    const isYes = (v: any) => String(v || '').trim().toUpperCase() === 'S';
+    const hasValue = (v: any) => String(v ?? '').trim().length > 0;
+    const isBoxNone = (v: any) => {
+      const raw = String(v || '').trim().toLowerCase();
+      return !raw || raw === 'nessuno' || raw === 'no' || raw === 'n';
+    };
+
+    // Step 6 - Struttura edificio
+    if (!hasValue(oneClickRequired.piano)) requiredErrors.push('piano');
+    if (!hasValue(oneClickRequired.ascensore)) requiredErrors.push('ascensore');
+    if (!hasPositive(oneClickRequired.spese_cond_mensili) && Number(oneClickRequired.spese_cond_mensili) !== 0) requiredErrors.push('spese_cond_mensili');
+
+    // Step 7 - Spazi e accessori
+    if (!hasValue(oneClickRequired.balcone)) requiredErrors.push('balcone');
+    if (isYes(oneClickRequired.balcone) && !hasPositive(oneClickRequired.nr_balconi)) requiredErrors.push('nr_balconi');
+    if (!hasValue(oneClickRequired.terrazzo)) requiredErrors.push('terrazzo');
+    if (isYes(oneClickRequired.terrazzo) && !hasPositive(oneClickRequired.nr_terrazzi)) requiredErrors.push('nr_terrazzi');
+    if (!hasValue(oneClickRequired.giardino)) requiredErrors.push('giardino');
+    if (isYes(oneClickRequired.giardino) && !hasPositive(oneClickRequired.mq_giardino)) requiredErrors.push('mq_giardino');
+    if (!hasValue(oneClickRequired.mansarda)) requiredErrors.push('mansarda');
+    if (isYes(oneClickRequired.mansarda) && !hasPositive(oneClickRequired.mq_mansarda)) requiredErrors.push('mq_mansarda');
+    if (!hasValue(oneClickRequired.cantina)) requiredErrors.push('cantina');
+    if (isYes(oneClickRequired.cantina) && !hasPositive(oneClickRequired.mq_cantina)) requiredErrors.push('mq_cantina');
+    if (!hasValue(oneClickRequired.box_auto)) requiredErrors.push('box_auto');
+    if (!isBoxNone(oneClickRequired.box_auto) && !hasPositive(oneClickRequired.mq_box)) requiredErrors.push('mq_box');
+    if ((isYes(oneClickRequired.balcone) || isYes(oneClickRequired.terrazzo) || isYes(oneClickRequired.giardino)) && !hasPositive(oneClickRequired.mq_esterno) && Number(oneClickRequired.mq_esterno) !== 0) requiredErrors.push('mq_esterno');
+
+    // Step 8 - Dotazioni interne
+    if (!hasValue(oneClickRequired.arredato)) requiredErrors.push('arredato');
+    if (!hasValue(oneClickRequired.cucina)) requiredErrors.push('cucina');
+    if (!hasValue(oneClickRequired.riscaldamento)) requiredErrors.push('riscaldamento');
+    if (!hasValue(oneClickRequired.tipo_riscaldamento)) requiredErrors.push('tipo_riscaldamento');
+    if (!hasValue(oneClickRequired.condizionatore)) requiredErrors.push('condizionatore');
+    if (!hasValue(oneClickRequired.allarme_antifurto)) requiredErrors.push('allarme_antifurto');
+    if (!hasValue(oneClickRequired.portineria)) requiredErrors.push('portineria');
+    if (!hasValue(oneClickRequired.internet)) requiredErrors.push('internet');
+    if (!hasValue(oneClickRequired.caminetto)) requiredErrors.push('caminetto');
+    if (!hasValue(oneClickRequired.piscina)) requiredErrors.push('piscina');
+
+    // Step 9 - Energetica
+    if (!hasValue(oneClickRequired.classe_energetica)) requiredErrors.push('classe_energetica');
+
+    if (requiredErrors.length > 0) {
+      return res.status(400).json({
+        success: false,
+        message: `Missing required property fields: ${requiredErrors.join(', ')}`
+      });
+    }
 
     const oneClick = (normalizedOneClickFinal || {}) as any;
     const contractType = normalizeContractTypeValue(body?.contractType, oneClick?.idtipologiaannuncio);
@@ -15102,6 +17464,8 @@ app.post('/api/properties', async (req, res) => {
       
       salePrice: parseNumberOrUndefined(firstDefinedValue(body.salePrice, contractType !== 'RENT' ? inferredPrice : undefined)),
       rentPrice: parseNumberOrUndefined(firstDefinedValue(body.rentPrice, contractType === 'RENT' ? inferredPrice : undefined)),
+      advertisingSalePrice: parseNumberOrUndefined(body.advertisingSalePrice),
+      advertisingRentPrice: parseNumberOrUndefined(body.advertisingRentPrice),
       expenses: parseNumberOrUndefined(firstDefinedValue(body.condominium, body.expenses)), // Map condominium to expenses
       
       energyClass: inferredEnergyClass,
@@ -15128,10 +17492,10 @@ app.post('/api/properties', async (req, res) => {
       
       images: Array.isArray(body.images) ? body.images.filter((img: any) => typeof img === 'string' && img.trim()) : [],
       portalTargets: normalizedPortalTargets.portalIds,
-      oneClickData: normalizedOneClickFinal,
+      oneClickData: oneClickDataForPersistence,
       reference: firstDefinedValue(body.reference, oneClick?.riferimento),
       notes: mergedNotes,
-      isPublished: shouldMarkPendingApproval ? false : Boolean(body?.isPublished),
+      isPublished: auth.role === 'AGENT' ? false : (shouldMarkPendingApproval ? false : Boolean(body?.isPublished)),
       
       agencyId,
       ownerId
@@ -15190,49 +17554,60 @@ app.post('/api/properties', async (req, res) => {
     }
 
     if (shouldMarkPendingApproval && agencyId) {
-      const admins = await prisma.user.findMany({
-        where: {
-          agencyId,
-          role: { in: ['SUPER_ADMIN', 'AGENCY_ADMIN'] }
-        },
-        select: { id: true }
-      });
-
-      await Promise.all(
-        admins.map((admin) =>
-          createNotificationRecord({
+      try {
+        const submittedByName = [String(auth.firstName || '').trim(), String(auth.lastName || '').trim()].filter(Boolean).join(' ').trim() || String(auth.email || '').trim() || 'Agente';
+        const admins = await prisma.user.findMany({
+          where: {
             agencyId,
-            recipientId: admin.id,
-            type: 'PROPERTY_PENDING_APPROVAL',
-            title: 'Nuovo immobile in approvazione',
-            message: `${newProperty.title} richiede approvazione`,
-            data: {
-              propertyId: newProperty.id,
-              status: 'PENDING_APPROVAL'
-            }
-          })
-        )
-      );
+            role: { in: ['SUPER_ADMIN', 'AGENCY_ADMIN'] }
+          },
+          select: { id: true }
+        });
+
+        await Promise.all(
+          admins.map((admin) =>
+            createNotificationRecord({
+              agencyId,
+              recipientId: admin.id,
+              type: 'PROPERTY_PENDING_APPROVAL',
+              title: 'Nuovo immobile in approvazione',
+              message: `L'agente ${submittedByName} richiede l'approvazione dell'immobile "${newProperty.title}"`,
+              data: {
+                propertyId: newProperty.id,
+                status: 'PENDING_APPROVAL',
+                submittedById: auth.id,
+                submittedByName
+              }
+            })
+          )
+        );
+      } catch (notificationError) {
+        console.error('Error creating pending-approval notifications:', notificationError);
+      }
     }
 
     if (agencyId) {
-      const assigneeIds = extractPropertyAssigneeIds(body, newProperty.ownerId);
-      await Promise.all(
-        assigneeIds.map((recipientId) =>
-          createNotificationRecord({
-            agencyId,
-            recipientId,
-            type: 'PROPERTY_ASSIGNED',
-            title: 'Nuovo immobile caricato',
-            message: buildPropertyNotificationMessage(newProperty),
-            data: {
-              propertyId: newProperty.id,
-              source: 'PROPERTY_CREATE',
-              assignedById: auth.id
-            }
-          })
-        )
-      );
+      try {
+        const assigneeIds = extractPropertyAssigneeIds(body, newProperty.ownerId);
+        await Promise.all(
+          assigneeIds.map((recipientId) =>
+            createNotificationRecord({
+              agencyId,
+              recipientId,
+              type: 'PROPERTY_ASSIGNED',
+              title: 'Nuovo immobile caricato',
+              message: buildPropertyNotificationMessage(newProperty),
+              data: {
+                propertyId: newProperty.id,
+                source: 'PROPERTY_CREATE',
+                assignedById: auth.id
+              }
+            })
+          )
+        );
+      } catch (notificationError) {
+        console.error('Error creating property-assigned notifications:', notificationError);
+      }
     }
 
     res.status(201).json({
@@ -15334,6 +17709,91 @@ app.put('/api/properties/:id', async (req, res) => {
       normalizedOneClickFromInput.normalized,
       (existing?.oneClickData as any) || null
     );
+    const oneClickDataForPersistence = enforcePropertyPublicationControlsByRole(
+      auth.role,
+      normalizedOneClickFinal,
+      (existing?.oneClickData as any) || null
+    );
+    const MIN_PROPERTY_IMAGES = 7;
+    const readFlag = (value: any) => String(value || '').trim().toUpperCase() === 'S';
+    const effectiveImages = Array.isArray(body?.images)
+      ? body.images.filter((img: any) => typeof img === 'string' && img.trim())
+      : (Array.isArray(existing?.images) ? existing.images : []);
+    const requiredErrors: string[] = [];
+    const effectiveTitle = String(firstDefinedValue(body?.title, existing?.title) || '').trim();
+    const effectiveDescription = String(firstDefinedValue(body?.description, existing?.description) || '').trim();
+    const effectiveOwnerFirstName = String(firstDefinedValue(body?.ownerFirstName, existing?.ownerFirstName) || '').trim();
+    const effectiveOwnerLastName = String(firstDefinedValue(body?.ownerLastName, existing?.ownerLastName) || '').trim();
+    const effectiveOwnerEmail = String(firstDefinedValue(body?.ownerEmail, existing?.ownerEmail) || '').trim();
+    const effectiveOwnerPhone = String(firstDefinedValue(body?.ownerPhone, existing?.ownerPhone) || '').trim();
+    const effectiveAgentId = String(firstDefinedValue(body?.agentId, body?.ownerId, existing?.ownerId) || '').trim();
+    if (!effectiveTitle) requiredErrors.push('title');
+    if (!effectiveDescription) requiredErrors.push('description');
+    if (!effectiveOwnerFirstName) requiredErrors.push('ownerFirstName');
+    if (!effectiveOwnerLastName) requiredErrors.push('ownerLastName');
+    if (!effectiveOwnerEmail) requiredErrors.push('ownerEmail');
+    if (!effectiveOwnerPhone) requiredErrors.push('ownerPhone');
+    if (!effectiveAgentId) requiredErrors.push('agentId');
+    if (effectiveImages.length < MIN_PROPERTY_IMAGES) requiredErrors.push(`images(min:${MIN_PROPERTY_IMAGES})`);
+    const oneClickRequired = (normalizedOneClickFinal || {}) as any;
+    const hasPositive = (v: any) => Number.isFinite(Number(v)) && Number(v) > 0;
+    const isYes = (v: any) => String(v || '').trim().toUpperCase() === 'S';
+    const hasValue = (v: any) => String(v ?? '').trim().length > 0;
+    const isBoxNone = (v: any) => {
+      const raw = String(v || '').trim().toLowerCase();
+      return !raw || raw === 'nessuno' || raw === 'no' || raw === 'n';
+    };
+
+    // Step 6 - Struttura edificio
+    if (!hasValue(oneClickRequired.piano)) requiredErrors.push('piano');
+    if (!hasValue(oneClickRequired.ascensore)) requiredErrors.push('ascensore');
+    if (!hasPositive(oneClickRequired.spese_cond_mensili) && Number(oneClickRequired.spese_cond_mensili) !== 0) requiredErrors.push('spese_cond_mensili');
+
+    // Step 7 - Spazi e accessori
+    if (!hasValue(oneClickRequired.balcone)) requiredErrors.push('balcone');
+    if (isYes(oneClickRequired.balcone) && !hasPositive(oneClickRequired.nr_balconi)) requiredErrors.push('nr_balconi');
+    if (!hasValue(oneClickRequired.terrazzo)) requiredErrors.push('terrazzo');
+    if (isYes(oneClickRequired.terrazzo) && !hasPositive(oneClickRequired.nr_terrazzi)) requiredErrors.push('nr_terrazzi');
+    if (!hasValue(oneClickRequired.giardino)) requiredErrors.push('giardino');
+    if (isYes(oneClickRequired.giardino) && !hasPositive(oneClickRequired.mq_giardino)) requiredErrors.push('mq_giardino');
+    if (!hasValue(oneClickRequired.mansarda)) requiredErrors.push('mansarda');
+    if (isYes(oneClickRequired.mansarda) && !hasPositive(oneClickRequired.mq_mansarda)) requiredErrors.push('mq_mansarda');
+    if (!hasValue(oneClickRequired.cantina)) requiredErrors.push('cantina');
+    if (isYes(oneClickRequired.cantina) && !hasPositive(oneClickRequired.mq_cantina)) requiredErrors.push('mq_cantina');
+    if (!hasValue(oneClickRequired.box_auto)) requiredErrors.push('box_auto');
+    if (!isBoxNone(oneClickRequired.box_auto) && !hasPositive(oneClickRequired.mq_box)) requiredErrors.push('mq_box');
+    if ((isYes(oneClickRequired.balcone) || isYes(oneClickRequired.terrazzo) || isYes(oneClickRequired.giardino)) && !hasPositive(oneClickRequired.mq_esterno) && Number(oneClickRequired.mq_esterno) !== 0) requiredErrors.push('mq_esterno');
+
+    // Step 8 - Dotazioni interne
+    if (!hasValue(oneClickRequired.arredato)) requiredErrors.push('arredato');
+    if (!hasValue(oneClickRequired.cucina)) requiredErrors.push('cucina');
+    if (!hasValue(oneClickRequired.riscaldamento)) requiredErrors.push('riscaldamento');
+    if (!hasValue(oneClickRequired.tipo_riscaldamento)) requiredErrors.push('tipo_riscaldamento');
+    if (!hasValue(oneClickRequired.condizionatore)) requiredErrors.push('condizionatore');
+    if (!hasValue(oneClickRequired.allarme_antifurto)) requiredErrors.push('allarme_antifurto');
+    if (!hasValue(oneClickRequired.portineria)) requiredErrors.push('portineria');
+    if (!hasValue(oneClickRequired.internet)) requiredErrors.push('internet');
+    if (!hasValue(oneClickRequired.caminetto)) requiredErrors.push('caminetto');
+    if (!hasValue(oneClickRequired.piscina)) requiredErrors.push('piscina');
+
+    // Step 9 - Energetica
+    if (!hasValue(oneClickRequired.classe_energetica)) requiredErrors.push('classe_energetica');
+
+    if (String(firstDefinedValue(body?.contractType, existing?.contractType) || '').trim().toUpperCase() === 'RENT' && !String((normalizedOneClickFinal as any)?.contratto_affitto || '').trim()) {
+      requiredErrors.push('contratto_affitto');
+    }
+
+    const explicitIsPublished = parseBooleanOrUndefined(body?.isPublished);
+    const shouldEnforceStrictValidationOnUpdate =
+      Boolean(existing?.isPublished) || (auth.role !== 'AGENT' && explicitIsPublished === true);
+    const validationWarnings = requiredErrors.length > 0 && !shouldEnforceStrictValidationOnUpdate ? [...requiredErrors] : [];
+
+    if (requiredErrors.length > 0 && shouldEnforceStrictValidationOnUpdate) {
+      return res.status(400).json({
+        success: false,
+        message: `Missing required property fields: ${requiredErrors.join(', ')}`
+      });
+    }
 
     const oneClick = (normalizedOneClickFinal || {}) as any;
     const contractType = normalizeContractTypeValue(
@@ -15376,6 +17836,8 @@ app.put('/api/properties/:id', async (req, res) => {
       
       salePrice: parseNumberOrUndefined(firstDefinedValue(body.salePrice, contractType !== 'RENT' ? inferredPrice : undefined, existing?.salePrice)),
       rentPrice: parseNumberOrUndefined(firstDefinedValue(body.rentPrice, contractType === 'RENT' ? inferredPrice : undefined, existing?.rentPrice)),
+      advertisingSalePrice: parseNumberOrUndefined(firstDefinedValue(body.advertisingSalePrice, existing?.advertisingSalePrice)),
+      advertisingRentPrice: parseNumberOrUndefined(firstDefinedValue(body.advertisingRentPrice, existing?.advertisingRentPrice)),
       expenses: parseNumberOrUndefined(firstDefinedValue(body.condominium, body.expenses, existing?.expenses)), // Map condominium to expenses
       
       energyClass: firstDefinedValue(body.energyClass, oneClick?.classe_energetica, existing?.energyClass),
@@ -15404,7 +17866,7 @@ app.put('/api/properties/:id', async (req, res) => {
         ? body.images.filter((img: any) => typeof img === 'string' && img.trim())
         : undefined,
       portalTargets: normalizedPortalTargets.portalIds,
-      oneClickData: normalizedOneClickFinal,
+      oneClickData: oneClickDataForPersistence,
       reference: firstDefinedValue(body.reference, oneClick?.riferimento, existing?.reference),
       notes: body.notes,
       ownerId: auth.role === 'AGENT' ? auth.id : (body.agentId || body.ownerId)
@@ -15413,6 +17875,17 @@ app.put('/api/properties/:id', async (req, res) => {
     if (shouldMarkPendingApproval) {
       propertyData.notes = appendPendingApprovalTag(body?.notes, auth.id);
       propertyData.isPublished = false;
+    }
+    if (auth.role === 'AGENT') {
+      propertyData.isPublished = false;
+    }
+    if (auth.role !== 'AGENT' && explicitIsPublished !== undefined) {
+      propertyData.isPublished = explicitIsPublished;
+      if (explicitIsPublished) {
+        propertyData.publishedAt = existing?.publishedAt || new Date();
+      } else {
+        propertyData.publishedAt = null;
+      }
     }
 
     // Remove undefined keys
@@ -15424,12 +17897,43 @@ app.put('/api/properties/:id', async (req, res) => {
     });
 
     try {
+      const adSalePrev = toPositivePriceOrNull(existing.advertisingSalePrice);
+      const adSaleNext = toPositivePriceOrNull((updatedProperty as any).advertisingSalePrice);
+      const adRentPrev = toPositivePriceOrNull(existing.advertisingRentPrice);
+      const adRentNext = toPositivePriceOrNull((updatedProperty as any).advertisingRentPrice);
+      const publishedPrev = Boolean(existing.isPublished);
+      const publishedNext = Boolean((updatedProperty as any).isPublished);
+      const hasAdvertisingPriceChange = adSalePrev !== adSaleNext || adRentPrev !== adRentNext;
+      const hasPublishToggle = publishedPrev !== publishedNext;
+
+      if (hasAdvertisingPriceChange || hasPublishToggle) {
+        await writeAuditLog(
+          hasPublishToggle ? 'PROPERTY_PUBLICATION_CHANGED' : 'PROPERTY_ADVERTISING_PRICE_CHANGED',
+          'Property',
+          String(updatedProperty.id),
+          auth.id,
+          req.ip,
+          auth.email || null,
+          req.get('user-agent') || null,
+          {
+            advertisingSalePrice: { before: adSalePrev, after: adSaleNext },
+            advertisingRentPrice: { before: adRentPrev, after: adRentNext },
+            isPublished: { before: publishedPrev, after: publishedNext }
+          } as any
+        );
+      }
+    } catch (auditError) {
+      console.error('Error writing property update audit log:', auditError);
+    }
+
+    try {
       await recomputeMatchesForProperty(updatedProperty.id, updatedProperty.agencyId);
     } catch (matchingError) {
       console.error('Error recomputing matches after property update:', matchingError);
     }
 
     if (shouldMarkPendingApproval && updatedProperty.agencyId) {
+      const submittedByName = [String(auth.firstName || '').trim(), String(auth.lastName || '').trim()].filter(Boolean).join(' ').trim() || String(auth.email || '').trim() || 'Agente';
       const admins = await prisma.user.findMany({
         where: {
           agencyId: updatedProperty.agencyId,
@@ -15445,10 +17949,12 @@ app.put('/api/properties/:id', async (req, res) => {
             recipientId: admin.id,
             type: 'PROPERTY_PENDING_APPROVAL',
             title: 'Immobile aggiornato in approvazione',
-            message: `${updatedProperty.title} richiede approvazione`,
+            message: `L'agente ${submittedByName} richiede l'approvazione dell'immobile "${updatedProperty.title}"`,
             data: {
               propertyId: updatedProperty.id,
-              status: 'PENDING_APPROVAL'
+              status: 'PENDING_APPROVAL',
+              submittedById: auth.id,
+              submittedByName
             }
           })
         )
@@ -15526,7 +18032,8 @@ app.put('/api/properties/:id', async (req, res) => {
     res.json({
       success: true,
       data: updatedProperty,
-      message: 'Property updated successfully'
+      message: 'Property updated successfully',
+      warnings: validationWarnings
     });
   } catch (error) {
     console.error('Error updating property:', error);
@@ -15558,7 +18065,343 @@ app.delete('/api/properties/:id', async (req, res) => {
   }
 });
 
+const getAccessiblePropertyForMedia = async (propertyId: string, auth: AuthContext) => {
+  const property = await prisma.property.findUnique({ where: { id: propertyId } });
+  if (!property) return null;
+  if (auth.agencyId && property.agencyId !== auth.agencyId) return null;
+  if (auth.role === 'AGENT' && property.ownerId !== auth.id) return null;
+  return property;
+};
+
+app.post('/api/properties/:id/images', upload.array('images', 40), async (req, res) => {
+  try {
+    const auth = getAuth(req);
+    if (!auth) return res.status(401).json({ success: false, message: 'Unauthorized' });
+
+    const property = await getAccessiblePropertyForMedia(req.params.id, auth);
+    if (!property) return res.status(404).json({ success: false, message: 'Property not found' });
+
+    const files = ((req as any).files || []) as Express.Multer.File[];
+    if (!files.length) return res.status(400).json({ success: false, message: 'No images uploaded' });
+
+    const imageUrls: string[] = [];
+    const storageWarnings: string[] = [];
+    let storageReady = true;
+    try {
+      await storageEnsureBucket(OWNER_DOCUMENTS_BUCKET);
+    } catch (storageInitError: any) {
+      storageReady = false;
+      storageWarnings.push(`storage_unavailable:${String(storageInitError?.message || storageInitError || 'unknown')}`);
+      console.warn('Object storage unavailable, using inline fallback for property images:', storageInitError?.message || storageInitError);
+    }
+    for (const file of files) {
+      if (!String(file.mimetype || '').startsWith('image/')) {
+        return res.status(400).json({ success: false, message: 'Sono consentite solo immagini' });
+      }
+      if (storageReady) {
+        try {
+          const fileKey = buildSafeFileKey(`property-image-${property.id}`, file.originalname);
+          await storagePutObject(OWNER_DOCUMENTS_BUCKET, fileKey, file.buffer, file.size, file.mimetype);
+          imageUrls.push(`/api/properties/${property.id}/images/${encodeURIComponent(fileKey)}`);
+          continue;
+        } catch (storagePutError: any) {
+          storageWarnings.push(`storage_put_failed:${String(storagePutError?.message || storagePutError || 'unknown')}`);
+          console.warn('Image storage put failed, using inline fallback:', storagePutError?.message || storagePutError);
+        }
+      }
+      const base64 = file.buffer.toString('base64');
+      imageUrls.push(`data:${file.mimetype || 'image/jpeg'};base64,${base64}`);
+    }
+
+    await prisma.property.update({
+      where: { id: property.id },
+      data: { images: [...(Array.isArray(property.images) ? property.images : []), ...imageUrls] }
+    });
+
+    res.status(201).json({ success: true, imageUrls, warnings: storageWarnings });
+  } catch (error) {
+    console.error('Error uploading property images:', error);
+    res.status(500).json({ success: false, message: 'Error uploading property images' });
+  }
+});
+
+app.get('/api/properties/:id/images/:fileKey', async (req, res) => {
+  try {
+    const property = await prisma.property.findUnique({ where: { id: req.params.id }, select: { id: true, images: true } });
+    if (!property) return res.status(404).json({ success: false, message: 'Property not found' });
+
+    const fileKey = decodeURIComponent(String(req.params.fileKey || ''));
+    const expectedUrl = `/api/properties/${property.id}/images/${encodeURIComponent(fileKey)}`;
+    if (!Array.isArray(property.images) || !property.images.includes(expectedUrl)) {
+      return res.status(404).json({ success: false, message: 'Image not found' });
+    }
+
+    const stat = await storageStatObject(OWNER_DOCUMENTS_BUCKET, fileKey);
+    const stream = await storageGetObject(OWNER_DOCUMENTS_BUCKET, fileKey);
+    res.setHeader('Content-Type', stat?.metaData?.['content-type'] || stat?.contentType || 'application/octet-stream');
+    res.setHeader('Cache-Control', 'public, max-age=86400');
+    stream.pipe(res);
+  } catch (error) {
+    console.error('Error reading property image:', error);
+    res.status(404).json({ success: false, message: 'Image not found' });
+  }
+});
+
+app.put('/api/properties/:id/images/featured', async (req, res) => {
+  try {
+    const auth = getAuth(req);
+    if (!auth) return res.status(401).json({ success: false, message: 'Unauthorized' });
+
+    const property = await getAccessiblePropertyForMedia(req.params.id, auth);
+    if (!property) return res.status(404).json({ success: false, message: 'Property not found' });
+
+    const imageUrl = typeof req.body?.imageUrl === 'string' ? req.body.imageUrl : '';
+    const images = Array.isArray(property.images) ? property.images : [];
+    if (!imageUrl || !images.includes(imageUrl)) {
+      return res.status(400).json({ success: false, message: 'Image not found in property gallery' });
+    }
+
+    const reordered = [imageUrl, ...images.filter((img) => img !== imageUrl)];
+    const updated = await prisma.property.update({ where: { id: property.id }, data: { images: reordered } });
+    res.json({ success: true, data: updated, imageUrls: reordered });
+  } catch (error) {
+    console.error('Error setting featured image:', error);
+    res.status(500).json({ success: false, message: 'Error setting featured image' });
+  }
+});
+
+app.delete('/api/properties/:id/images', async (req, res) => {
+  try {
+    const auth = getAuth(req);
+    if (!auth) return res.status(401).json({ success: false, message: 'Unauthorized' });
+
+    const property = await getAccessiblePropertyForMedia(req.params.id, auth);
+    if (!property) return res.status(404).json({ success: false, message: 'Property not found' });
+
+    const imageUrl = typeof req.body?.imageUrl === 'string' ? req.body.imageUrl : '';
+    const images = Array.isArray(property.images) ? property.images : [];
+    if (!imageUrl || !images.includes(imageUrl)) {
+      return res.status(400).json({ success: false, message: 'Image not found in property gallery' });
+    }
+
+    const marker = `/api/properties/${property.id}/images/`;
+    if (imageUrl.includes(marker)) {
+      const fileKey = decodeURIComponent(imageUrl.split(marker)[1] || '');
+      if (fileKey) {
+        await storageRemoveObject(OWNER_DOCUMENTS_BUCKET, fileKey).catch(() => undefined);
+      }
+    }
+
+    const updatedImages = images.filter((img) => img !== imageUrl);
+    await prisma.property.update({ where: { id: property.id }, data: { images: updatedImages } });
+    res.json({ success: true, imageUrls: updatedImages });
+  } catch (error) {
+    console.error('Error deleting property image:', error);
+    res.status(500).json({ success: false, message: 'Error deleting property image' });
+  }
+});
+
+app.get('/api/properties/:id/documents', async (req, res) => {
+  try {
+    const auth = getAuth(req);
+    if (!auth) return res.status(401).json({ success: false, message: 'Unauthorized' });
+    const property = await getAccessiblePropertyForMedia(req.params.id, auth);
+    if (!property) return res.status(404).json({ success: false, message: 'Property not found' });
+    const oneClickData = (property.oneClickData || {}) as any;
+    const documents = [...normalizeStoredPropertyDocuments(oneClickData), ...legacyPropertyDocumentRows(oneClickData)]
+      .sort((a: any, b: any) => new Date(b.uploadedAt || 0).getTime() - new Date(a.uploadedAt || 0).getTime());
+    res.json({ success: true, data: documents });
+  } catch (error) {
+    console.error('Error fetching property documents:', error);
+    res.status(500).json({ success: false, message: 'Error fetching property documents' });
+  }
+});
+
+app.post('/api/properties/:id/documents', upload.single('file'), async (req, res) => {
+  try {
+    const auth = getAuth(req);
+    if (!auth) return res.status(401).json({ success: false, message: 'Unauthorized' });
+    const property = await getAccessiblePropertyForMedia(req.params.id, auth);
+    if (!property) return res.status(404).json({ success: false, message: 'Property not found' });
+
+    const file: any = (req as any).file;
+    if (!file) return res.status(400).json({ success: false, message: 'File is required' });
+
+    const rawType = typeof req.body?.type === 'string' ? req.body.type.trim().toUpperCase() : 'ALTRO';
+    const customLabel = typeof req.body?.customLabel === 'string' ? req.body.customLabel.trim() : '';
+    const type = rawType === 'PLANIMETRIA' || rawType === 'VISURA' ? rawType : 'ALTRO';
+    const label =
+      type === 'PLANIMETRIA'
+        ? 'Planimetria catastale'
+        : type === 'VISURA'
+          ? 'Visura catastale'
+          : (customLabel || 'Documento immobile');
+    const fileKey = buildSafeFileKey(`property-document-${property.id}-${type.toLowerCase()}`, file.originalname);
+    await storageEnsureBucket(OWNER_DOCUMENTS_BUCKET);
+    await storagePutObject(OWNER_DOCUMENTS_BUCKET, fileKey, file.buffer, file.size, file.mimetype || 'application/octet-stream');
+
+    const oneClickData = { ...((property.oneClickData || {}) as any) };
+    const documents = normalizeStoredPropertyDocuments(oneClickData);
+    const document = {
+      id: `doc_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
+      type,
+      label,
+      fileName: file.originalname,
+      fileKey,
+      mimeType: file.mimetype || 'application/octet-stream',
+      size: file.size,
+      uploadedAt: new Date().toISOString(),
+      uploadedById: auth.id,
+      uploadedByName: auth.id
+    };
+    oneClickData.propertyDocuments = [document, ...documents];
+    if (type === 'PLANIMETRIA') {
+      oneClickData.doc_planimetria = 'S';
+      oneClickData.planimetria_file = document;
+    }
+    if (type === 'VISURA') {
+      oneClickData.doc_visura = 'S';
+      oneClickData.visura_file = document;
+    }
+
+    await prisma.property.update({ where: { id: property.id }, data: { oneClickData } });
+    res.status(201).json({ success: true, data: document });
+  } catch (error) {
+    console.error('Error uploading property document:', error);
+    res.status(500).json({ success: false, message: 'Error uploading property document' });
+  }
+});
+
+app.get('/api/properties/:id/documents/:documentId', async (req, res) => {
+  try {
+    const property = await prisma.property.findUnique({ where: { id: req.params.id } });
+    if (!property) return res.status(404).json({ success: false, message: 'Property not found' });
+
+    const docs = [
+      ...normalizeStoredPropertyDocuments((property.oneClickData || {}) as any),
+      ...legacyPropertyDocumentRows((property.oneClickData || {}) as any, true)
+    ];
+    const document = docs.find((doc: any) => String(doc.id) === String(req.params.documentId));
+    if (!document?.fileKey && !document?.dataUrl) return res.status(404).json({ success: false, message: 'Document not found' });
+
+    if (document.dataUrl) {
+      const match = String(document.dataUrl).match(/^data:([^;]+);base64,(.+)$/);
+      if (!match) return res.status(404).json({ success: false, message: 'Document not found' });
+      const buffer = Buffer.from(match[2], 'base64');
+      const download = String(req.query.download || '') === '1';
+      res.setHeader('Content-Type', document.mimeType || match[1] || 'application/octet-stream');
+      res.setHeader('Content-Disposition', `${download ? 'attachment' : 'inline'}; filename="${String(document.fileName || 'documento').replace(/"/g, '')}"`);
+      return res.send(buffer);
+    }
+
+    const stat = await storageStatObject(OWNER_DOCUMENTS_BUCKET, document.fileKey);
+    const stream = await storageGetObject(OWNER_DOCUMENTS_BUCKET, document.fileKey);
+    const download = String(req.query.download || '') === '1';
+    res.setHeader('Content-Type', document.mimeType || stat?.metaData?.['content-type'] || 'application/octet-stream');
+    res.setHeader('Content-Disposition', `${download ? 'attachment' : 'inline'}; filename="${String(document.fileName || 'documento').replace(/"/g, '')}"`);
+    stream.pipe(res);
+  } catch (error) {
+    console.error('Error reading property document:', error);
+    res.status(404).json({ success: false, message: 'Document not found' });
+  }
+});
+
 // Contacts endpoints
+const REQUEST_META_PREFIX = 'CRM_REQ_';
+const REQUEST_META_KEYS = {
+  goal: `${REQUEST_META_PREFIX}GOAL`,
+  zone: `${REQUEST_META_PREFIX}ZONE`,
+  rentSubtype: `${REQUEST_META_PREFIX}RENT_SUBTYPE`
+} as const;
+
+const parseOptionalString = (value: any): string | undefined => {
+  if (typeof value !== 'string') return undefined;
+  const trimmed = value.trim();
+  return trimmed.length > 0 ? trimmed : undefined;
+};
+
+const parseOptionalNumber = (value: any): number | undefined => {
+  if (value === null || value === undefined || value === '') return undefined;
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : undefined;
+};
+
+const readRequestMetaFromNotes = (notes: string | null | undefined) => {
+  const source = typeof notes === 'string' ? notes : '';
+  const metaRegex = /\[(CRM_REQ_[A-Z_]+)=([^\]]*)\]/g;
+  const meta: Record<string, string> = {};
+  let match: RegExpExecArray | null;
+  while ((match = metaRegex.exec(source)) !== null) {
+    meta[match[1]] = match[2] || '';
+  }
+  const cleaned = source.replace(metaRegex, '').replace(/\n{3,}/g, '\n\n').trim();
+  return { meta, cleanedNotes: cleaned || undefined };
+};
+
+const encodeRequestNotesWithMeta = (plainNotes: string | undefined, meta: Record<string, string | undefined>) => {
+  const cleanNotes = parseOptionalString(plainNotes) || '';
+  const tags = Object.entries(meta)
+    .filter(([, value]) => parseOptionalString(value))
+    .map(([key, value]) => `[${key}=${String(value).trim()}]`);
+  const payload = [cleanNotes, ...tags].filter(Boolean).join('\n').trim();
+  return payload.length > 0 ? payload : undefined;
+};
+
+const resolveRequestGoal = (request: any, meta: Record<string, string>) => {
+  const fromMeta = parseOptionalString(meta[REQUEST_META_KEYS.goal]);
+  if (fromMeta) return fromMeta;
+  if (request?.contractType === 'RENT') return 'RENT';
+  return 'SALE';
+};
+
+const normalizeRequestFlatResponse = (contact: any) => {
+  const request = contact?.requests?.[0];
+  const { requests, ...rest } = contact || {};
+  if (!request) return rest;
+  const requestMeta = readRequestMetaFromNotes(request.notes);
+  return {
+    ...rest,
+    budget: request.maxPrice ?? undefined,
+    preferences: request.description ?? undefined,
+    requestApartmentType: request.apartmentSubtype ?? undefined,
+    requestBedrooms: request.minRooms ?? undefined,
+    requestBathrooms: request.minBathrooms ?? undefined,
+    requestFloor: request.minFloor ?? undefined,
+    requestGoal: resolveRequestGoal(request, requestMeta.meta),
+    requestPropertyType: request.type ?? undefined,
+    requestZone: parseOptionalString(requestMeta.meta[REQUEST_META_KEYS.zone]),
+    requestSurfaceSqm: request.minSurface ?? request.maxSurface ?? undefined,
+    rentContractSubtype: parseOptionalString(requestMeta.meta[REQUEST_META_KEYS.rentSubtype]),
+    requestNotes: requestMeta.cleanedNotes
+  };
+};
+
+const mapRequestPropertyType = (value: any): Prisma.PropertyType | undefined => {
+  const normalized = parseOptionalString(value)?.toUpperCase();
+  if (!normalized) return undefined;
+  const allowed = [
+    'APARTMENT',
+    'HOUSE',
+    'VILLA',
+    'OFFICE',
+    'SHOP',
+    'WAREHOUSE',
+    'LAND',
+    'GARAGE',
+    'OTHER'
+  ];
+  if (!allowed.includes(normalized)) return undefined;
+  return normalized as Prisma.PropertyType;
+};
+
+const mapRequestGoalToContract = (goal: string | undefined, fallbackByType: 'SALE' | 'RENT') => {
+  const normalized = parseOptionalString(goal)?.toUpperCase();
+  if (normalized === 'SALE' || normalized === 'VENDITA' || normalized === 'BUY' || normalized === 'ACQUISTO') return 'SALE';
+  if (normalized === 'RENT' || normalized === 'AFFITTO' || normalized === 'LOCAZIONE') return 'RENT';
+  if (normalized === 'VACATION') return 'RENT';
+  return fallbackByType;
+};
+
 app.get('/api/contacts', async (req, res) => {
   const { page = 1, limit = 10, search, type, category, city, assignedToId } = req.query;
 
@@ -15617,25 +18460,7 @@ app.get('/api/contacts', async (req, res) => {
       })
     ]);
 
-    const contacts = contactsWithRequests.map((contact: any) => {
-      const request = contact.requests?.[0];
-      const {
-        requests,
-        ...rest
-      } = contact;
-
-      if (!request) {
-        return rest;
-      }
-
-      return {
-        ...rest,
-        requestApartmentType: request.apartmentSubtype ?? undefined,
-        requestBedrooms: request.minRooms ?? undefined,
-        requestBathrooms: request.minBathrooms ?? undefined,
-        requestFloor: request.minFloor ?? undefined
-      };
-    });
+    const contacts = contactsWithRequests.map((contact: any) => normalizeRequestFlatResponse(contact));
 
     res.json({
       success: true,
@@ -15686,21 +18511,7 @@ app.get('/api/contacts/:id', async (req, res, next) => {
       if (auth.role === 'AGENT' && contactWithRequests.assignedToId && contactWithRequests.assignedToId !== auth.id) {
         return res.status(404).json({ success: false, message: 'Contact not found' });
       }
-      const request = (contactWithRequests as any).requests?.[0];
-      const {
-        requests,
-        ...rest
-      } = contactWithRequests as any;
-
-      const contact = request
-        ? {
-            ...rest,
-            requestApartmentType: request.apartmentSubtype ?? undefined,
-            requestBedrooms: request.minRooms ?? undefined,
-            requestBathrooms: request.minBathrooms ?? undefined,
-            requestFloor: request.minFloor ?? undefined
-          }
-        : rest;
+      const contact = normalizeRequestFlatResponse(contactWithRequests as any);
 
       res.json({ success: true, data: contact });
     } else {
@@ -16542,6 +19353,187 @@ app.get('/api/properties/:id/request-report-history', async (req, res) => {
   }
 });
 
+app.get('/api/properties/:id/history-events', async (req, res) => {
+  try {
+    const auth = getAuth(req);
+    if (!auth) return res.status(401).json({ success: false, message: 'Unauthorized' });
+
+    const property = await prisma.property.findUnique({
+      where: { id: req.params.id },
+      select: { id: true, agencyId: true, ownerId: true }
+    });
+
+    if (!property) return res.status(404).json({ success: false, message: 'Property not found' });
+    if (auth.agencyId && property.agencyId !== auth.agencyId) {
+      return res.status(404).json({ success: false, message: 'Property not found' });
+    }
+    if (auth.role === 'AGENT' && property.ownerId !== auth.id) {
+      return res.status(404).json({ success: false, message: 'Property not found' });
+    }
+
+    const rows = await prisma.auditLog.findMany({
+      where: {
+        entity: 'Property',
+        entityId: property.id,
+        action: {
+          in: ['PROPERTY_APPROVED_AND_PUBLISHED', 'PROPERTY_APPROVED', 'PROPERTY_PUBLISHED']
+        }
+      },
+      orderBy: { createdAt: 'asc' }
+    });
+
+    const userIds = Array.from(
+      new Set(
+        rows
+          .map((row) => String(row.userId || '').trim())
+          .filter(Boolean)
+      )
+    );
+
+    const users = userIds.length > 0
+      ? await prisma.user.findMany({
+          where: { id: { in: userIds } },
+          select: { id: true, firstName: true, lastName: true, email: true, role: true }
+        })
+      : [];
+
+    const usersById = new Map(users.map((u) => [u.id, u]));
+
+    const events = rows.map((row) => {
+      const user = row.userId ? usersById.get(String(row.userId)) : null;
+      const fullName = [user?.firstName, user?.lastName].filter(Boolean).join(' ').trim();
+      const byName = fullName || user?.email || row.userEmail || (row.userId ? `Utente ${String(row.userId).slice(0, 6)}` : 'Utente sconosciuto');
+      const normalizedAction = String(row.action || '').trim().toUpperCase();
+      const type =
+        normalizedAction.includes('APPROV') ? 'APPROVAL' :
+        normalizedAction.includes('PUBLISH') ? 'PUBLICATION' :
+        'SYSTEM';
+
+      return {
+        id: row.id,
+        type,
+        action: row.action,
+        at: row.createdAt,
+        by: {
+          id: user?.id || row.userId || null,
+          name: byName,
+          email: user?.email || row.userEmail || null,
+          role: user?.role || null
+        }
+      };
+    });
+
+    return res.json({ success: true, data: events });
+  } catch (error) {
+    console.error('Error fetching property history events:', error);
+    return res.status(500).json({ success: false, message: 'Error fetching property history events' });
+  }
+});
+
+app.get('/api/properties/:id/approval-status', async (req, res) => {
+  try {
+    const auth = getAuth(req);
+    if (!auth) return res.status(401).json({ success: false, message: 'Unauthorized' });
+
+    const property = await prisma.property.findUnique({
+      where: { id: req.params.id },
+      select: {
+        id: true,
+        agencyId: true,
+        ownerId: true,
+        notes: true,
+        isPublished: true,
+        publishedAt: true,
+        createdAt: true,
+        oneClickData: true
+      }
+    });
+
+    if (!property) return res.status(404).json({ success: false, message: 'Property not found' });
+    if (auth.agencyId && property.agencyId !== auth.agencyId) {
+      return res.status(404).json({ success: false, message: 'Property not found' });
+    }
+    if (auth.role === 'AGENT' && property.ownerId !== auth.id) {
+      return res.status(404).json({ success: false, message: 'Property not found' });
+    }
+
+    const notesText = String(property.notes || '');
+    const pendingMatch = Array.from(notesText.matchAll(/\[PENDING_APPROVAL\]\[by:([^\]]+)\]\[at:([^\]]+)\]/g));
+    const latestPending = pendingMatch.length > 0 ? pendingMatch[pendingMatch.length - 1] : null;
+    const pendingById = latestPending?.[1] ? String(latestPending[1]).trim() : '';
+    const pendingAt = latestPending?.[2] ? String(latestPending[2]).trim() : '';
+
+    const oneClickData = property.oneClickData && typeof property.oneClickData === 'object'
+      ? (property.oneClickData as any)
+      : {};
+    const review = oneClickData?.publicationReview && typeof oneClickData.publicationReview === 'object'
+      ? oneClickData.publicationReview
+      : {};
+    const approvedAt = String(review?.approvedAt || review?.reviewedAt || '').trim();
+    const approvedById = String(review?.approvedById || '').trim();
+    const publishedAt = property.publishedAt ? new Date(property.publishedAt).toISOString() : '';
+
+    const userIds = Array.from(new Set([pendingById, approvedById].filter(Boolean)));
+    const users = userIds.length > 0
+      ? await prisma.user.findMany({
+          where: { id: { in: userIds } },
+          select: { id: true, firstName: true, lastName: true, email: true }
+        })
+      : [];
+    const usersById = new Map(users.map((u) => [u.id, u]));
+    const resolveUserName = (id?: string) => {
+      if (!id) return '';
+      const user = usersById.get(id);
+      if (!user) return '';
+      const fullName = [user.firstName, user.lastName].filter(Boolean).join(' ').trim();
+      return fullName || String(user.email || '').trim();
+    };
+
+    const state1Done = Boolean(pendingAt || approvedAt || publishedAt);
+    const state2Done = Boolean(approvedAt || publishedAt);
+    const state3Done = Boolean(property.isPublished && publishedAt);
+
+    const states = [
+      {
+        key: 'PENDING_APPROVAL',
+        label: 'In fase di approvazione',
+        done: state1Done,
+        at: pendingAt || '',
+        byName: resolveUserName(pendingById),
+        byId: pendingById || null
+      },
+      {
+        key: 'APPROVED_PUBLICATION',
+        label: 'Approvato in fase di pubblicazione',
+        done: state2Done,
+        at: approvedAt || '',
+        byName: resolveUserName(approvedById),
+        byId: approvedById || null
+      },
+      {
+        key: 'PUBLISHED',
+        label: 'Pubblicato',
+        done: state3Done,
+        at: publishedAt || '',
+        byName: resolveUserName(approvedById),
+        byId: approvedById || null
+      }
+    ];
+
+    return res.json({
+      success: true,
+      data: {
+        propertyId: property.id,
+        currentStatus: state3Done ? 'PUBLISHED' : (state2Done ? 'APPROVED_PUBLICATION' : (state1Done ? 'PENDING_APPROVAL' : 'DRAFT')),
+        states
+      }
+    });
+  } catch (error) {
+    console.error('Error fetching property approval status:', error);
+    return res.status(500).json({ success: false, message: 'Error fetching property approval status' });
+  }
+});
+
 app.get('/api/properties/:id/cross-calls', async (req, res) => {
   return res.status(410).json({
     success: false,
@@ -16781,7 +19773,21 @@ app.post('/api/properties/:id/approve', async (req, res) => {
 
     const existing = await prisma.property.findUnique({
       where: { id: req.params.id },
-      select: { id: true, title: true, ownerId: true, agencyId: true, notes: true }
+      select: {
+        id: true,
+        title: true,
+        ownerId: true,
+        agencyId: true,
+        notes: true,
+        oneClickData: true,
+        contractType: true,
+        description: true,
+        ownerFirstName: true,
+        ownerLastName: true,
+        ownerEmail: true,
+        ownerPhone: true,
+        images: true
+      }
     });
 
     if (!existing) return res.status(404).json({ success: false, message: 'Property not found' });
@@ -16792,18 +19798,78 @@ app.post('/api/properties/:id/approve', async (req, res) => {
       return res.status(400).json({ success: false, message: 'Property is not pending approval' });
     }
 
+    const oneClickData = (existing.oneClickData && typeof existing.oneClickData === 'object')
+      ? (existing.oneClickData as any)
+      : {};
+    const readFlag = (value: any) => String(value || '').trim().toUpperCase() === 'S';
+    const MIN_PROPERTY_IMAGES = 7;
+    const images = Array.isArray(existing.images) ? existing.images.filter((img: any) => typeof img === 'string' && img.trim()) : [];
+    const publishValidationErrors: string[] = [];
+    if (!String(existing.title || '').trim()) publishValidationErrors.push('title');
+    if (!String(existing.description || '').trim()) publishValidationErrors.push('description');
+    if (!String(existing.ownerFirstName || '').trim()) publishValidationErrors.push('ownerFirstName');
+    if (!String(existing.ownerLastName || '').trim()) publishValidationErrors.push('ownerLastName');
+    if (!String(existing.ownerEmail || '').trim()) publishValidationErrors.push('ownerEmail');
+    if (!String(existing.ownerPhone || '').trim()) publishValidationErrors.push('ownerPhone');
+    if (images.length < MIN_PROPERTY_IMAGES) publishValidationErrors.push(`images(min:${MIN_PROPERTY_IMAGES})`);
+    if (!readFlag(oneClickData?.doc_planimetria)) publishValidationErrors.push('doc_planimetria');
+    if (!readFlag(oneClickData?.doc_visura)) publishValidationErrors.push('doc_visura');
+    if (String(existing.contractType || '').trim().toUpperCase() === 'RENT' && !String(oneClickData?.contratto_affitto || '').trim()) {
+      publishValidationErrors.push('contratto_affitto');
+    }
+    if (publishValidationErrors.length > 0) {
+      return res.status(400).json({
+        success: false,
+        message: `Missing required property fields: ${publishValidationErrors.join(', ')}`
+      });
+    }
+
     const cleanedNotes = clearPendingApprovalTag(existing.notes);
     const approvalStamp = `[APPROVED_BY_ADMIN][by:${auth.id}][at:${new Date().toISOString()}]`;
     const nextNotes = cleanedNotes ? `${cleanedNotes}\n${approvalStamp}` : approvalStamp;
+
+    const existingOneClickData = (existing.oneClickData && typeof existing.oneClickData === 'object')
+      ? (existing.oneClickData as any)
+      : {};
+    const existingReview = sanitizePublicationReviewPayload(existingOneClickData.publicationReview);
+    const nextReview = {
+      ...(existingReview || { hiddenFields: [], adminNote: '' }),
+      reviewedAt: new Date().toISOString(),
+      reviewedByRole: auth.role || 'AGENCY_ADMIN',
+      approvedAt: new Date().toISOString(),
+      approvedById: auth.id
+    };
 
     const updated = await prisma.property.update({
       where: { id: req.params.id },
       data: {
         notes: nextNotes,
         isPublished: true,
-        publishedAt: new Date()
+        publishedAt: new Date(),
+        oneClickData: {
+          ...existingOneClickData,
+          publicationReview: nextReview
+        }
       }
     });
+
+    try {
+      await writeAuditLog(
+        'PROPERTY_APPROVED_AND_PUBLISHED',
+        'Property',
+        String(updated.id),
+        auth.id,
+        req.ip,
+        auth.email || null,
+        req.get('user-agent') || null,
+        {
+          isPublished: { before: false, after: true },
+          approvedById: auth.id
+        } as any
+      );
+    } catch (auditError) {
+      console.error('Error writing property approval audit log:', auditError);
+    }
 
     await createNotificationRecord({
       agencyId: updated.agencyId,
@@ -17026,6 +20092,112 @@ app.post('/api/contacts', async (req, res) => {
        return res.status(400).json({ success: false, message: 'Missing agencyId' });
     }
 
+    const contactType = parseOptionalString(data.type)?.toUpperCase();
+    const isRequestEligibleType =
+      contactType === 'BUYER' || contactType === 'TENANT' || contactType === 'LEAD';
+
+    if (isRequestEligibleType) {
+      const firstName = parseOptionalString(data.firstName);
+      const lastName = parseOptionalString(data.lastName);
+      const email = parseOptionalString(data.email);
+      const phone = parseOptionalString(data.phone);
+      const city = parseOptionalString(data.city);
+      const province = parseOptionalString(data.province);
+      const address = parseOptionalString(data.address);
+      const zipCode = parseOptionalString(data.zipCode);
+      const birthDate = parseOptionalString(data.birthDate);
+      const birthPlace = parseOptionalString(data.birthPlace);
+      const requestGoal = parseOptionalString(data.requestGoal)?.toUpperCase();
+      const requestPropertyTypeRaw = parseOptionalString(data.requestPropertyType);
+      const requestPropertyType = mapRequestPropertyType(requestPropertyTypeRaw);
+      const requestZone = parseOptionalString(data.requestZone);
+      const requestApartmentType = parseOptionalString(data.requestApartmentType);
+      const requestSurfaceSqm = parseOptionalNumber(data.requestSurfaceSqm);
+      const rentContractSubtype = parseOptionalString(data.rentContractSubtype);
+      const budget = parseOptionalNumber(data.budget);
+      const requestCondition = parseOptionalString(data.requestCondition);
+      const requestBathrooms = parseOptionalNumber(data.requestBathrooms);
+      const requestBedrooms = parseOptionalNumber(data.requestBedrooms);
+      const requestFloor = parseOptionalNumber(data.requestFloor);
+      const requestCommercialRooms = parseOptionalNumber(data.requestCommercialRooms);
+      const requestParkingSpots = parseOptionalNumber(data.requestParkingSpots);
+      const requestShopWindows = parseOptionalNumber(data.requestShopWindows);
+      const requestLandUse = parseOptionalString(data.requestLandUse);
+      const requestBuildable = parseOptionalString(data.requestBuildable);
+      const requestGarageType = parseOptionalString(data.requestGarageType);
+      const notes = parseOptionalString(data.notes);
+
+      const validationErrors: string[] = [];
+
+      if (!firstName || !lastName) validationErrors.push('Nome e cognome sono obbligatori');
+      if (!email || !phone) validationErrors.push('Per il cliente email e telefono sono obbligatori');
+      if (!city || !province) validationErrors.push('Per il cliente città e provincia sono obbligatorie');
+      if (!address) validationErrors.push('Per il cliente indirizzo obbligatorio');
+      if (!zipCode) validationErrors.push('Per il cliente CAP obbligatorio');
+      if (!birthDate) validationErrors.push('Per il cliente data di nascita obbligatoria');
+      if (!birthPlace) validationErrors.push('Per il cliente luogo di nascita obbligatorio');
+      if (!requestGoal) validationErrors.push('Seleziona la finalità della richiesta');
+      if (!requestPropertyTypeRaw || !requestPropertyType) {
+        validationErrors.push('Seleziona la tipologia immobile richiesta');
+      }
+      if (!requestZone) validationErrors.push('Inserisci la zona richiesta');
+      if (budget == null || budget <= 0) validationErrors.push('Inserisci il budget richiesto');
+      if (!notes) validationErrors.push('Inserisci le note richiesta');
+
+      const isApartmentRequest = requestPropertyType === 'APARTMENT';
+      const isCommercialRequest = requestPropertyType === 'SHOP' || requestPropertyType === 'OFFICE';
+      const isWarehouseRequest = requestPropertyType === 'WAREHOUSE';
+      const isLandRequest = requestPropertyType === 'LAND';
+      const isGarageRequest = requestPropertyType === 'GARAGE';
+      const isResidentialRequest =
+        requestPropertyType === 'APARTMENT' ||
+        requestPropertyType === 'HOUSE' ||
+        requestPropertyType === 'VILLA';
+      const isShopLikeRequest = requestPropertyType === 'SHOP';
+      if (isApartmentRequest && !requestApartmentType) {
+        validationErrors.push('Seleziona la tipologia appartamento');
+      }
+      if (!isApartmentRequest && requestSurfaceSqm == null) {
+        validationErrors.push('Inserisci i mq richiesti');
+      }
+      if (isResidentialRequest && (requestBedrooms == null || requestBedrooms <= 0)) {
+        validationErrors.push('Inserisci almeno il numero camere richieste');
+      }
+      if (isResidentialRequest && (requestBathrooms == null || requestBathrooms <= 0)) {
+        validationErrors.push('Inserisci il numero bagni richiesti');
+      }
+      if (isResidentialRequest && (requestFloor == null || requestFloor <= 0)) {
+        validationErrors.push('Inserisci il piano richiesto');
+      }
+      if (isResidentialRequest && !requestCondition) {
+        validationErrors.push('Seleziona lo stato immobile richiesto');
+      }
+      if (isCommercialRequest) {
+        if (requestBathrooms == null || requestBathrooms <= 0) validationErrors.push('Inserisci il numero bagni richiesti');
+        if (requestCommercialRooms == null || requestCommercialRooms <= 0) validationErrors.push('Inserisci il numero locali richiesti');
+        if (requestParkingSpots == null || requestParkingSpots <= 0) validationErrors.push('Inserisci i posti auto richiesti');
+        if (isShopLikeRequest && (requestShopWindows == null || requestShopWindows <= 0)) validationErrors.push('Inserisci il numero vetrine richieste');
+        if (!requestCondition) validationErrors.push('Seleziona lo stato immobile richiesto');
+      }
+      if (isWarehouseRequest && (requestParkingSpots == null || requestParkingSpots <= 0)) {
+        validationErrors.push('Inserisci i posti auto richiesti');
+      }
+      if (isLandRequest && !requestLandUse) validationErrors.push('Inserisci uso terreno');
+      if (isLandRequest && !requestBuildable) validationErrors.push('Indica se il terreno è edificabile');
+      if (isGarageRequest && !requestGarageType) validationErrors.push('Seleziona il tipo box richiesto');
+      if (requestGoal === 'RENT' && !rentContractSubtype) {
+        validationErrors.push("Seleziona il tipo contratto per l'affitto");
+      }
+
+      if (validationErrors.length > 0) {
+        return res.status(400).json({
+          success: false,
+          message: 'Validazione Nuovo Cliente fallita',
+          errors: validationErrors
+        });
+      }
+    }
+
     const contactData = {
       firstName: data.firstName,
       lastName: data.lastName,
@@ -17068,18 +20240,34 @@ app.post('/api/contacts', async (req, res) => {
       (data.requestApartmentType && String(data.requestApartmentType).trim() !== '') ||
       (typeof data.requestBedrooms === 'number' && !Number.isNaN(data.requestBedrooms)) ||
       (typeof data.requestBathrooms === 'number' && !Number.isNaN(data.requestBathrooms)) ||
-      (typeof data.requestFloor === 'number' && !Number.isNaN(data.requestFloor));
-
-    const isRequestEligibleType =
-      data.type === 'BUYER' || data.type === 'TENANT' || data.type === 'LEAD';
+      (typeof data.requestFloor === 'number' && !Number.isNaN(data.requestFloor)) ||
+      (parseOptionalString(data.requestGoal) !== undefined) ||
+      (parseOptionalString(data.requestPropertyType) !== undefined) ||
+      (parseOptionalString(data.requestZone) !== undefined) ||
+      (parseOptionalNumber(data.requestSurfaceSqm) !== undefined) ||
+      (parseOptionalString(data.rentContractSubtype) !== undefined);
 
     let request: any = null;
 
-    if (hasRequestDetails && isRequestEligibleType) {
-      const contractType =
-        data.type === 'TENANT'
-          ? 'RENT'
-          : 'SALE';
+    if ((hasRequestDetails || isRequestEligibleType) && isRequestEligibleType) {
+      const fallbackContractType = data.type === 'TENANT' ? 'RENT' : 'SALE';
+      const requestGoal = parseOptionalString(data.requestGoal)?.toUpperCase();
+      const contractType = mapRequestGoalToContract(requestGoal, fallbackContractType as 'SALE' | 'RENT');
+      const requestPropertyType = mapRequestPropertyType(data.requestPropertyType) || 'APARTMENT';
+      const requestSurfaceSqm = parseOptionalNumber(data.requestSurfaceSqm);
+      const apartmentSubtype =
+        requestPropertyType === 'APARTMENT'
+          ? parseOptionalString(data.requestApartmentType)
+          : undefined;
+      const minRooms = parseOptionalNumber(data.requestBedrooms);
+      const minBathrooms = parseOptionalNumber(data.requestBathrooms);
+      const minFloor = parseOptionalNumber(data.requestFloor);
+      const maxPrice = parseOptionalNumber(data.budget);
+      const requestMetaNotes = encodeRequestNotesWithMeta(data.notes, {
+        [REQUEST_META_KEYS.goal]: requestGoal,
+        [REQUEST_META_KEYS.zone]: parseOptionalString(data.requestZone),
+        [REQUEST_META_KEYS.rentSubtype]: parseOptionalString(data.rentContractSubtype)
+      });
 
       const cities = data.city ? [String(data.city)] : [];
       const provinces = data.province ? [String(data.province)] : [];
@@ -17087,20 +20275,24 @@ app.post('/api/contacts', async (req, res) => {
       const requestData: any = {
         title: `Richiesta per ${newContact.firstName} ${newContact.lastName}`,
         description: data.preferences || data.notes || undefined,
-        type: 'APARTMENT',
+        type: requestPropertyType,
         contractType,
         status: 'ACTIVE',
-        minRooms: typeof data.requestBedrooms === 'number' ? data.requestBedrooms : undefined,
-        maxRooms: typeof data.requestBedrooms === 'number' ? data.requestBedrooms : undefined,
-        minBathrooms: typeof data.requestBathrooms === 'number' ? data.requestBathrooms : undefined,
-        maxBathrooms: typeof data.requestBathrooms === 'number' ? data.requestBathrooms : undefined,
-        minFloor: typeof data.requestFloor === 'number' ? data.requestFloor : undefined,
-        maxFloor: typeof data.requestFloor === 'number' ? data.requestFloor : undefined,
-        apartmentSubtype: data.requestApartmentType ? String(data.requestApartmentType) : undefined,
+        minRooms,
+        maxRooms: minRooms,
+        minBathrooms,
+        maxBathrooms: minBathrooms,
+        minFloor,
+        maxFloor: minFloor,
+        minSurface: requestSurfaceSqm,
+        maxSurface: requestSurfaceSqm,
+        minPrice: maxPrice,
+        maxPrice,
+        apartmentSubtype,
         cities,
         provinces,
         priority: 1,
-        notes: data.notes,
+        notes: requestMetaNotes,
         agencyId,
         contactId: newContact.id
       };
@@ -17111,13 +20303,7 @@ app.post('/api/contacts', async (req, res) => {
     }
 
     const responseContact = request
-      ? {
-          ...newContact,
-          requestApartmentType: request.apartmentSubtype ?? undefined,
-          requestBedrooms: request.minRooms ?? undefined,
-          requestBathrooms: request.minBathrooms ?? undefined,
-          requestFloor: request.minFloor ?? undefined
-        }
+      ? normalizeRequestFlatResponse({ ...newContact, requests: [request] })
       : newContact;
 
     res.status(201).json({
@@ -17136,7 +20322,21 @@ app.put('/api/contacts/:id', async (req, res) => {
     const auth = getAuth(req);
     if (!auth) return res.status(401).json({ success: false, message: 'Unauthorized' });
 
-    const existing = await prisma.contact.findUnique({ where: { id: req.params.id }, select: { id: true, assignedToId: true, agencyId: true } });
+    const existing = await prisma.contact.findUnique({
+      where: { id: req.params.id },
+      select: {
+        id: true,
+        assignedToId: true,
+        agencyId: true,
+        type: true,
+        firstName: true,
+        lastName: true,
+        requests: {
+          orderBy: { createdAt: 'desc' },
+          take: 1
+        }
+      }
+    });
     if (!existing) return res.status(404).json({ success: false, message: 'Contact not found' });
     if (auth.agencyId && existing.agencyId !== auth.agencyId) return res.status(404).json({ success: false, message: 'Contact not found' });
     if (auth.role === 'AGENT' && existing.assignedToId && existing.assignedToId !== auth.id) return res.status(403).json({ success: false, message: 'Forbidden' });
@@ -17186,9 +20386,112 @@ app.put('/api/contacts/:id', async (req, res) => {
       data: contactData
     });
 
+    const requestInputPresent =
+      data.requestApartmentType !== undefined ||
+      data.requestBedrooms !== undefined ||
+      data.requestBathrooms !== undefined ||
+      data.requestFloor !== undefined ||
+      data.budget !== undefined ||
+      data.preferences !== undefined ||
+      data.requestGoal !== undefined ||
+      data.requestPropertyType !== undefined ||
+      data.requestZone !== undefined ||
+      data.requestSurfaceSqm !== undefined ||
+      data.rentContractSubtype !== undefined;
+
+    const effectiveType = (parseOptionalString(data.type) || existing.type).toUpperCase();
+    const isRequestEligibleType =
+      effectiveType === 'BUYER' || effectiveType === 'TENANT' || effectiveType === 'LEAD';
+
+    const currentRequest = existing.requests?.[0] || null;
+    let savedRequest = currentRequest;
+
+    if (isRequestEligibleType && (requestInputPresent || currentRequest)) {
+      const currentMeta = readRequestMetaFromNotes(currentRequest?.notes);
+      const requestGoal =
+        parseOptionalString(data.requestGoal)?.toUpperCase() ||
+        resolveRequestGoal(currentRequest, currentMeta.meta);
+      const fallbackContractType = effectiveType === 'TENANT' ? 'RENT' : 'SALE';
+      const contractType = mapRequestGoalToContract(requestGoal, fallbackContractType as 'SALE' | 'RENT');
+      const requestPropertyType =
+        mapRequestPropertyType(data.requestPropertyType) ||
+        currentRequest?.type ||
+        'APARTMENT';
+      const requestSurfaceSqm = parseOptionalNumber(data.requestSurfaceSqm);
+      const minRooms = parseOptionalNumber(data.requestBedrooms);
+      const minBathrooms = parseOptionalNumber(data.requestBathrooms);
+      const minFloor = parseOptionalNumber(data.requestFloor);
+      const budget = parseOptionalNumber(data.budget);
+      const mergedNotes = encodeRequestNotesWithMeta(
+        parseOptionalString(data.notes) ?? currentMeta.cleanedNotes,
+        {
+          [REQUEST_META_KEYS.goal]: requestGoal,
+          [REQUEST_META_KEYS.zone]:
+            parseOptionalString(data.requestZone) ?? parseOptionalString(currentMeta.meta[REQUEST_META_KEYS.zone]),
+          [REQUEST_META_KEYS.rentSubtype]:
+            parseOptionalString(data.rentContractSubtype) ??
+            parseOptionalString(currentMeta.meta[REQUEST_META_KEYS.rentSubtype])
+        }
+      );
+
+      const requestData: any = {
+        title: currentRequest?.title || `Richiesta per ${updatedContact.firstName} ${updatedContact.lastName}`,
+        description:
+          parseOptionalString(data.preferences) ??
+          currentRequest?.description ??
+          parseOptionalString(data.notes),
+        type: requestPropertyType,
+        contractType,
+        status: currentRequest?.status || 'ACTIVE',
+        minRooms: minRooms ?? currentRequest?.minRooms ?? undefined,
+        maxRooms: minRooms ?? currentRequest?.maxRooms ?? undefined,
+        minBathrooms: minBathrooms ?? currentRequest?.minBathrooms ?? undefined,
+        maxBathrooms: minBathrooms ?? currentRequest?.maxBathrooms ?? undefined,
+        minFloor: minFloor ?? currentRequest?.minFloor ?? undefined,
+        maxFloor: minFloor ?? currentRequest?.maxFloor ?? undefined,
+        minSurface: requestSurfaceSqm ?? currentRequest?.minSurface ?? undefined,
+        maxSurface: requestSurfaceSqm ?? currentRequest?.maxSurface ?? undefined,
+        minPrice: budget ?? currentRequest?.minPrice ?? undefined,
+        maxPrice: budget ?? currentRequest?.maxPrice ?? undefined,
+        apartmentSubtype:
+          requestPropertyType === 'APARTMENT'
+            ? parseOptionalString(data.requestApartmentType) ?? currentRequest?.apartmentSubtype ?? undefined
+            : undefined,
+        cities:
+          parseOptionalString(data.city) !== undefined
+            ? [String(data.city)]
+            : Array.isArray(currentRequest?.cities)
+              ? currentRequest.cities
+              : [],
+        provinces:
+          parseOptionalString(data.province) !== undefined
+            ? [String(data.province)]
+            : Array.isArray(currentRequest?.provinces)
+              ? currentRequest.provinces
+              : [],
+        priority: currentRequest?.priority || 1,
+        notes: mergedNotes,
+        agencyId: existing.agencyId,
+        contactId: updatedContact.id
+      };
+
+      if (currentRequest?.id) {
+        savedRequest = await prisma.request.update({
+          where: { id: currentRequest.id },
+          data: requestData
+        });
+      } else {
+        savedRequest = await prisma.request.create({
+          data: requestData
+        });
+      }
+    }
+
     res.json({
       success: true,
-      data: updatedContact,
+      data: savedRequest
+        ? normalizeRequestFlatResponse({ ...updatedContact, requests: [savedRequest] })
+        : updatedContact,
       message: 'Contact updated successfully'
     });
   } catch (error) {
@@ -17221,9 +20524,65 @@ app.delete('/api/contacts/:id', async (req, res) => {
   }
 });
 
+const appointmentParticipantSelect = {
+  id: true,
+  firstName: true,
+  lastName: true,
+  email: true,
+  role: true,
+  isActive: true
+};
+
+const uniqueStringList = (values: any[]): string[] => Array.from(
+  new Set(values.map((id) => String(id || '').trim()).filter(Boolean))
+);
+
+const readAppointmentParticipantIdsFromBody = (data: any): string[] => {
+  const listFields = ['selectedAgentIds', 'participantIds', 'assignedAgents', 'assignedToIds'];
+  const listValues = listFields.flatMap((field) => Array.isArray(data?.[field]) ? data[field] : []);
+  const fallbackValues = [data?.selectedAgentId, data?.assignedToId];
+  return uniqueStringList([...listValues, ...fallbackValues]);
+};
+
+const getAppointmentParticipantIds = (appointment: any): string[] => {
+  const participantIds = Array.isArray(appointment?.participantIds) ? appointment.participantIds : [];
+  return uniqueStringList([...participantIds, appointment?.assignedToId]);
+};
+
+const mapAppointmentForResponse = (appointment: any, participantsById: Map<string, any>) => {
+  const participantIds = getAppointmentParticipantIds(appointment);
+  const participants = participantIds
+    .map((id) => participantsById.get(id))
+    .filter(Boolean)
+    .map((user) => ({
+      ...user,
+      name: `${user.firstName || ''} ${user.lastName || ''}`.trim() || user.email || 'Agente'
+    }));
+
+  return {
+    ...appointment,
+    participantIds,
+    assignedAgents: participantIds,
+    participants,
+    createdById: appointment.createdById || undefined,
+    contactName: appointment.contact ? `${appointment.contact.firstName} ${appointment.contact.lastName}` : undefined,
+    propertyTitle: appointment.property?.title
+  };
+};
+
+const canManageAppointment = (auth: any, appointment: any): boolean => {
+  if (isAdminRole(auth?.role)) return true;
+  if (!auth?.id || !appointment) return false;
+  const authId = String(auth.id);
+  const participantIds = getAppointmentParticipantIds(appointment);
+  if (participantIds.includes(authId)) return true;
+  if (appointment.createdById) return appointment.createdById === auth.id;
+  return appointment.assignedToId === auth.id;
+};
+
 // Appointments endpoints
 app.get('/api/appointments', async (req, res) => {
-  const { page = 1, limit = 10, date, status, contactId, propertyId } = req.query;
+  const { page = 1, limit = 10, date, startDate, endDate, status, contactId, propertyId } = req.query;
 
   try {
     const where: any = {};
@@ -17232,13 +20591,30 @@ app.get('/api/appointments', async (req, res) => {
     if (!auth) return res.status(401).json({ success: false, message: 'Unauthorized' });
 
     if (auth.agencyId) where.agencyId = auth.agencyId;
-    if (auth.role === 'AGENT') {
-      where.assignedToId = auth.id;
+    if (!isAdminRole(auth.role)) {
+      where.OR = [
+        { assignedToId: auth.id },
+        { participantIds: { has: auth.id } },
+        { createdById: auth.id }
+      ];
     } else if (req.query.assignedToId) {
-      where.assignedToId = req.query.assignedToId.toString();
+      const assignedToId = req.query.assignedToId.toString();
+      where.OR = [
+        { assignedToId },
+        { participantIds: { has: assignedToId } }
+      ];
     }
 
-    if (date) {
+    if (startDate && endDate) {
+      const start = new Date(String(startDate));
+      const end = new Date(String(endDate));
+      if (!Number.isNaN(start.getTime()) && !Number.isNaN(end.getTime())) {
+        where.startTime = {
+          gte: start,
+          lte: end
+        };
+      }
+    } else if (date) {
       // Simple date filtering (matches the whole day)
       const startDate = new Date(date.toString());
       startDate.setHours(0, 0, 0, 0);
@@ -17260,22 +20636,27 @@ app.get('/api/appointments', async (req, res) => {
       prisma.appointment.findMany({
         where,
         include: {
+           assignedTo: { select: appointmentParticipantSelect },
            contact: { select: { firstName: true, lastName: true } },
            property: { select: { title: true } }
         },
         skip: (Number(page) - 1) * Number(limit),
         take: Number(limit),
-        orderBy: { startTime: 'asc' }
+        orderBy: { startTime: 'desc' }
       })
     ]);
 
-    // Map to flatten contactName and propertyTitle for frontend compatibility
-    const mappedAppointments = appointments.map(app => ({
-      ...app,
-      assignedAgents: app.assignedToId ? [app.assignedToId] : [],
-      contactName: app.contact ? `${app.contact.firstName} ${app.contact.lastName}` : undefined,
-      propertyTitle: app.property?.title
-    }));
+    const participantIds = uniqueStringList(appointments.flatMap(getAppointmentParticipantIds));
+    const participantUsers = participantIds.length
+      ? await prisma.user.findMany({
+          where: { id: { in: participantIds } },
+          select: appointmentParticipantSelect
+        })
+      : [];
+    const participantsById = new Map(participantUsers.map((user) => [user.id, user]));
+
+    // Map to flatten contactName/propertyTitle and expose multi-agent participants for frontend compatibility.
+    const mappedAppointments = appointments.map(app => mapAppointmentForResponse(app, participantsById));
 
     res.json({
       success: true,
@@ -17309,18 +20690,11 @@ app.post('/api/appointments', async (req, res) => {
       agencyId = agency?.id;
     }
 
-    const selectedAgentIdsFromBody = Array.isArray(data.selectedAgentIds)
-      ? data.selectedAgentIds.map((id: any) => String(id || '').trim()).filter(Boolean)
-      : [];
-    const fallbackAgentId = String(data.selectedAgentId || data.assignedToId || '').trim();
-    let assignedToIds = Array.from(new Set([
-      ...selectedAgentIdsFromBody,
-      ...(fallbackAgentId ? [fallbackAgentId] : [])
-    ]));
+    let assignedToIds = readAppointmentParticipantIdsFromBody(data);
 
-    // Agenti/collaboratori possono creare solo appuntamenti assegnati a se stessi.
+    // Agenti/collaboratori possono coinvolgere altri utenti, ma restano sempre partecipanti del proprio appuntamento.
     if (!isAdminRole(auth.role)) {
-      assignedToIds = [auth.id];
+      assignedToIds = uniqueStringList([...assignedToIds, auth.id]);
     }
 
     // For admin users, assignment is required.
@@ -17394,61 +20768,66 @@ app.post('/api/appointments', async (req, res) => {
       appointmentDataBase.status = 'SCHEDULED';
     }
 
-    const createdAppointments: any[] = [];
-    for (const assignedToId of assignedToIds) {
-      const appointmentData: any = {
-        ...appointmentDataBase,
-        assignedToId
-      };
-      if (data.contactId && String(data.contactId).trim() !== '') {
-        appointmentData.contactId = String(data.contactId).trim();
-      }
-      if (data.propertyId && String(data.propertyId).trim() !== '') {
-        appointmentData.propertyId = String(data.propertyId).trim();
-      }
+    const appointmentData: any = {
+      ...appointmentDataBase,
+      assignedToId: assignedToIds[0],
+      participantIds: assignedToIds,
+      createdById: auth.id
+    };
+    if (data.contactId && String(data.contactId).trim() !== '') {
+      appointmentData.contactId = String(data.contactId).trim();
+    }
+    if (data.propertyId && String(data.propertyId).trim() !== '') {
+      appointmentData.propertyId = String(data.propertyId).trim();
+    }
 
-      const newAppointment = await prisma.appointment.create({
-        data: appointmentData
-      });
-      createdAppointments.push(newAppointment);
+    const newAppointment = await prisma.appointment.create({
+      data: appointmentData,
+      include: {
+        assignedTo: { select: appointmentParticipantSelect },
+        contact: { select: { firstName: true, lastName: true } },
+        property: { select: { title: true } }
+      }
+    });
 
-      let autoActivityId: string | undefined;
-      try {
-        const activityDescriptionLines: string[] = [];
-        if (data.description) {
-          activityDescriptionLines.push(String(data.description));
+    let autoActivityId: string | undefined;
+    try {
+      const activityDescriptionLines: string[] = [];
+      if (data.description) {
+        activityDescriptionLines.push(String(data.description));
+      }
+      const startTimeFormatted = newAppointment.startTime.toISOString();
+      const locationText = data.location ? String(data.location) : 'Non specificato';
+      activityDescriptionLines.push('');
+      activityDescriptionLines.push('Dettagli Appuntamento:');
+      activityDescriptionLines.push(`- Luogo: ${locationText}`);
+      activityDescriptionLines.push(`- Data/Ora: ${startTimeFormatted}`);
+      const activityDescription = activityDescriptionLines.join('\n');
+
+      const autoActivity = await prisma.activity.create({
+        data: {
+          type: 'TASK',
+          title: `Task: ${newAppointment.title}`,
+          description: activityDescription,
+          completed: false,
+          dueDate: newAppointment.startTime,
+          priority: 2,
+          tags: ['AUTO-GENERATED', 'CALENDAR'],
+          agencyId: newAppointment.agencyId,
+          assignedToId: newAppointment.assignedToId,
+          contactId: newAppointment.contactId || undefined,
+          propertyId: newAppointment.propertyId || undefined
         }
-        const startTimeFormatted = newAppointment.startTime.toISOString();
-        const locationText = data.location ? String(data.location) : 'Non specificato';
-        activityDescriptionLines.push('');
-        activityDescriptionLines.push('Dettagli Appuntamento:');
-        activityDescriptionLines.push(`- Luogo: ${locationText}`);
-        activityDescriptionLines.push(`- Data/Ora: ${startTimeFormatted}`);
-        const activityDescription = activityDescriptionLines.join('\n');
+      });
+      autoActivityId = autoActivity.id;
+    } catch (activityError) {
+      console.error('Error creating automatic activity for appointment:', activityError);
+    }
 
-        const autoActivity = await prisma.activity.create({
-          data: {
-            type: 'TASK',
-            title: `Task: ${newAppointment.title}`,
-            description: activityDescription,
-            completed: false,
-            dueDate: newAppointment.startTime,
-            priority: 2,
-            tags: ['AUTO-GENERATED', 'CALENDAR'],
-            agencyId: newAppointment.agencyId,
-            assignedToId: newAppointment.assignedToId,
-            contactId: newAppointment.contactId || undefined,
-            propertyId: newAppointment.propertyId || undefined
-          }
-        });
-        autoActivityId = autoActivity.id;
-      } catch (activityError) {
-        console.error('Error creating automatic activity for appointment:', activityError);
-      }
-
+    for (const recipientId of assignedToIds) {
       await createNotificationRecord({
         agencyId: newAppointment.agencyId,
-        recipientId: newAppointment.assignedToId,
+        recipientId,
         type: 'APPOINTMENT_CREATED',
         title: 'Nuovo appuntamento assegnato',
         message: newAppointment.title,
@@ -17459,9 +20838,15 @@ app.post('/api/appointments', async (req, res) => {
       });
     }
 
+    const participantUsers = await prisma.user.findMany({
+      where: { id: { in: assignedToIds } },
+      select: appointmentParticipantSelect
+    });
+    const participantsById = new Map(participantUsers.map((user) => [user.id, user]));
+
     res.status(201).json({
       success: true,
-      data: createdAppointments.length === 1 ? createdAppointments[0] : createdAppointments,
+      data: mapAppointmentForResponse(newAppointment, participantsById),
       message: 'Appointment created successfully'
     });
   } catch (error) {
@@ -17498,9 +20883,21 @@ app.post('/api/push/subscribe', async (req, res) => {
       return res.status(400).json({ success: false, message: 'Missing push subscription endpoint' });
     }
 
+    let agencyId = auth.agencyId || null;
+    if (!agencyId) {
+      const userAgency = await prisma.user.findUnique({
+        where: { id: auth.id },
+        select: { agencyId: true }
+      });
+      agencyId = userAgency?.agencyId || null;
+    }
+    if (!agencyId) {
+      return res.status(400).json({ success: false, message: 'Missing agencyId' });
+    }
+
     const existingRows = await prisma.notification.findMany({
       where: {
-        agencyId: auth.agencyId || undefined,
+        agencyId,
         recipientId: auth.id,
         type: WEB_PUSH_SUBSCRIPTION_TYPE
       }
@@ -17513,7 +20910,7 @@ app.post('/api/push/subscribe', async (req, res) => {
     if (!alreadyExists) {
       await prisma.notification.create({
         data: {
-          agencyId: auth.agencyId || '',
+          agencyId,
           recipientId: auth.id,
           type: WEB_PUSH_SUBSCRIPTION_TYPE,
           title: 'Push Subscription',
@@ -17543,9 +20940,18 @@ app.post('/api/push/unsubscribe', async (req, res) => {
     const endpoint = String(req.body?.endpoint || '').trim();
     if (!endpoint) return res.status(400).json({ success: false, message: 'Missing endpoint' });
 
+    let agencyId = auth.agencyId || null;
+    if (!agencyId) {
+      const userAgency = await prisma.user.findUnique({
+        where: { id: auth.id },
+        select: { agencyId: true }
+      });
+      agencyId = userAgency?.agencyId || null;
+    }
+
     const rows = await prisma.notification.findMany({
       where: {
-        agencyId: auth.agencyId || undefined,
+        agencyId: agencyId || undefined,
         recipientId: auth.id,
         type: WEB_PUSH_SUBSCRIPTION_TYPE
       }
@@ -17756,16 +21162,15 @@ app.put('/api/appointments/:id', async (req, res) => {
     const auth = getAuth(req);
     if (!auth) return res.status(401).json({ success: false, message: 'Unauthorized' });
 
-    if (!isAdminRole(auth.role)) {
-      return res.status(403).json({ success: false, message: 'Forbidden' });
-    }
-
     const existing = await prisma.appointment.findUnique({
       where: { id: req.params.id },
-      select: { id: true, agencyId: true, assignedToId: true }
+      select: { id: true, agencyId: true, assignedToId: true, participantIds: true, createdById: true, startTime: true, title: true }
     });
     if (!existing) return res.status(404).json({ success: false, message: 'Appointment not found' });
     if (auth.agencyId && existing.agencyId !== auth.agencyId) return res.status(404).json({ success: false, message: 'Appointment not found' });
+    if (!canManageAppointment(auth, existing)) {
+      return res.status(403).json({ success: false, message: 'Forbidden' });
+    }
 
     const data = { ...req.body };
     
@@ -17782,11 +21187,13 @@ app.put('/api/appointments/:id', async (req, res) => {
     if (data.status !== undefined) appointmentData.status = data.status;
     if (data.notes !== undefined) appointmentData.notes = data.notes;
     
-    // Map selectedAgentId to assignedToId if present
-    if (data.selectedAgentId) {
-      appointmentData.assignedToId = data.selectedAgentId;
-    } else if (data.assignedToId) {
-      appointmentData.assignedToId = data.assignedToId;
+    let participantIdsFromBody = readAppointmentParticipantIdsFromBody(data);
+    if (!isAdminRole(auth.role) && participantIdsFromBody.length > 0) {
+      participantIdsFromBody = uniqueStringList([...participantIdsFromBody, auth.id]);
+    }
+    if (participantIdsFromBody.length > 0) {
+      appointmentData.assignedToId = participantIdsFromBody[0];
+      appointmentData.participantIds = participantIdsFromBody;
     }
 
     // Handle relations
@@ -17797,12 +21204,18 @@ app.put('/api/appointments/:id', async (req, res) => {
       appointmentData.propertyId = data.propertyId && data.propertyId.trim() !== '' ? data.propertyId : null;
     }
 
-    if (auth.agencyId && appointmentData.assignedToId) {
-      const assignedUser = await prisma.user.findUnique({
-        where: { id: appointmentData.assignedToId },
-        select: { agencyId: true }
+    if (auth.agencyId && appointmentData.participantIds?.length) {
+      const assignedUsers = await prisma.user.findMany({
+        where: { id: { in: appointmentData.participantIds } },
+        select: { id: true, agencyId: true }
       });
-      if (!assignedUser || assignedUser.agencyId !== auth.agencyId) {
+      const validAssigneeIds = new Set(
+        assignedUsers
+          .filter((user) => user.agencyId === auth.agencyId)
+          .map((user) => user.id)
+      );
+      const invalidAssignees = appointmentData.participantIds.filter((id: string) => !validAssigneeIds.has(id));
+      if (invalidAssignees.length > 0) {
         return res.status(400).json({ success: false, message: 'Invalid assignedToId' });
       }
     }
@@ -17837,12 +21250,43 @@ app.put('/api/appointments/:id', async (req, res) => {
 
     const updatedAppointment = await prisma.appointment.update({
       where: { id: req.params.id },
-      data: appointmentData
+      data: appointmentData,
+      include: {
+        assignedTo: { select: appointmentParticipantSelect },
+        contact: { select: { firstName: true, lastName: true } },
+        property: { select: { title: true } }
+      }
     });
+
+    const participantIds = getAppointmentParticipantIds(updatedAppointment);
+    const participantUsers = participantIds.length
+      ? await prisma.user.findMany({
+          where: { id: { in: participantIds } },
+          select: appointmentParticipantSelect
+        })
+      : [];
+    const participantsById = new Map(participantUsers.map((user) => [user.id, user]));
+
+    try {
+      for (const recipientId of participantIds) {
+        await createNotificationRecord({
+          agencyId: updatedAppointment.agencyId,
+          recipientId,
+          type: 'APPOINTMENT_UPDATED',
+          title: 'Appuntamento aggiornato',
+          message: updatedAppointment.title,
+          data: {
+            appointmentId: updatedAppointment.id
+          }
+        });
+      }
+    } catch (notifyError) {
+      console.error('Error creating appointment update notifications:', notifyError);
+    }
 
     res.json({
       success: true,
-      data: updatedAppointment,
+      data: mapAppointmentForResponse(updatedAppointment, participantsById),
       message: 'Appointment updated successfully'
     });
   } catch (error) {
@@ -17855,18 +21299,35 @@ app.delete('/api/appointments/:id', async (req, res) => {
     const auth = getAuth(req);
     if (!auth) return res.status(401).json({ success: false, message: 'Unauthorized' });
 
-    if (!isAdminRole(auth.role)) {
-      return res.status(403).json({ success: false, message: 'Forbidden' });
-    }
-
     const existing = await prisma.appointment.findUnique({
       where: { id: req.params.id },
-      select: { id: true, agencyId: true, assignedToId: true }
+      select: { id: true, agencyId: true, assignedToId: true, participantIds: true, createdById: true, title: true }
     });
     if (!existing) return res.status(404).json({ success: false, message: 'Appointment not found' });
     if (auth.agencyId && existing.agencyId !== auth.agencyId) return res.status(404).json({ success: false, message: 'Appointment not found' });
+    if (!canManageAppointment(auth, existing)) {
+      return res.status(403).json({ success: false, message: 'Forbidden' });
+    }
 
     const deletedAppointment = await prisma.appointment.delete({ where: { id: req.params.id } });
+
+    try {
+      const recipientIds = getAppointmentParticipantIds(existing);
+      for (const recipientId of recipientIds) {
+        await createNotificationRecord({
+          agencyId: existing.agencyId,
+          recipientId,
+          type: 'APPOINTMENT_CANCELLED',
+          title: 'Appuntamento annullato',
+          message: existing.title || 'Appuntamento eliminato',
+          data: {
+            appointmentId: existing.id
+          }
+        });
+      }
+    } catch (notifyError) {
+      console.error('Error creating appointment cancel notifications:', notifyError);
+    }
 
     res.json({
       success: true,
@@ -17879,6 +21340,49 @@ app.delete('/api/appointments/:id', async (req, res) => {
 });
 
 // Activities endpoints
+const ACTIVITY_TYPE_DEFINITIONS = [
+  { value: 'CALL', label: 'Chiamata' },
+  { value: 'EMAIL', label: 'Email' },
+  { value: 'NOTE', label: 'Prendere informazioni' },
+  { value: 'TASK', label: 'Recupero documenti' },
+  { value: 'MEETING', label: 'Fare zona' },
+  { value: 'VIEWING', label: 'Altro' }
+] as const;
+
+const ACTIVITY_TYPE_VALUES_SET = new Set(ACTIVITY_TYPE_DEFINITIONS.map((entry) => entry.value));
+const ACTIVITY_TYPE_LABEL_BY_VALUE = new Map(
+  ACTIVITY_TYPE_DEFINITIONS.map((entry) => [entry.value, entry.label])
+);
+
+const normalizeActivityType = (value: any): string | null => {
+  const raw = String(value || '').trim().toUpperCase();
+  if (!raw) return null;
+
+  const aliases: Record<string, string> = {
+    FOLLOW_UP: 'NOTE',
+    FOLLOWUP: 'NOTE',
+    VISIT: 'VIEWING',
+    VISITA: 'VIEWING',
+    INCONTRO: 'MEETING'
+  };
+
+  const normalized = aliases[raw] || raw;
+  if (!ACTIVITY_TYPE_VALUES_SET.has(normalized)) return null;
+  return normalized;
+};
+
+const getActivityTypeLabel = (value: any): string => {
+  const normalized = normalizeActivityType(value);
+  if (!normalized) return String(value || '');
+  return ACTIVITY_TYPE_LABEL_BY_VALUE.get(normalized) || normalized;
+};
+
+app.get('/api/activities/types', async (req, res) => {
+  const auth = getAuth(req);
+  if (!auth) return res.status(401).json({ success: false, message: 'Unauthorized' });
+  return res.json({ success: true, data: ACTIVITY_TYPE_DEFINITIONS });
+});
+
 app.get('/api/activities', async (req, res) => {
   const { page = 1, limit = 10, status, type, assignedToId } = req.query;
 
@@ -17898,11 +21402,8 @@ app.get('/api/activities', async (req, res) => {
     if (status === 'completed') where.completed = true;
     if (status === 'pending') where.completed = false;
     if (type) {
-      const typeValue = typeof type === 'string' ? type : String(type);
-      const allowedTypes = ['CALL', 'EMAIL', 'MEETING', 'VIEWING', 'NOTE', 'TASK'];
-      if (allowedTypes.includes(typeValue)) {
-        where.type = typeValue;
-      }
+      const normalizedType = normalizeActivityType(type);
+      if (normalizedType) where.type = normalizedType;
     }
 
     const [total, activities] = await Promise.all([
@@ -17922,6 +21423,7 @@ app.get('/api/activities', async (req, res) => {
 
     const mappedActivities = activities.map(act => ({
       ...act,
+      typeLabel: getActivityTypeLabel(act.type),
       contactName: act.contact ? `${act.contact.firstName} ${act.contact.lastName}` : undefined,
       propertyTitle: act.property?.title,
       assignedToName: act.assignedTo ? `${act.assignedTo.firstName} ${act.assignedTo.lastName}` : undefined
@@ -17981,6 +21483,7 @@ app.get('/api/reports/activity', async (req, res) => {
       id: row.id,
       title: row.title,
       type: row.type,
+      typeLabel: getActivityTypeLabel(row.type),
       report: String(row.report || '').trim(),
       completedAt: row.completedAt,
       dueDate: row.dueDate,
@@ -18061,7 +21564,14 @@ const sendWebPushToRecipient = async (params: {
     await Promise.all(
       subscriptionRows.map(async row => {
         const subscription = (row.data as any)?.subscription;
-        if (!subscription?.endpoint || !Array.isArray(subscription?.keys ? Object.keys(subscription.keys) : [])) {
+        const hasKeys = Boolean(
+          subscription?.keys &&
+          typeof subscription.keys.p256dh === 'string' &&
+          subscription.keys.p256dh.trim() &&
+          typeof subscription.keys.auth === 'string' &&
+          subscription.keys.auth.trim()
+        );
+        if (!subscription?.endpoint || !hasKeys) {
           failed += 1;
           errors.push('invalid_subscription_payload');
           return;
@@ -18069,7 +21579,8 @@ const sendWebPushToRecipient = async (params: {
 
         try {
           await webpush.sendNotification(subscription, payload, {
-            TTL: 60,
+            // Keep pending notifications in provider queue for offline devices.
+            TTL: 60 * 60 * 24,
             urgency: 'high'
           } as any);
           sent += 1;
@@ -18110,7 +21621,13 @@ const getNotificationRoute = (type: string, data?: any) => {
   }
   if (
     propertyId &&
-    ['PROPERTY_APPROVED', 'PROPERTY_PENDING_APPROVAL', 'PROPERTY_ASSIGNED', 'REQUEST_LINKED', 'PUBLIC_CONTACT_REQUEST', 'VISIT_REQUEST'].includes(notificationType)
+    notificationType === 'PROPERTY_PENDING_APPROVAL'
+  ) {
+    return `/immobili?approvalPropertyId=${encodeURIComponent(propertyId)}`;
+  }
+  if (
+    propertyId &&
+    ['PROPERTY_APPROVED', 'PROPERTY_ASSIGNED', 'REQUEST_LINKED', 'PUBLIC_CONTACT_REQUEST', 'VISIT_REQUEST'].includes(notificationType)
   ) {
     return `/immobili/${encodeURIComponent(propertyId)}`;
   }
@@ -18185,6 +21702,30 @@ const createNotificationRecord = async (params: {
   try {
     if (!params.agencyId || !params.recipientId) {
       return { stored: false, push: { skipped: true, reason: 'missing_agency_or_recipient' } };
+    }
+    if (String(params.type || '').toUpperCase() === 'PROPERTY_PENDING_APPROVAL') {
+      const propertyId = params.data?.propertyId ? String(params.data.propertyId) : '';
+      if (propertyId) {
+        const existingUnread = await prisma.notification.findMany({
+          where: {
+            agencyId: params.agencyId,
+            recipientId: params.recipientId,
+            type: 'PROPERTY_PENDING_APPROVAL',
+            isRead: false
+          },
+          orderBy: { createdAt: 'desc' },
+          take: 50
+        });
+        const hasExistingForProperty = existingUnread.some((row) => {
+          const rowPropertyId = row?.data && typeof row.data === 'object'
+            ? String((row.data as any)?.propertyId || '')
+            : '';
+          return rowPropertyId === propertyId;
+        });
+        if (hasExistingForProperty) {
+          return { stored: false, push: { skipped: true, reason: 'duplicate_property_pending_approval' } };
+        }
+      }
     }
     const route = getNotificationRoute(params.type, params.data);
     const normalizedData = {
@@ -18767,6 +22308,12 @@ app.post('/api/activities', async (req, res) => {
     delete (data as any).contactName;
     delete (data as any).propertyTitle;
 
+    const normalizedType = normalizeActivityType((data as any).type);
+    if (!normalizedType) {
+      return res.status(400).json({ success: false, message: 'Invalid activity type' });
+    }
+    (data as any).type = normalizedType;
+
     if (auth.agencyId) {
       const usersInAgency = await prisma.user.findMany({
         where: {
@@ -18838,6 +22385,8 @@ app.post('/api/activities', async (req, res) => {
             notes: `AUTO_FROM_ACTIVITY:${newActivity.id}`,
             agencyId: newActivity.agencyId,
             assignedToId: assigneeId,
+            participantIds: [assigneeId],
+            createdById: auth.id,
             contactId: newActivity.contactId || undefined,
             propertyId: newActivity.propertyId || undefined
           }
@@ -18864,6 +22413,7 @@ app.post('/api/activities', async (req, res) => {
     );
     const createdActivitiesForResponse = createdActivities.map((row) => ({
       ...row,
+      typeLabel: getActivityTypeLabel(row.type),
       assignedToName: assigneeNameById.get(String(row.assignedToId || '').trim()) || undefined
     }));
 
@@ -18933,6 +22483,14 @@ app.put('/api/activities/:id', async (req, res) => {
     delete (data as any).contactName;
     delete (data as any).propertyTitle;
 
+    if (Object.prototype.hasOwnProperty.call(data, 'type')) {
+      const normalizedType = normalizeActivityType((data as any).type);
+      if (!normalizedType) {
+        return res.status(400).json({ success: false, message: 'Invalid activity type' });
+      }
+      (data as any).type = normalizedType;
+    }
+
     if (auth.agencyId && data.assignedToId) {
       const assignedUser = await prisma.user.findUnique({
         where: { id: data.assignedToId },
@@ -18980,7 +22538,10 @@ app.put('/api/activities/:id', async (req, res) => {
 
     res.json({
       success: true,
-      data: updatedActivity,
+      data: {
+        ...updatedActivity,
+        typeLabel: getActivityTypeLabel(updatedActivity.type)
+      },
       message: 'Activity updated successfully'
     });
   } catch (error) {
@@ -19432,5 +22993,7 @@ if (shouldStartHttpServer) {
 
 export { app };
 export default app;
+
+
 
 

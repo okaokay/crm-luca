@@ -220,6 +220,21 @@ code {
 .manus-contact-modal-overlay {
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
+  z-index: 2200 !important;
+}
+
+@media (max-width: 1024px), (max-height: 800px) {
+  .manus-contact-modal-overlay {
+    align-items: flex-start !important;
+    justify-content: center !important;
+    overflow-y: auto !important;
+    padding: 0.75rem !important;
+  }
+
+  .manus-contact-modal-panel {
+    width: min(96vw, 920px) !important;
+    max-height: calc(100dvh - 1rem) !important;
+  }
 }
 
 .manus-contact-modal-panel {
@@ -745,6 +760,30 @@ code {
   color: #111827 !important;
 }
 
+.activity-light-modal {
+  width: min(96vw, 620px) !important;
+  max-width: 620px !important;
+  max-height: calc(100dvh - 1.5rem) !important;
+}
+
+.activity-light-modal .manus-contact-form {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding-right: 0.2rem;
+}
+
+@media (max-width: 768px) {
+  .activity-light-modal {
+    width: 100% !important;
+    max-width: 100% !important;
+    max-height: calc(100dvh - 1rem) !important;
+    border-radius: 12px !important;
+    padding: 0.75rem !important;
+  }
+}
+
 /* Property upload modal: force light theme (white bg, black text) */
 .property-upload-modal-panel {
   background: #ffffff !important;
@@ -783,4 +822,105 @@ code {
 .property-upload-modal-panel .manus-contact-form input::placeholder,
 .property-upload-modal-panel .manus-contact-form textarea::placeholder {
   color: #9ca3af !important;
+}
+
+.cosmocasa-preloader {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #f8fafc;
+  z-index: 99999;
+}
+
+.cosmocasa-preloader-logo {
+  width: min(180px, 42vw);
+  height: auto;
+  animation: cosmocasa-pulse 1.1s ease-in-out infinite;
+  filter: drop-shadow(0 10px 22px rgba(37, 99, 235, 0.2));
+}
+
+@keyframes cosmocasa-pulse {
+  0% { transform: scale(0.97); opacity: 0.88; }
+  50% { transform: scale(1); opacity: 1; }
+  100% { transform: scale(0.97); opacity: 0.88; }
+}
+
+/* ==========================================================
+   GLOBAL LIGHT THEME (forced)
+   ========================================================== */
+html, body, #root {
+  background: #f8fafc !important;
+  color: #111827 !important;
+}
+
+.app-main {
+  background: #f8fafc !important;
+  color: #111827 !important;
+}
+
+/* Force all CRM modals to light look */
+.manus-contact-modal-overlay {
+  background-color: rgba(15, 23, 42, 0.28) !important;
+}
+
+.manus-contact-modal-panel {
+  background: #ffffff !important;
+  color: #111827 !important;
+  border: 1px solid #d1d5db !important;
+  box-shadow: 0 18px 40px rgba(15, 23, 42, 0.16) !important;
+}
+
+.manus-contact-modal-header,
+.manus-contact-footer,
+.manus-contact-tabs {
+  border-color: #e5e7eb !important;
+}
+
+.manus-contact-title,
+.manus-contact-subtitle,
+.manus-contact-form,
+.manus-contact-form label,
+.manus-contact-form p,
+.manus-contact-form h4,
+.manus-contact-form span,
+.manus-contact-tab {
+  color: #111827 !important;
+}
+
+.manus-contact-tab.is-active {
+  color: #1d4ed8 !important;
+  border-bottom-color: #1d4ed8 !important;
+}
+
+.manus-contact-section {
+  background: #ffffff !important;
+  border: 1px solid #e5e7eb !important;
+}
+
+.manus-contact-section h4 {
+  color: #111827 !important;
+  border-bottom-color: #e5e7eb !important;
+}
+
+.manus-contact-form input,
+.manus-contact-form select,
+.manus-contact-form textarea {
+  background: #ffffff !important;
+  color: #111827 !important;
+  border: 1px solid #cbd5e1 !important;
+}
+
+.manus-contact-form input::placeholder,
+.manus-contact-form textarea::placeholder {
+  color: #6b7280 !important;
+  opacity: 1 !important;
+}
+
+.manus-contact-form input:focus,
+.manus-contact-form select:focus,
+.manus-contact-form textarea:focus {
+  border-color: #2563eb !important;
+  box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.15) !important;
 }

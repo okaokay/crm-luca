@@ -37,6 +37,8 @@ interface Property {
   surface: number
   salePrice?: number
   rentPrice?: number
+  advertisingSalePrice?: number
+  advertisingRentPrice?: number
   energyClass: string
   images: string[]
   reference: string
@@ -126,6 +128,11 @@ interface Contact {
   budget?: number
   preferences?: string
   requestApartmentType?: string
+  requestPropertyType?: string
+  requestGoal?: 'SALE' | 'RENT' | 'VACATION'
+  requestZone?: string
+  requestSurfaceSqm?: number
+  rentContractSubtype?: 'TRANSITORIO' | '3+2' | '4+4'
   requestBedrooms?: number
   requestBathrooms?: number
   requestFloor?: number
@@ -149,14 +156,26 @@ interface OwnerDocument {
 interface Appointment {
   id: string
   title: string
-  description: string
+  description?: string
   startTime: string
   endTime: string
-  location: string
+  location?: string
   status: 'SCHEDULED' | 'CONFIRMED' | 'COMPLETED' | 'CANCELLED'
   contactId: string
   propertyId?: string
   assignedToId?: string
+  createdById?: string
+  participantIds?: string[]
+  assignedAgents?: string[]
+  participants?: Array<{
+    id: string
+    firstName?: string
+    lastName?: string
+    email?: string
+    role?: string
+    isActive?: boolean
+    name?: string
+  }>
   contactName?: string
   propertyTitle?: string
   notes?: string
@@ -191,7 +210,8 @@ interface AgentZone {
 
 interface Activity {
   id: string
-  type: 'CALL' | 'EMAIL' | 'VIEWING' | 'MEETING' | 'FOLLOW_UP' | 'TASK'
+  type: 'CALL' | 'EMAIL' | 'VIEWING' | 'MEETING' | 'NOTE' | 'TASK'
+  typeLabel?: string
   title: string
   description: string
   completed: boolean
@@ -305,6 +325,9 @@ type NotificationType =
   | 'APPOINTMENT_REMINDER'
   | 'MATCH_FOUND'
   | 'PROPERTY_ADDED'
+  | 'PROPERTY_PENDING_APPROVAL'
+  | 'PROPERTY_APPROVED'
+  | 'PROPERTY_ASSIGNED'
   | 'CLIENT_ADDED'
 
 interface Notification {
@@ -322,6 +345,8 @@ interface Notification {
     deletedBy?: string
     propertyId?: string
     clientId?: string
+    url?: string
+    route?: string
   }
   isRead: boolean
   createdAt: string
@@ -384,3 +409,4 @@ interface ItalianProvince {
   name: string
   regionName: string
 }
+

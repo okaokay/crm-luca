@@ -11,6 +11,7 @@
     "start:dev": "ts-node src/main.ts",
     "start:prod": "node dist/main.js",
     "test": "ts-node test/feeds-regression.ts && ts-node test/portals-compat.ts",
+    "test:crm-13-17": "ts-node test/crm-13-17-regression.ts",
     "test:feeds": "ts-node test/feeds-regression.ts",
     "test:portals-compat": "ts-node test/portals-compat.ts",
     "prisma:generate": "prisma generate",

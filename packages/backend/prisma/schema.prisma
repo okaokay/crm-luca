@@ -451,6 +451,7 @@ model User {
   contacts    Contact[]
   requests    Request[]
   appointments Appointment[]
+  createdAppointments Appointment[] @relation("AppointmentCreatedBy")
   activities  Activity[]
   campaigns   Campaign[]
   matchFeedbacks MatchFeedback[]
@@ -517,6 +518,8 @@ model Property {
   // Prezzi
   salePrice     Float?
   rentPrice     Float?
+  advertisingSalePrice Float?
+  advertisingRentPrice Float?
   expenses      Float?        // spese condominiali
   
   // Efficienza energetica
@@ -724,6 +727,9 @@ model Appointment {
   
   assignedToId String
   assignedTo  User              @relation(fields: [assignedToId], references: [id])
+  participantIds String[]        @default([])
+  createdById String?
+  createdBy   User?             @relation("AppointmentCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
   
   contactId   String?
   contact     Contact?          @relation(fields: [contactId], references: [id])
@@ -731,6 +737,7 @@ model Appointment {
   propertyId  String?
   property    Property?         @relation(fields: [propertyId], references: [id])
 
+  @@index([createdById])
   @@map("appointments")
 }
 
