@@ -45,8 +45,8 @@ services:
       MINIO_PORT: 9000
       MINIO_ACCESS_KEY: minioadmin
       MINIO_SECRET_KEY: minioadmin123
-      PUBLIC_BASE_URL: http://gestifacile.cloud:8080
-      FRONTEND_URL: http://gestifacile.cloud:8080
+      PUBLIC_BASE_URL: https://gestifacile.cloud
+      FRONTEND_URL: https://gestifacile.cloud
     depends_on:
       - postgres
       - redis
@@ -61,11 +61,24 @@ services:
       dockerfile: Dockerfile
     depends_on:
       - backend
-    ports:
-      - "8080:80"
     networks:
       - crm-network
     restart: unless-stopped
+    labels:
+      - traefik.enable=true
+      - traefik.docker.network=crm-luca_crm-network
+
+      - traefik.http.routers.gestifacile-http.rule=Host(`gestifacile.cloud`) || Host(`www.gestifacile.cloud`)
+      - traefik.http.routers.gestifacile-http.entrypoints=web
+      - traefik.http.routers.gestifacile-http.service=gestifacile-service
+
+      - traefik.http.routers.gestifacile-https.rule=Host(`gestifacile.cloud`) || Host(`www.gestifacile.cloud`)
+      - traefik.http.routers.gestifacile-https.entrypoints=websecure
+      - traefik.http.routers.gestifacile-https.tls=true
+      - traefik.http.routers.gestifacile-https.tls.certresolver=letsencrypt
+      - traefik.http.routers.gestifacile-https.service=gestifacile-service
+
+      - traefik.http.services.gestifacile-service.loadbalancer.server.port=80
 
 volumes:
   postgres_data:
@@ -74,4 +87,5 @@ volumes:
 
 networks:
   crm-network:
+    name: crm-luca_crm-network
     driver: bridge
