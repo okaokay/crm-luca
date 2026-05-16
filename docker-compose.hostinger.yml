@@ -64,8 +64,6 @@ services:
     networks:
       - crm-network
     restart: unless-stopped
-    healthcheck:
-      disable: true
     labels:
       - traefik.enable=true
 
@@ -75,7 +73,7 @@ services:
       - traefik.http.routers.gestifacile.tls.certresolver=letsencrypt
       - traefik.http.routers.gestifacile.service=gestifacile-service
 
-      - traefik.http.services.gestifacile-service.loadbalancer.server.port=80
+      - traefik.http.services.gestifacile-service.loadbalancer.server.port=3000
 
 volumes:
   postgres_data:
