@@ -65,11 +65,12 @@ services:
     restart: unless-stopped
     labels:
       - traefik.enable=true
-      - traefik.http.routers.frontend.rule=Host(`gestifacile.cloud`) || Host(`www.gestifacile.cloud`)
-      - traefik.http.routers.frontend.entrypoints=web,websecure
-      - traefik.http.routers.frontend.tls=true
-      - traefik.http.routers.frontend.tls.certresolver=letsencrypt
-      - traefik.http.services.frontend.loadbalancer.server.port=3000
+      - traefik.http.routers.gestifacile-frontend.rule=Host(`gestifacile.cloud`) || Host(`www.gestifacile.cloud`)
+      - traefik.http.routers.gestifacile-frontend.entrypoints=web,websecure
+      - traefik.http.routers.gestifacile-frontend.tls=true
+      - traefik.http.routers.gestifacile-frontend.tls.certresolver=letsencrypt
+      - traefik.http.routers.gestifacile-frontend.service=gestifacile-frontend
+      - traefik.http.services.gestifacile-frontend.loadbalancer.server.port=3000
 
 volumes:
   postgres_data:
