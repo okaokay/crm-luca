@@ -18,7 +18,6 @@ RUN npm install && npm cache clean --force
 
 # Copia codice sorgente
 COPY src ./src
-COPY public ./public
 COPY index.html ./
 
 # Build applicazione per produzione
