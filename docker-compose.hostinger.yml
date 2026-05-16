@@ -3,7 +3,6 @@ version: '3.8'
 services:
   postgres:
     image: postgres:15-alpine
-    container_name: immobiliare-crm-db
     environment:
       POSTGRES_DB: immobiliare_crm
       POSTGRES_USER: postgres
@@ -16,7 +15,6 @@ services:
 
   redis:
     image: redis:7-alpine
-    container_name: immobiliare-crm-redis
     volumes:
       - redis_data:/data
     networks:
@@ -25,7 +23,6 @@ services:
 
   minio:
     image: minio/minio:latest
-    container_name: immobiliare-crm-minio
     environment:
       MINIO_ROOT_USER: minioadmin
       MINIO_ROOT_PASSWORD: minioadmin123
@@ -40,7 +37,6 @@ services:
     build:
       context: ./packages/backend
       dockerfile: Dockerfile
-    container_name: immobiliare-crm-backend
     environment:
       NODE_ENV: production
       DATABASE_URL: postgresql://postgres:postgres123@postgres:5432/immobiliare_crm
@@ -64,7 +60,6 @@ services:
     build:
       context: ./packages/frontend
       dockerfile: Dockerfile
-    container_name: immobiliare-crm-frontend
     depends_on:
       - backend
     networks:
