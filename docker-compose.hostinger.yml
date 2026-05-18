@@ -54,6 +54,13 @@ services:
       - postgres
       - redis
       - minio
+    command: >
+      sh -lc "
+      npx prisma generate &&
+      npx prisma db push &&
+      npm run seed &&
+      node dist/main.js
+      "
     networks:
       - crm-network
     restart: unless-stopped
@@ -87,8 +94,11 @@ services:
 
 volumes:
   postgres_data:
+    name: crm-luca_postgres_data
   redis_data:
+    name: crm-luca_redis_data
   minio_data:
+    name: crm-luca_minio_data
 
 networks:
   crm-network:
