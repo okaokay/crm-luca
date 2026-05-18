@@ -189,6 +189,10 @@ postgres-data/
 uploads/
 public/uploads/
 
+# Keep frontend public assets versioned (PWA/service-worker/icons)
+!packages/frontend/public/
+!packages/frontend/public/**
+
 # Documentation build
 docs/build/
 docs/.docusaurus/

@@ -1,0 +1,20 @@
+{
+  "name": "CRM Immobiliare",
+  "short_name": "CRM",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#f1f5f9",
+  "theme_color": "#1e293b",
+  "icons": [
+    {
+      "src": "/Logo-cosmo-casa.webp",
+      "sizes": "192x192",
+      "type": "image/webp"
+    },
+    {
+      "src": "/Logo-cosmo-casa.webp",
+      "sizes": "512x512",
+      "type": "image/webp"
+    }
+  ]
+}
