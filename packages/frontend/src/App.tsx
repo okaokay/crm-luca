@@ -9341,6 +9341,10 @@ function App() {
         ownerId: sanitizedPropertyData.agentId || user?.id
 
       }
+      if (user?.role === 'AGENT' && user?.id) {
+        payload.agentId = user.id
+        payload.ownerId = user.id
+      }
 
       const response = await fetch('/api/properties', {
 
@@ -24120,6 +24124,10 @@ function PropertiesPage({
 
       ownerId: sanitizedPropertyData.agentId || currentUser?.id
 
+    }
+    if (currentUser?.role === 'AGENT' && currentUser?.id) {
+      payload.agentId = currentUser.id
+      payload.ownerId = currentUser.id
     }
 
     console.log('handleCreateProperty payload:', payload)

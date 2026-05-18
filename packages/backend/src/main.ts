@@ -17254,11 +17254,10 @@ app.post('/api/properties', async (req, res) => {
     const normalizedPortalTargets = { valid: true, portalIds: ['ONECLICKANNUNCI'] as string[] };
 
     if (auth.role === 'AGENT') {
-      const ownerIdCandidate = body?.ownerId != null ? String(body.ownerId).trim() : '';
-      const agentIdCandidate = body?.agentId != null ? String(body.agentId).trim() : '';
-      if ((ownerIdCandidate && ownerIdCandidate !== auth.id) || (agentIdCandidate && agentIdCandidate !== auth.id)) {
-        return res.status(403).json({ success: false, message: 'Forbidden' });
-      }
+      // Hard-enforce self assignment for agent submissions.
+      body.ownerId = auth.id;
+      body.agentId = auth.id;
+      body.agencyId = auth.agencyId;
     }
     
     const submitForApproval = Boolean(body?.submitForApproval);
