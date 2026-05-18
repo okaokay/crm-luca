@@ -15,6 +15,7 @@ RUN npm install && npm cache clean --force
 
 COPY src ./src
 COPY index.html ./
+COPY public ./public
 
 RUN npm run build
 
