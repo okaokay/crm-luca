@@ -53156,7 +53156,7 @@ function ContactModal({
 
     city: contact?.city || '',
 
-    province: contact?.province || '',
+    province: contact?.province || (category === 'CLIENT' ? 'PE' : ''),
 
     address: contact?.address || '',
 
