@@ -47,6 +47,9 @@ services:
       MINIO_SECRET_KEY: minioadmin123
       PUBLIC_BASE_URL: https://gestifacile.cloud
       FRONTEND_URL: https://gestifacile.cloud
+      WEB_PUSH_VAPID_PUBLIC_KEY: BHzF1qWeT7DUuwXM1gs-kZ8DJoN-HdZm3F5-WL0c8kxcjfPrvWZ7lqAtrJYWpwHfha6PsrGHd8tYmxPcvRZLb_w
+      WEB_PUSH_VAPID_PRIVATE_KEY: juWCbyRtnlFH5igWAZvIV5xJoUluY2eIL3L5vFal7JE
+      WEB_PUSH_VAPID_SUBJECT: mailto:admin@gestifacile.cloud
     depends_on:
       - postgres
       - redis
