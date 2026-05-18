@@ -45187,8 +45187,9 @@ function PropertyModal({
   })
   const [istatManualOverride, setIstatManualOverride] = useState(false)
 
-  const { token } = useAuthStore()
+  const { token, user } = useAuthStore()
   const isAdminUser = currentUserRole === 'SUPER_ADMIN' || currentUserRole === 'AGENCY_ADMIN'
+  const isAgentUser = currentUserRole === 'AGENT'
 
 
 
@@ -45261,6 +45262,38 @@ function PropertyModal({
     fetchAgents()
 
   }, [token])
+
+  const effectiveAvailableAgents = React.useMemo(() => {
+    if (isAgentUser && user?.id) {
+      const selfId = String(user.id)
+      const fromApi = availableAgents.find((agent) => String(agent.id) === selfId)
+      if (fromApi) return [fromApi]
+      return [{
+        id: selfId,
+        name: `${user.firstName || ''} ${user.lastName || ''}`.trim() || user.email || 'Agente',
+        email: user.email || '',
+        phone: user.phone || '',
+        role: 'AGENT'
+      } as Agent]
+    }
+    return availableAgents
+  }, [isAgentUser, user, availableAgents])
+
+  useEffect(() => {
+    if (!isAgentUser) return
+    const selfAgent = effectiveAvailableAgents[0]
+    if (!selfAgent) return
+    setFormData((prev) => {
+      if (String(prev.agentId || '') === String(selfAgent.id)) return prev
+      return {
+        ...prev,
+        agentId: selfAgent.id,
+        agentName: selfAgent.name,
+        agentPhone: selfAgent.phone || '',
+        agentEmail: selfAgent.email || ''
+      }
+    })
+  }, [isAgentUser, effectiveAvailableAgents])
 
 
   useEffect(() => {
@@ -45843,7 +45876,7 @@ function PropertyModal({
 
   const handleAgentSelection = (agentId: string) => {
 
-    const selectedAgent = availableAgents.find(agent => agent.id === agentId)
+    const selectedAgent = effectiveAvailableAgents.find(agent => agent.id === agentId)
 
     if (selectedAgent) {
 
@@ -46117,13 +46150,13 @@ function PropertyModal({
       ...randomData,
       portalTargets: ['ONECLICKANNUNCI'],
 
-      agentId: availableAgents.length > 0 ? availableAgents[0].id : prev.agentId,
+      agentId: effectiveAvailableAgents.length > 0 ? effectiveAvailableAgents[0].id : prev.agentId,
 
-      agentName: availableAgents.length > 0 ? availableAgents[0].name : prev.agentName,
+      agentName: effectiveAvailableAgents.length > 0 ? effectiveAvailableAgents[0].name : prev.agentName,
 
-      agentPhone: availableAgents.length > 0 ? availableAgents[0].phone : prev.agentPhone,
+      agentPhone: effectiveAvailableAgents.length > 0 ? effectiveAvailableAgents[0].phone : prev.agentPhone,
 
-      agentEmail: availableAgents.length > 0 ? availableAgents[0].email : prev.agentEmail,
+      agentEmail: effectiveAvailableAgents.length > 0 ? effectiveAvailableAgents[0].email : prev.agentEmail,
 
     }))
 
@@ -49568,6 +49601,7 @@ function PropertyModal({
                     value={formData.agentId}
 
                     onChange={(e) => handleAgentSelection(e.target.value)}
+                    disabled={isAgentUser}
 
                     style={{
 
@@ -49591,7 +49625,7 @@ function PropertyModal({
 
                     <option value="">-- Seleziona un agente --</option>
 
-                    {availableAgents.map(agent => (
+                    {effectiveAvailableAgents.map(agent => (
 
                       <option key={agent.id} value={agent.id}>
 
