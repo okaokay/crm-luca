@@ -9327,13 +9327,18 @@ function App() {
   const handleCreateProperty = async (propertyData: Omit<Property, 'id' | 'createdAt'>) => {
 
     try {
+      const pendingImageFiles = Array.isArray((propertyData as any).__pendingImageFiles)
+        ? ((propertyData as any).__pendingImageFiles as File[]).filter((file) => file instanceof File)
+        : []
+      const sanitizedPropertyData: any = { ...propertyData }
+      delete sanitizedPropertyData.__pendingImageFiles
       const payload = {
 
-        ...propertyData,
+        ...sanitizedPropertyData,
 
         agencyId: user?.agency?.id,
 
-        ownerId: propertyData.agentId || user?.id
+        ownerId: sanitizedPropertyData.agentId || user?.id
 
       }
 
@@ -9360,7 +9365,7 @@ function App() {
 
       if (!response.ok) {
         if (response.status === 413) {
-          alert('Caricamento troppo pesante (413). Salva prima l\'immobile senza immagini, poi caricale nel secondo step.')
+          alert('Caricamento troppo pesante (413). Il salvataggio deve inviare solo i dati e caricare le immagini separatamente in automatico.')
           return null
         }
         const messageFromServer =
@@ -9374,6 +9379,24 @@ function App() {
       if (data?.success) {
 
         const newProperty = { ...data.data, createdAt: new Date().toISOString() }
+        if (pendingImageFiles.length > 0 && newProperty.id) {
+          const uploadedUrls: string[] = []
+          for (const file of pendingImageFiles) {
+            const formData = new FormData()
+            formData.append('images', file)
+            const uploadResponse = await fetch(`/api/properties/${newProperty.id}/images`, {
+              method: 'POST',
+              headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+              body: formData
+            })
+            const uploadData = await uploadResponse.json().catch(() => null)
+            if (!uploadResponse.ok || !uploadData?.success) {
+              throw new Error(uploadData?.message || 'Immobile creato, ma caricamento immagini non riuscito')
+            }
+            if (Array.isArray(uploadData.imageUrls)) uploadedUrls.push(...uploadData.imageUrls)
+          }
+          if (uploadedUrls.length > 0) newProperty.images = uploadedUrls
+        }
 
         setProperties(prev => [newProperty, ...prev])
 
@@ -24081,16 +24104,21 @@ function PropertiesPage({
     // FIX: Ensure user is defined safely to avoid ReferenceError
 
     const currentUser = user;
+    const pendingImageFiles = Array.isArray((propertyData as any).__pendingImageFiles)
+      ? ((propertyData as any).__pendingImageFiles as File[]).filter((file) => file instanceof File)
+      : []
+    const sanitizedPropertyData: any = { ...propertyData }
+    delete sanitizedPropertyData.__pendingImageFiles
 
 
 
     const payload = {
 
-      ...propertyData,
+      ...sanitizedPropertyData,
 
       agencyId: currentUser?.agency?.id,
 
-      ownerId: propertyData.agentId || currentUser?.id
+      ownerId: sanitizedPropertyData.agentId || currentUser?.id
 
     }
 
@@ -24136,10 +24164,27 @@ function PropertiesPage({
       }
 
       if (data.success) {
+        const createdProperty = data.data
 
         setShowCreateModal(false)
         setEditingProperty(null)
         setApprovingPropertyId(null)
+
+        if (pendingImageFiles.length > 0 && createdProperty?.id) {
+          for (const file of pendingImageFiles) {
+            const uploadFormData = new FormData()
+            uploadFormData.append('images', file)
+            const uploadResponse = await fetch(`/api/properties/${createdProperty.id}/images`, {
+              method: 'POST',
+              headers: authHeaders,
+              body: uploadFormData
+            })
+            const uploadData = await uploadResponse.json().catch(() => null)
+            if (!uploadResponse.ok || !uploadData?.success) {
+              throw new Error(uploadData?.message || 'Immobile creato, ma caricamento immagini non riuscito')
+            }
+          }
+        }
 
         onRefreshData() // Ricarica i dati
 
@@ -24159,7 +24204,7 @@ function PropertiesPage({
 
       const message =
         error instanceof Error && error.message === 'PAYLOAD_TOO_LARGE'
-          ? 'Caricamento troppo pesante: il server ha rifiutato la richiesta (413). Riduci immagini/video oppure salva prima l\'immobile e carica le immagini dalla scheda immobile.'
+          ? 'Caricamento troppo pesante: il server ha rifiutato la richiesta (413). Il payload dati non deve contenere immagini in base64.'
           : error instanceof Error && error.message
             ? error.message
             : 'Errore di connessione'

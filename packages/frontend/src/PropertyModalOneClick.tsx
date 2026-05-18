@@ -245,6 +245,7 @@ export function PropertyModalOneClick({ property, onSave, onCancel, currentUserR
   const [cities, setCities] = useState<City[]>([])
   const [provinces, setProvinces] = useState<Province[]>([])
   const [images, setImages] = useState<string[]>(Array.isArray(property?.images) ? property.images : [])
+  const [pendingImageFiles, setPendingImageFiles] = useState<File[]>([])
   const [streetSuggestions, setStreetSuggestions] = useState<StreetSuggestion[]>([])
   const [streetLoading, setStreetLoading] = useState(false)
   const [streetDropdownOpen, setStreetDropdownOpen] = useState(false)
@@ -773,8 +774,13 @@ export function PropertyModalOneClick({ property, onSave, onCancel, currentUserR
   const uploadImages = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files
     if (!files) return
-    Array.from(files).slice(0, Math.max(0, 40 - images.length)).forEach((file) => {
-      if (!file.type.startsWith('image/')) return
+    const acceptedFiles = Array.from(files)
+      .filter((file) => file.type.startsWith('image/'))
+      .slice(0, Math.max(0, 40 - images.length))
+    if (acceptedFiles.length > 0) {
+      setPendingImageFiles((prev) => [...prev, ...acceptedFiles])
+    }
+    acceptedFiles.forEach((file) => {
       const reader = new FileReader()
       reader.onload = (evt) => { if (evt.target?.result) setImages((prev) => [...prev, String(evt.target?.result)]) }
       reader.readAsDataURL(file)
@@ -1312,7 +1318,14 @@ export function PropertyModalOneClick({ property, onSave, onCancel, currentUserR
             </div>
             <div style={{ marginTop: 6, fontSize: 12, color: images.length >= MIN_REQUIRED_IMAGES ? '#065f46' : '#b91c1c' }}>Foto caricate: {images.length}/{MIN_REQUIRED_IMAGES}</div>
             <div style={{ marginTop: 8, display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(110px,1fr))', gap: 8 }}>
-              {images.map((img, i) => <div key={`${img}-${i}`} style={{ border: '1px solid #d1d5db', borderRadius: 6, overflow: 'hidden', position: 'relative' }}><img src={img} alt={`img-${i}`} style={{ width: '100%', height: 85, objectFit: 'cover' }} /><button type="button" onClick={() => setImages((prev) => prev.filter((_, x) => x !== i))} style={{ position: 'absolute', top: 2, right: 2, border: 'none', background: '#ef4444', color: '#fff', borderRadius: 4, cursor: 'pointer', fontSize: 11 }}>x</button></div>)}
+              {images.map((img, i) => <div key={`${img}-${i}`} style={{ border: '1px solid #d1d5db', borderRadius: 6, overflow: 'hidden', position: 'relative' }}><img src={img} alt={`img-${i}`} style={{ width: '100%', height: 85, objectFit: 'cover' }} /><button type="button" onClick={() => {
+                const target = images[i]
+                setImages((prev) => prev.filter((_, x) => x !== i))
+                if (String(target || '').startsWith('data:')) {
+                  const pendingIndex = images.slice(0, i + 1).filter((src) => String(src || '').startsWith('data:')).length - 1
+                  setPendingImageFiles((prev) => prev.filter((_, x) => x !== pendingIndex))
+                }
+              }} style={{ position: 'absolute', top: 2, right: 2, border: 'none', background: '#ef4444', color: '#fff', borderRadius: 4, cursor: 'pointer', fontSize: 11 }}>x</button></div>)}
             </div>
           </div>
           <div style={cardStyle}>
@@ -1346,7 +1359,9 @@ export function PropertyModalOneClick({ property, onSave, onCancel, currentUserR
       data_inserimento: String(form.oneClickData?.data_inserimento || '').trim() || new Date().toLocaleString('it-IT'),
       data_aggiornamento: String(form.oneClickData?.data_aggiornamento || '').trim() || new Date().toLocaleString('it-IT'),
       selectedPortalCodes: Array.isArray(form.oneClickData?.selectedPortalCodes) ? form.oneClickData.selectedPortalCodes : [],
-      immagini: images.map((link, i) => ({ link, description: '', planimetria: 'N', principale: i === 0 ? 'S' : 'N' })),
+      immagini: images
+        .filter((link) => !String(link || '').startsWith('data:'))
+        .map((link, i) => ({ link, description: '', planimetria: 'N', principale: i === 0 ? 'S' : 'N' })),
       videos: Array.isArray(form.oneClickData?.videos) ? form.oneClickData.videos.slice(0, 4) : []
     }
     if (!isAdminUser) {
@@ -1462,7 +1477,8 @@ export function PropertyModalOneClick({ property, onSave, onCancel, currentUserR
       latitude: form.latitude,
       longitude: form.longitude,
       giComuneIstat: String(oneClickData.comune_istat || '').trim(),
-      images,
+      images: images.filter((link) => !String(link || '').startsWith('data:')),
+      __pendingImageFiles: pendingImageFiles,
       portalTargets: ['ONECLICKANNUNCI'],
       oneClickData: {
         ...oneClickData,
