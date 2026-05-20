@@ -34,3 +34,6 @@ Aggiornare il codice su Hostinger senza eliminare il progetto Docker e senza per
 ## Quando usare Upgrade vs Recreate
 - `Upgrade`: sempre per fix/nuove versioni.
 - `Elimina + Componi`: solo per recovery grave o replatform.
+
+## Nota aggiornamento
+- Ultimo controllo operativo del runbook: 2026-05-20.
