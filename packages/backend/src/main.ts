@@ -18361,6 +18361,8 @@ const normalizeRequestFlatResponse = (contact: any) => {
   const requestMeta = readRequestMetaFromNotes(request.notes);
   return {
     ...rest,
+    budgetMin: request.minPrice ?? undefined,
+    budgetMax: request.maxPrice ?? undefined,
     budget: request.maxPrice ?? undefined,
     preferences: request.description ?? undefined,
     requestApartmentType: request.apartmentSubtype ?? undefined,
@@ -20112,6 +20114,8 @@ app.post('/api/contacts', async (req, res) => {
       const requestSurfaceSqm = parseOptionalNumber(data.requestSurfaceSqm);
       const rentContractSubtype = parseOptionalString(data.rentContractSubtype);
       const budget = parseOptionalNumber(data.budget);
+      const budgetMin = parseOptionalNumber(data.budgetMin);
+      const budgetMax = parseOptionalNumber(data.budgetMax);
       const requestCondition = parseOptionalString(data.requestCondition);
       const requestBathrooms = parseOptionalNumber(data.requestBathrooms);
       const requestBedrooms = parseOptionalNumber(data.requestBedrooms);
@@ -20128,59 +20132,14 @@ app.post('/api/contacts', async (req, res) => {
 
       if (!firstName || !lastName) validationErrors.push('Nome e cognome sono obbligatori');
       if (!email || !phone) validationErrors.push('Per il cliente email e telefono sono obbligatori');
-      if (!city || !province) validationErrors.push('Per il cliente città e provincia sono obbligatorie');
-      if (!address) validationErrors.push('Per il cliente indirizzo obbligatorio');
+      if (!province) validationErrors.push('Per il cliente la provincia è obbligatoria');
       if (!requestGoal) validationErrors.push('Seleziona la finalità della richiesta');
       if (!requestPropertyTypeRaw || !requestPropertyType) {
         validationErrors.push('Seleziona la tipologia immobile richiesta');
       }
       if (!requestZone) validationErrors.push('Inserisci la zona richiesta');
-      if (budget == null || budget <= 0) validationErrors.push('Inserisci il budget richiesto');
-      if (!notes) validationErrors.push('Inserisci le note richiesta');
-
-      const isApartmentRequest = requestPropertyType === 'APARTMENT';
-      const isCommercialRequest = requestPropertyType === 'SHOP' || requestPropertyType === 'OFFICE';
-      const isWarehouseRequest = requestPropertyType === 'WAREHOUSE';
-      const isLandRequest = requestPropertyType === 'LAND';
-      const isGarageRequest = requestPropertyType === 'GARAGE';
-      const isResidentialRequest =
-        requestPropertyType === 'APARTMENT' ||
-        requestPropertyType === 'HOUSE' ||
-        requestPropertyType === 'VILLA';
-      const isShopLikeRequest = requestPropertyType === 'SHOP';
-      if (isApartmentRequest && !requestApartmentType) {
-        validationErrors.push('Seleziona la tipologia appartamento');
-      }
-      if (!isApartmentRequest && requestSurfaceSqm == null) {
-        validationErrors.push('Inserisci i mq richiesti');
-      }
-      if (isResidentialRequest && (requestBedrooms == null || requestBedrooms <= 0)) {
-        validationErrors.push('Inserisci almeno il numero camere richieste');
-      }
-      if (isResidentialRequest && (requestBathrooms == null || requestBathrooms <= 0)) {
-        validationErrors.push('Inserisci il numero bagni richiesti');
-      }
-      if (isResidentialRequest && (requestFloor == null || requestFloor <= 0)) {
-        validationErrors.push('Inserisci il piano richiesto');
-      }
-      if (isResidentialRequest && !requestCondition) {
-        validationErrors.push('Seleziona lo stato immobile richiesto');
-      }
-      if (isCommercialRequest) {
-        if (requestBathrooms == null || requestBathrooms <= 0) validationErrors.push('Inserisci il numero bagni richiesti');
-        if (requestCommercialRooms == null || requestCommercialRooms <= 0) validationErrors.push('Inserisci il numero locali richiesti');
-        if (requestParkingSpots == null || requestParkingSpots <= 0) validationErrors.push('Inserisci i posti auto richiesti');
-        if (isShopLikeRequest && (requestShopWindows == null || requestShopWindows <= 0)) validationErrors.push('Inserisci il numero vetrine richieste');
-        if (!requestCondition) validationErrors.push('Seleziona lo stato immobile richiesto');
-      }
-      if (isWarehouseRequest && (requestParkingSpots == null || requestParkingSpots <= 0)) {
-        validationErrors.push('Inserisci i posti auto richiesti');
-      }
-      if (isLandRequest && !requestLandUse) validationErrors.push('Inserisci uso terreno');
-      if (isLandRequest && !requestBuildable) validationErrors.push('Indica se il terreno è edificabile');
-      if (isGarageRequest && !requestGarageType) validationErrors.push('Seleziona il tipo box richiesto');
-      if (requestGoal === 'RENT' && !rentContractSubtype) {
-        validationErrors.push("Seleziona il tipo contratto per l'affitto");
+      if (budgetMin == null || budgetMin <= 0 || budgetMax == null || budgetMax <= 0) {
+        validationErrors.push('Inserisci budget minimo e massimo richiesti');
       }
 
       if (validationErrors.length > 0) {
@@ -20256,7 +20215,16 @@ app.post('/api/contacts', async (req, res) => {
       const minRooms = parseOptionalNumber(data.requestBedrooms);
       const minBathrooms = parseOptionalNumber(data.requestBathrooms);
       const minFloor = parseOptionalNumber(data.requestFloor);
-      const maxPrice = parseOptionalNumber(data.budget);
+      const fallbackBudget = parseOptionalNumber(data.budget);
+      const rawMinPrice = parseOptionalNumber(data.budgetMin) ?? fallbackBudget;
+      const rawMaxPrice = parseOptionalNumber(data.budgetMax) ?? fallbackBudget;
+      const minMaxReady =
+        rawMinPrice != null &&
+        rawMaxPrice != null &&
+        Number.isFinite(rawMinPrice) &&
+        Number.isFinite(rawMaxPrice);
+      const minPrice = minMaxReady ? Math.min(rawMinPrice as number, rawMaxPrice as number) : rawMinPrice;
+      const maxPrice = minMaxReady ? Math.max(rawMinPrice as number, rawMaxPrice as number) : rawMaxPrice;
       const requestMetaNotes = encodeRequestNotesWithMeta(data.notes, {
         [REQUEST_META_KEYS.goal]: requestGoal,
         [REQUEST_META_KEYS.zone]: parseOptionalString(data.requestZone),
@@ -20280,7 +20248,7 @@ app.post('/api/contacts', async (req, res) => {
         maxFloor: minFloor,
         minSurface: requestSurfaceSqm,
         maxSurface: requestSurfaceSqm,
-        minPrice: maxPrice,
+        minPrice: minPrice ?? undefined,
         maxPrice,
         apartmentSubtype,
         cities,
@@ -20386,6 +20354,8 @@ app.put('/api/contacts/:id', async (req, res) => {
       data.requestBathrooms !== undefined ||
       data.requestFloor !== undefined ||
       data.budget !== undefined ||
+      data.budgetMin !== undefined ||
+      data.budgetMax !== undefined ||
       data.preferences !== undefined ||
       data.requestGoal !== undefined ||
       data.requestPropertyType !== undefined ||
@@ -20415,7 +20385,16 @@ app.put('/api/contacts/:id', async (req, res) => {
       const minRooms = parseOptionalNumber(data.requestBedrooms);
       const minBathrooms = parseOptionalNumber(data.requestBathrooms);
       const minFloor = parseOptionalNumber(data.requestFloor);
-      const budget = parseOptionalNumber(data.budget);
+      const fallbackBudget = parseOptionalNumber(data.budget);
+      const rawMinPrice = parseOptionalNumber(data.budgetMin) ?? fallbackBudget;
+      const rawMaxPrice = parseOptionalNumber(data.budgetMax) ?? fallbackBudget;
+      const minMaxReady =
+        rawMinPrice != null &&
+        rawMaxPrice != null &&
+        Number.isFinite(rawMinPrice) &&
+        Number.isFinite(rawMaxPrice);
+      const budgetMin = minMaxReady ? Math.min(rawMinPrice as number, rawMaxPrice as number) : rawMinPrice;
+      const budgetMax = minMaxReady ? Math.max(rawMinPrice as number, rawMaxPrice as number) : rawMaxPrice;
       const mergedNotes = encodeRequestNotesWithMeta(
         parseOptionalString(data.notes) ?? currentMeta.cleanedNotes,
         {
@@ -20445,8 +20424,8 @@ app.put('/api/contacts/:id', async (req, res) => {
         maxFloor: minFloor ?? currentRequest?.maxFloor ?? undefined,
         minSurface: requestSurfaceSqm ?? currentRequest?.minSurface ?? undefined,
         maxSurface: requestSurfaceSqm ?? currentRequest?.maxSurface ?? undefined,
-        minPrice: budget ?? currentRequest?.minPrice ?? undefined,
-        maxPrice: budget ?? currentRequest?.maxPrice ?? undefined,
+        minPrice: budgetMin ?? currentRequest?.minPrice ?? undefined,
+        maxPrice: budgetMax ?? currentRequest?.maxPrice ?? undefined,
         apartmentSubtype:
           requestPropertyType === 'APARTMENT'
             ? parseOptionalString(data.requestApartmentType) ?? currentRequest?.apartmentSubtype ?? undefined
@@ -22987,4 +22966,3 @@ if (shouldStartHttpServer) {
 
 export { app };
 export default app;
-

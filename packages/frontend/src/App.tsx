@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react'
+﻿import React, { useState, useEffect, useRef } from 'react'
 
 import { useLocation, useNavigate } from 'react-router-dom'
 import { createPortal } from 'react-dom'
@@ -199,7 +199,7 @@ const buildOperationalDetailRows = (input?: {
   if (sourceRaw) {
     rows.push({
       key: 'source',
-      label: 'Origine attivit�',
+      label: 'Origine attivitï¿½',
       value: TECH_SOURCE_LABELS[sourceRaw.toUpperCase()] || sourceRaw
     })
   }
@@ -2065,7 +2065,7 @@ function InternalLoginPage() {
 
           <span>Logout</span>
 
-          <span style={{ fontSize: '1rem' }}>Ã¢Å¸Â¶</span>
+          <span style={{ fontSize: '1rem' }}>ÃƒÂ¢Ã…Â¸Ã‚Â¶</span>
 
         </button>
 
@@ -2699,7 +2699,7 @@ function InternalLoginPage() {
 
               {detailLoading ? (
 
-                <div style={{ fontSize: '0.8rem', color: '#9ca3af' }}>Caricamento in corsoÃ¢â‚¬Â¦</div>
+                <div style={{ fontSize: '0.8rem', color: '#9ca3af' }}>Caricamento in corsoÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¦</div>
 
               ) : detailError ? (
 
@@ -2817,7 +2817,7 @@ function InternalLoginPage() {
 
                             {typeof selectedAgencyDetail.onboardingStep === 'number' &&
 
-                              ` Ã‚Â· Step ${selectedAgencyDetail.onboardingStep}`}
+                              ` Ãƒâ€šÃ‚Â· Step ${selectedAgencyDetail.onboardingStep}`}
 
                           </div>
 
@@ -3239,7 +3239,7 @@ function InternalLoginPage() {
 
                                     <div style={{ fontSize: '0.75rem', color: '#9ca3af' }}>
 
-                                      {t.type} Ã‚Â· {t.status}
+                                      {t.type} Ãƒâ€šÃ‚Â· {t.status}
 
                                     </div>
 
@@ -3331,7 +3331,7 @@ function InternalLoginPage() {
 
                                       {r.assignedTo && r.assignedTo.email
 
-                                        ? ` Ã‚Â· Assegnato a ${r.assignedTo.email}`
+                                        ? ` Ãƒâ€šÃ‚Â· Assegnato a ${r.assignedTo.email}`
 
                                         : ''}
 
@@ -3465,7 +3465,7 @@ function InternalLoginPage() {
 
                             {!subscriptionEdit && (
 
-                              <div style={{ fontSize: '0.8rem', color: '#9ca3af' }}>Caricamento abbonamentoÃ¢â‚¬Â¦</div>
+                              <div style={{ fontSize: '0.8rem', color: '#9ca3af' }}>Caricamento abbonamentoÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¦</div>
 
                             )}
 
@@ -3779,7 +3779,7 @@ function InternalLoginPage() {
 
                                       if (!subscriptionEdit || !subscriptionEdit.planCode.trim()) {
 
-                                        setSubscriptionError('Il piano non puÒ² essere vuoto')
+                                        setSubscriptionError('Il piano non puÃ’Â² essere vuoto')
 
                                         setSubscriptionSuccess(null)
 
@@ -4377,7 +4377,7 @@ function InternalLoginPage() {
 
                   <div style={{ padding: '1.25rem 0.9rem', fontSize: '0.8rem', color: '#9ca3af' }}>
 
-                    Caricamento richieste in corsoÃ¢â‚¬Â¦
+                    Caricamento richieste in corsoÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¦
 
                   </div>
 
@@ -5171,7 +5171,7 @@ function InternalLoginPage() {
 
                   onChange={e => setAuditEntityIdFilter(e.target.value)}
 
-                  placeholder="ID entitÒ "
+                  placeholder="ID entitÃ’Â "
 
                   style={{
 
@@ -5493,7 +5493,7 @@ function InternalLoginPage() {
 
                   <div style={{ padding: '1.25rem 0.9rem', fontSize: '0.8rem', color: '#9ca3af' }}>
 
-                    Caricamento audit log in corsoÃ¢â‚¬Â¦
+                    Caricamento audit log in corsoÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¦
 
                   </div>
 
@@ -5859,7 +5859,7 @@ function InternalLoginPage() {
 
                       <div>
 
-                        {selectedAuditLog.entity} Ã‚Â· {selectedAuditLog.entityId}
+                        {selectedAuditLog.entity} Ãƒâ€šÃ‚Â· {selectedAuditLog.entityId}
 
                       </div>
 
@@ -6118,93 +6118,93 @@ async function loadItalianProvinces() {
 
 
 const MOJIBAKE_TEXT_REPLACEMENTS: Array<[RegExp, string]> = [
-  [/([A-Za-z�-�])(?:�|�|�|�|�)[^\s<>"'`)]*/g, '$1'],
-  [/(?:�|�|�|�|�)[^\s<>"'`)]*/g, ''],
+  [/([A-Za-zï¿½-ï¿½])(?:ï¿½|ï¿½|ï¿½|ï¿½|ï¿½)[^\s<>"'`)]*/g, '$1'],
+  [/(?:ï¿½|ï¿½|ï¿½|ï¿½|ï¿½)[^\s<>"'`)]*/g, ''],
+  [/Ã¯Â¿Â½/g, ''],
   [/ï¿½/g, ''],
-  [/�/g, ''],
-  [/Ã°Å¸[^\s<>"'`)]*/g, ''],
-  [/Ã°[^\s<>"'`)]*/g, ''],
-  [/ÃƒÂ¢Ã…Â¡Ã‚Â /g, 'Attenzione: '],
-  [/ÃƒÂ¢Ã…Â¡Ã‚Â¡/g, ''],
-  [/Ã¢Å“â€¦/g, 'OK'],
-  [/Ã¢ÂÅ’/g, 'Errore: '],
-  [/Ã¢ÂÂ³/g, '...'],
-  [/Ã¢Â¬â€¡Ã¯Â¸Â/g, ''],
-  [/Ã¢Å¡â„¢Ã¯Â¸Â/g, ''],
-  [/Ã¢â€šÂ¬/g, 'EUR '],
-  [/Ã‚Â·/g, ' · '],
-  [/Ã¢â‚¬Â¦/g, '...'],
-  [/Ã¢â‚¬â€œ|â€“/g, '-'],
-  [/Ã¢â‚¬â€|â€”/g, '-'],
-  [/Ã¢â‚¬â„¢|â€™/g, "'"],
-  [/Ã¢â‚¬Å“|â€œ/g, '"'],
-  [/Ã¢â‚¬Â|â€/g, '"'],
-  [/ÃƒÂ |Ã /g, 'à'],
-  [/ÃƒÂ¨|Ã¨/g, 'è'],
-  [/ÃƒÂ©|Ã©/g, 'é'],
-  [/ÃƒÂ¬|Ã¬/g, 'ì'],
-  [/ÃƒÂ²|Ã²/g, 'ò'],
-  [/ÃƒÂ¹|Ã¹/g, 'ù'],
-  [/Ò /g, 'à'],
-  [/Ò¨/g, 'è'],
-  [/Ò©/g, 'é'],
-  [/Ò¬/g, 'ì'],
-  [/Ò²/g, 'ò'],
-  [/Ò¹/g, 'ù'],
-  [/CittÃ[^\s<>"'`]*/g, 'Città'],
-  [/AttivitÃ[^\s<>"'`]*/g, 'Attività'],
-  [/OperativitÃ[^\s<>"'`]*/g, 'Operatività'],
-  [/compatibilitÃ[^\s<>"'`]*/g, 'compatibilità'],
-  [/funzionalitÃ[^\s<>"'`]*/g, 'funzionalità'],
-  [/identitÃ[^\s<>"'`]*/g, 'identità'],
-  [/proprietÃ[^\s<>"'`]*/g, 'proprietà'],
-  [/sarÃ[^\s<>"'`]*/g, 'sarà'],
-  [/verrÃ[^\s<>"'`]*/g, 'verrà'],
-  [/giÃ[^\s<>"'`]*/g, 'già'],
-  [/sÃ[^\s<>"'`]*/g, 'sì'],
-  [/piÃ[^\s<>"'`]*/g, 'più'],
-  [/mÃ‚Â²/g, 'mq'],
-  [/mï¿½/g, 'mq'],
-  [/cittÃ[^\s<>"'`]*/g, 'città'],
-  [/mï¿½/g, 'mq'],
-  [/Cittï¿½/g, 'Citta']
+  [/ÃƒÂ°Ã…Â¸[^\s<>"'`)]*/g, ''],
+  [/ÃƒÂ°[^\s<>"'`)]*/g, ''],
+  [/ÃƒÆ’Ã‚Â¢Ãƒâ€¦Ã‚Â¡Ãƒâ€šÃ‚Â /g, 'Attenzione: '],
+  [/ÃƒÆ’Ã‚Â¢Ãƒâ€¦Ã‚Â¡Ãƒâ€šÃ‚Â¡/g, ''],
+  [/ÃƒÂ¢Ã…â€œÃ¢â‚¬Â¦/g, 'OK'],
+  [/ÃƒÂ¢Ã‚ÂÃ…â€™/g, 'Errore: '],
+  [/ÃƒÂ¢Ã‚ÂÃ‚Â³/g, '...'],
+  [/ÃƒÂ¢Ã‚Â¬Ã¢â‚¬Â¡ÃƒÂ¯Ã‚Â¸Ã‚Â/g, ''],
+  [/ÃƒÂ¢Ã…Â¡Ã¢â€žÂ¢ÃƒÂ¯Ã‚Â¸Ã‚Â/g, ''],
+  [/ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬/g, 'EUR '],
+  [/Ãƒâ€šÃ‚Â·/g, ' Â· '],
+  [/ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¦/g, '...'],
+  [/ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Å“|Ã¢â‚¬â€œ/g, '-'],
+  [/ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â|Ã¢â‚¬â€/g, '-'],
+  [/ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢|Ã¢â‚¬â„¢/g, "'"],
+  [/ÃƒÂ¢Ã¢â€šÂ¬Ã…â€œ|Ã¢â‚¬Å“/g, '"'],
+  [/ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â|Ã¢â‚¬Â/g, '"'],
+  [/ÃƒÆ’Ã‚Â |ÃƒÂ /g, 'Ã '],
+  [/ÃƒÆ’Ã‚Â¨|ÃƒÂ¨/g, 'Ã¨'],
+  [/ÃƒÆ’Ã‚Â©|ÃƒÂ©/g, 'Ã©'],
+  [/ÃƒÆ’Ã‚Â¬|ÃƒÂ¬/g, 'Ã¬'],
+  [/ÃƒÆ’Ã‚Â²|ÃƒÂ²/g, 'Ã²'],
+  [/ÃƒÆ’Ã‚Â¹|ÃƒÂ¹/g, 'Ã¹'],
+  [/Ã’Â /g, 'Ã '],
+  [/Ã’Â¨/g, 'Ã¨'],
+  [/Ã’Â©/g, 'Ã©'],
+  [/Ã’Â¬/g, 'Ã¬'],
+  [/Ã’Â²/g, 'Ã²'],
+  [/Ã’Â¹/g, 'Ã¹'],
+  [/CittÃƒ[^\s<>"'`]*/g, 'CittÃ '],
+  [/AttivitÃƒ[^\s<>"'`]*/g, 'AttivitÃ '],
+  [/OperativitÃƒ[^\s<>"'`]*/g, 'OperativitÃ '],
+  [/compatibilitÃƒ[^\s<>"'`]*/g, 'compatibilitÃ '],
+  [/funzionalitÃƒ[^\s<>"'`]*/g, 'funzionalitÃ '],
+  [/identitÃƒ[^\s<>"'`]*/g, 'identitÃ '],
+  [/proprietÃƒ[^\s<>"'`]*/g, 'proprietÃ '],
+  [/sarÃƒ[^\s<>"'`]*/g, 'sarÃ '],
+  [/verrÃƒ[^\s<>"'`]*/g, 'verrÃ '],
+  [/giÃƒ[^\s<>"'`]*/g, 'giÃ '],
+  [/sÃƒ[^\s<>"'`]*/g, 'sÃ¬'],
+  [/piÃƒ[^\s<>"'`]*/g, 'piÃ¹'],
+  [/mÃƒâ€šÃ‚Â²/g, 'mq'],
+  [/mÃ¯Â¿Â½/g, 'mq'],
+  [/cittÃƒ[^\s<>"'`]*/g, 'cittÃ '],
+  [/mÃ¯Â¿Â½/g, 'mq'],
+  [/CittÃ¯Â¿Â½/g, 'Citta']
 ]
 
 function normalizeMojibakeText(input: string): string {
   let value = input
-  const mojibakeMarkerRegex = /Ã.|Â.|â.|Å.|ð.|Ÿ|œ|ž|ï¿½|�/
+  const mojibakeMarkerRegex = /Ãƒ.|Ã‚.|Ã¢.|Ã….|Ã°.|Å¸|Å“|Å¾|Ã¯Â¿Â½|ï¿½/
   const mojibakeScore = (raw: string) => {
-    const matches = raw.match(/Ã.|Â.|â.|Å.|ð.|Ÿ|œ|ž|ï¿½|�/g)
+    const matches = raw.match(/Ãƒ.|Ã‚.|Ã¢.|Ã….|Ã°.|Å¸|Å“|Å¾|Ã¯Â¿Â½|ï¿½/g)
     return matches ? matches.length : 0
   }
   const cp1252Reverse: Record<string, number> = {
-    '€': 0x80,
-    '‚': 0x82,
-    'ƒ': 0x83,
-    '„': 0x84,
-    '…': 0x85,
-    '†': 0x86,
-    '‡': 0x87,
-    'ˆ': 0x88,
-    '‰': 0x89,
-    'Š': 0x8a,
-    '‹': 0x8b,
-    'Œ': 0x8c,
-    'Ž': 0x8e,
-    '‘': 0x91,
-    '’': 0x92,
-    '“': 0x93,
-    '”': 0x94,
-    '•': 0x95,
-    '–': 0x96,
-    '—': 0x97,
-    '˜': 0x98,
-    '™': 0x99,
-    'š': 0x9a,
-    '›': 0x9b,
-    'œ': 0x9c,
-    'ž': 0x9e,
-    'Ÿ': 0x9f
+    'â‚¬': 0x80,
+    'â€š': 0x82,
+    'Æ’': 0x83,
+    'â€ž': 0x84,
+    'â€¦': 0x85,
+    'â€ ': 0x86,
+    'â€¡': 0x87,
+    'Ë†': 0x88,
+    'â€°': 0x89,
+    'Å ': 0x8a,
+    'â€¹': 0x8b,
+    'Å’': 0x8c,
+    'Å½': 0x8e,
+    'â€˜': 0x91,
+    'â€™': 0x92,
+    'â€œ': 0x93,
+    'â€': 0x94,
+    'â€¢': 0x95,
+    'â€“': 0x96,
+    'â€”': 0x97,
+    'Ëœ': 0x98,
+    'â„¢': 0x99,
+    'Å¡': 0x9a,
+    'â€º': 0x9b,
+    'Å“': 0x9c,
+    'Å¾': 0x9e,
+    'Å¸': 0x9f
   }
   const byteFromChar = (char: string): number | null => {
     const code = char.charCodeAt(0)
@@ -6405,8 +6405,8 @@ function AiAssistIntroModal({ step, onClose, onNext }: AiAssistIntroModalProps) 
               lineHeight: 1.45
             }}
           >
-            <span style={{ fontWeight: 800, color: '#0f172a' }}>Pi� richieste gestite, pi� premi per il team.</span>{' '}
-            Ogni utilizzo di Ehi Maurizio AI nelle attivit� quotidiane aumenta i punteggi: caricamento immobili,
+            <span style={{ fontWeight: 800, color: '#0f172a' }}>Piï¿½ richieste gestite, piï¿½ premi per il team.</span>{' '}
+            Ogni utilizzo di Ehi Maurizio AI nelle attivitï¿½ quotidiane aumenta i punteggi: caricamento immobili,
             follow-up clienti e appuntamenti completati.
           </div>
         )}
@@ -8273,7 +8273,7 @@ function App() {
 
           'APPOINTMENT_CREATED',
 
-          'Ã°Å¸â€œâ€¦ Nuovo Appuntamento',
+          'ÃƒÂ°Ã…Â¸Ã¢â‚¬Å“Ã¢â‚¬Â¦ Nuovo Appuntamento',
 
           appointmentDateText
 
@@ -9446,7 +9446,7 @@ function App() {
            const newActivity = createdActivities[0]
            createNotification(
              'ACTIVITY_CREATED',
-             'Nuova AttivitÒ ',
+             'Nuova AttivitÃ’Â ',
              newActivity.title,
              newActivity.id
            )
@@ -9454,7 +9454,7 @@ function App() {
          }
          createNotification(
            'ACTIVITY_CREATED',
-           'Nuove attivitÒ ',
+           'Nuove attivitÃ’Â ',
            `${createdActivities.length} attivit create`,
            createdActivities[0]?.id || ''
          )
@@ -9462,13 +9462,13 @@ function App() {
 
        } else {
 
-         alert('Errore creazione attivitÒ : ' + data.message)
+         alert('Errore creazione attivitÃ’Â : ' + data.message)
 
        }
 
      } catch (error) {
 
-       console.error('Errore creazione attivitÒ :', error)
+       console.error('Errore creazione attivitÃ’Â :', error)
 
        alert('Errore di connessione')
 
@@ -9514,7 +9514,7 @@ function App() {
 
           '? Task Completato',
 
-          `${activityTitle} ÃƒÂ¨ stato completato`,
+          `${activityTitle} ÃƒÆ’Ã‚Â¨ stato completato`,
 
           id
 
@@ -9524,7 +9524,7 @@ function App() {
 
     } catch (error) {
 
-      console.error('Errore completamento attivitÒ :', error)
+      console.error('Errore completamento attivitÃ’Â :', error)
 
       alert("Errore nel completamento dell'attivit")
 
@@ -9564,7 +9564,7 @@ function App() {
 
     } catch (error) {
 
-      console.error('Errore aggiornamento attivitÒ :', error)
+      console.error('Errore aggiornamento attivitÃ’Â :', error)
 
     }
 
@@ -9574,7 +9574,7 @@ function App() {
 
   const handleDeleteActivity = async (id: string) => {
 
-    if (!confirm('Sei sicuro di voler eliminare questa attivitÒ ?')) return
+    if (!confirm('Sei sicuro di voler eliminare questa attivitÃ’Â ?')) return
 
     try {
 
@@ -9590,7 +9590,7 @@ function App() {
 
     } catch (error) {
 
-      console.error('Errore eliminazione attivitÒ :', error)
+      console.error('Errore eliminazione attivitÃ’Â :', error)
 
     }
 
@@ -9954,7 +9954,7 @@ function App() {
 
                 Per garantire una partenza corretta raccogliamo alcuni dati essenziali. Il processo
 
-                richiede pochi minuti e migliora l'operativitÃƒÂ  quotidiana del tuo team.
+                richiede pochi minuti e migliora l'operativitÃƒÆ’Ã‚Â  quotidiana del tuo team.
 
               </p>
 
@@ -10014,7 +10014,7 @@ function App() {
 
               >
 
-                Verifica dello stato di onboarding in corsoÃ¢â‚¬Â¦
+                Verifica dello stato di onboarding in corsoÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¦
 
               </div>
 
@@ -10046,13 +10046,13 @@ function App() {
 
               >
 
-                <div style={{ fontSize: '0.9rem', fontWeight: 500 }}>Step 1 Ã‚Â· Dati agenzia</div>
+                <div style={{ fontSize: '0.9rem', fontWeight: 500 }}>Step 1 Ãƒâ€šÃ‚Â· Dati agenzia</div>
 
                 <p style={{ fontSize: '0.85rem', color: '#4b5563' }}>
 
                   Inserisci i dati fiscali e di contatto principali della tua agenzia. Servono per i
 
-                  documenti, le comunicazioni ai clienti e l'identitÒ  del tuo account.
+                  documenti, le comunicazioni ai clienti e l'identitÃ’Â  del tuo account.
 
                 </p>
 
@@ -10158,7 +10158,7 @@ function App() {
 
                     <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 500, marginBottom: '0.25rem' }}>
 
-                      CittÒ 
+                      CittÃ’Â 
 
                     </label>
 
@@ -10480,7 +10480,7 @@ function App() {
 
                 <p style={{ fontSize: '0.85rem', color: '#4b5563' }}>
 
-                  Crea i primi utenti chiave che utilizzeranno il CRM. Il primo utente sarÒ 
+                  Crea i primi utenti chiave che utilizzeranno il CRM. Il primo utente sarÃ’Â 
 
                   l'amministratore dell'agenzia se non specifichi ruoli diversi.
 
@@ -11582,7 +11582,7 @@ function App() {
 
               <div style={{ fontSize: '0.8rem', color: '#6b7280' }}>
 
-                Il completamento dell'onboarding ÃƒÂ¨ necessario per accedere alla dashboard principale.
+                Il completamento dell'onboarding ÃƒÆ’Ã‚Â¨ necessario per accedere alla dashboard principale.
 
               </div>
 
@@ -12100,7 +12100,7 @@ function App() {
 
                   <div style={{ padding: '1.25rem 0.9rem', fontSize: '0.8rem', color: '#9ca3af' }}>
 
-                    Caricamento portaliÃ¢â‚¬Â¦
+                    Caricamento portaliÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¦
 
                   </div>
 
@@ -13078,7 +13078,7 @@ function App() {
 
                   <div style={{ padding: '1.25rem 0.9rem', fontSize: '0.8rem', color: '#9ca3af' }}>
 
-                    Caricamento richiesteÃ¢â‚¬Â¦
+                    Caricamento richiesteÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¦
 
                   </div>
 
@@ -14977,7 +14977,7 @@ function App() {
                     onClick={() => setApprovalStatusModal((prev) => ({ ...prev, open: false }))}
                     style={{ border: 'none', background: 'transparent', color: '#334155', cursor: 'pointer', fontSize: '1.1rem' }}
                   >
-                    �
+                    ï¿½
                   </button>
                 </div>
 
@@ -15884,7 +15884,7 @@ export function PortalsPage({
 
                       >
 
-                        ÃƒÂ¢Ã…Â¡Ã‚Â  Errori elevati
+                        ÃƒÆ’Ã‚Â¢Ãƒâ€¦Ã‚Â¡Ãƒâ€šÃ‚Â  Errori elevati
 
                       </span>
 
@@ -15912,7 +15912,7 @@ export function PortalsPage({
 
                       >
 
-                        ÃƒÂ¢Ã…Â¡Ã‚Â  Configurazione incompleta
+                        ÃƒÆ’Ã‚Â¢Ãƒâ€¦Ã‚Â¡Ãƒâ€šÃ‚Â  Configurazione incompleta
 
                       </span>
 
@@ -15922,7 +15922,7 @@ export function PortalsPage({
 
                   <p style={{ fontSize: '0.875rem', color: '#6b7280' }}>
 
-                    {portal.modeLabel} Ã‚Â· {portal.kind}
+                    {portal.modeLabel} Ãƒâ€šÃ‚Â· {portal.kind}
 
                   </p>
 
@@ -16198,7 +16198,7 @@ export function PortalsPage({
 
         <h1 style={{ fontSize: '2rem', fontWeight: 'bold', marginBottom: '0.5rem' }}>
 
-          Ã°Å¸Å’Â Portali
+          ÃƒÂ°Ã…Â¸Ã…â€™Ã‚Â Portali
 
         </h1>
 
@@ -16546,7 +16546,7 @@ function PortalDetailPage({ portalId, portals, loading, onBack, agents, onOpenPr
 
     giComuneIstat: 'Codice ISTAT comune',
 
-    location: 'Posizione (cittÃƒÂ /indirizzo/coordinate)',
+    location: 'Posizione (cittÃƒÆ’Ã‚Â /indirizzo/coordinate)',
 
     giListingId: 'ID annuncio gestionale'
 
@@ -17024,7 +17024,7 @@ function PortalDetailPage({ portalId, portals, loading, onBack, agents, onOpenPr
 
               >
 
-                Ò¢&  Molti errori di sincronizzazione su questo portale
+                Ã’Â¢&  Molti errori di sincronizzazione su questo portale
 
               </span>
 
@@ -17294,9 +17294,9 @@ function PortalDetailPage({ portalId, portals, loading, onBack, agents, onOpenPr
 
               <strong>NON SELEZIONATO</strong>: l'immobile non viene inviato al portale.{' '}
 
-              <strong>INCLUSO NEL FEED</strong>: l'immobile ÃƒÂ¨ presente nel feed inviato.{' '}
+              <strong>INCLUSO NEL FEED</strong>: l'immobile ÃƒÆ’Ã‚Â¨ presente nel feed inviato.{' '}
 
-              <strong>A RISCHIO RIFIUTO</strong>: mancano requisiti minimi e il portale puÃƒÂ² rifiutare l'annuncio.{' '}
+              <strong>A RISCHIO RIFIUTO</strong>: mancano requisiti minimi e il portale puÃƒÆ’Ã‚Â² rifiutare l'annuncio.{' '}
 
               <strong>PUBBLICATO</strong>: il portale ha confermato la pubblicazione tramite API di ritorno (quando disponibili).
 
@@ -17564,7 +17564,7 @@ function PortalDetailPage({ portalId, portals, loading, onBack, agents, onOpenPr
 
             >
 
-              CittÒ /Comune
+              CittÃ’Â /Comune
 
             </label>
 
@@ -17888,7 +17888,7 @@ function PortalDetailPage({ portalId, portals, loading, onBack, agents, onOpenPr
 
                     >
 
-                      CittÒ 
+                      CittÃ’Â 
 
                     </th>
 
@@ -18482,7 +18482,7 @@ function PortalDetailPage({ portalId, portals, loading, onBack, agents, onOpenPr
 
             >
 
-              CittÒ /Comune
+              CittÃ’Â /Comune
 
             </label>
 
@@ -18806,7 +18806,7 @@ function PortalDetailPage({ portalId, portals, loading, onBack, agents, onOpenPr
 
                     >
 
-                      CittÒ 
+                      CittÃ’Â 
 
                     </th>
 
@@ -19318,7 +19318,7 @@ function PortalDetailPage({ portalId, portals, loading, onBack, agents, onOpenPr
 
           <div style={{ flexBasis: '100%', fontSize: '0.875rem', color: '#4b5563' }}>
 
-            Storico delle sincronizzazioni e degli errori per questo portale. I log sono ordinati dal piÒ¹ recente.
+            Storico delle sincronizzazioni e degli errori per questo portale. I log sono ordinati dal piÃ’Â¹ recente.
 
           </div>
 
@@ -19714,7 +19714,7 @@ function PortalDetailPage({ portalId, portals, loading, onBack, agents, onOpenPr
 
                     const propertyText = log.property
 
-                      ? [log.property.reference, log.property.title].filter(Boolean).join(' Ã‚Â· ')
+                      ? [log.property.reference, log.property.title].filter(Boolean).join(' Ãƒâ€šÃ‚Â· ')
 
                       : 'N/D'
 
@@ -20940,7 +20940,7 @@ function PortalDetailPage({ portalId, portals, loading, onBack, agents, onOpenPr
 
                   <div style={{ marginTop: '0.25rem', fontSize: '0.75rem', color: '#6b7280' }}>
 
-                    Esiste giÒ  una password salvata.
+                    Esiste giÃ’Â  una password salvata.
 
                   </div>
 
@@ -21780,7 +21780,7 @@ function PortalDetailPage({ portalId, portals, loading, onBack, agents, onOpenPr
 
                   <div style={{ marginTop: '0.25rem', fontSize: '0.75rem', color: '#6b7280' }}>
 
-                    Esiste giÒ  un token salvato.
+                    Esiste giÃ’Â  un token salvato.
 
                   </div>
 
@@ -21846,7 +21846,7 @@ function PortalDetailPage({ portalId, portals, loading, onBack, agents, onOpenPr
 
                 <span style={{ fontWeight: 600 }}>
 
-                  {apimoConfigured ? 'SÃƒÂ¬' : 'No'}
+                  {apimoConfigured ? 'SÃƒÆ’Ã‚Â¬' : 'No'}
 
                 </span>
 
@@ -21954,7 +21954,7 @@ function PortalDetailPage({ portalId, portals, loading, onBack, agents, onOpenPr
 
           <p style={{ fontSize: '0.85rem', color: '#4b5563' }}>
 
-            Per questo portale l&apos;integrazione automatica non Ò¨ ancora implementata. Puoi comunque esportare
+            Per questo portale l&apos;integrazione automatica non Ã’Â¨ ancora implementata. Puoi comunque esportare
 
             gli immobili e gestire manualmente la pubblicazione direttamente dal portale esterno.
 
@@ -22070,7 +22070,7 @@ function PortalDetailPage({ portalId, portals, loading, onBack, agents, onOpenPr
 
             <p style={{ color: '#6b7280', fontSize: '0.875rem' }}>
 
-              ID: {portal.id} Ã‚Â· {portal.modeLabel} Ã‚Â· {portal.kind}
+              ID: {portal.id} Ãƒâ€šÃ‚Â· {portal.modeLabel} Ãƒâ€šÃ‚Â· {portal.kind}
 
             </p>
 
@@ -23463,7 +23463,7 @@ function DashboardPage({
                       </span>
                     </div>
                     <div style={{ fontSize: '0.9rem', color: '#334155' }}>
-                      Scadenza: {formatDateTime(item.dueDate)} • Priorità: {priorityLabel}
+                      Scadenza: {formatDateTime(item.dueDate)} â€¢ PrioritÃ : {priorityLabel}
                     </div>
                     <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.45rem' }}>
                       <button
@@ -23474,7 +23474,7 @@ function DashboardPage({
                         }}
                         style={{ border: '1px solid #cbd5e1', borderRadius: '0.55rem', background: '#ffffff', color: '#1e40af', fontWeight: 700, padding: '0.45rem 0.65rem', cursor: 'pointer' }}
                       >
-                        Apri attività
+                        Apri attivitÃ 
                       </button>
                       {propertyId && (
                         <button
@@ -23799,7 +23799,7 @@ function DashboardPage({
                   color: '#cbd5e1',
                   fontSize: '0.88rem'
                 }}>
-                  Task personale: verrÃ  assegnato automaticamente a te.
+                  Task personale: verrÃƒÂ  assegnato automaticamente a te.
                 </div>
               )}
 
@@ -24590,7 +24590,7 @@ function PropertiesPage({
 
           <h1 style={{ fontSize: '2rem', fontWeight: 'bold', marginBottom: '0.5rem' }}>
 
-            Ã°Å¸ÂÂ  Immobili ({properties.length})
+            ÃƒÂ°Ã…Â¸Ã‚ÂÃ‚Â  Immobili ({properties.length})
 
           </h1>
 
@@ -24664,7 +24664,7 @@ function PropertiesPage({
                     {(row.reference ? `${row.reference} - ` : '') + (row.title || 'Immobile senza titolo')}
                   </div>
                   <div style={{ fontSize: '0.84rem', color: '#9a3412', marginTop: '0.2rem' }}>
-                    {row.city || 'Citt� n.d.'} � {getContractLabel(row.contractType)}
+                    {row.city || 'Cittï¿½ n.d.'} ï¿½ {getContractLabel(row.contractType)}
                   </div>
                   <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.35rem', marginTop: '0.45rem' }}>
                     {(Array.isArray(row.missing) ? row.missing : []).map((missingItem, idx) => {
@@ -25055,7 +25055,7 @@ function PropertiesPage({
                   </span>
                 </div>
                 <div style={{ marginTop: '0.25rem', color: '#9a3412', fontSize: '0.82rem' }}>
-                  {property.city || 'Citt� n.d.'} � {getContractLabel(property.contractType)}
+                  {property.city || 'Cittï¿½ n.d.'} ï¿½ {getContractLabel(property.contractType)}
                 </div>
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.35rem', marginTop: '0.45rem' }}>
                   {missingItems.map((missingItem, idx) => {
@@ -25083,7 +25083,7 @@ function PropertiesPage({
                 </span>
               </div>
               <div style={{ marginTop: '0.25rem', color: '#9a3412', fontSize: '0.82rem' }}>
-                {row.city || 'Citt� n.d.'} � {getContractLabel(row.contractType)}
+                {row.city || 'Cittï¿½ n.d.'} ï¿½ {getContractLabel(row.contractType)}
               </div>
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.35rem', marginTop: '0.45rem' }}>
                 {(Array.isArray(row.missing) ? row.missing : []).map((missingItem, idx) => {
@@ -26497,7 +26497,7 @@ function IncrocioPage({
               <p style={{ fontSize: '0.875rem' }}>
 
                 {searchMode === 'property' ?
-                  'Il sistema analizzerà automaticamente i clienti compatibili' :
+                  'Il sistema analizzerÃ  automaticamente i clienti compatibili' :
 
                   'Il sistema analizza automaticamente gli immobili compatibili'
 
@@ -26613,8 +26613,8 @@ function IncrocioPage({
 
                     <p style={{ fontSize: '0.875rem', color: '#6b7280', margin: '0.25rem 0 0 0' }}>
                       {searchMode === 'property'
-                        ? `${clean(result.contact?.city) || 'Citta n.d.'} · ${clean(result.contact?.phone) || 'Telefono n.d.'} · ${clean(result.request?.title) || 'Richiesta cliente'}`
-                        : `${clean(result.property?.city)} � ${getPropertyTypeLabel(result.property?.type)} � ${getContractTypeLabel(result.property?.contractType)} � EUR ${(result.property?.salePrice || result.property?.rentPrice || 0).toLocaleString()}`}
+                        ? `${clean(result.contact?.city) || 'Citta n.d.'} Â· ${clean(result.contact?.phone) || 'Telefono n.d.'} Â· ${clean(result.request?.title) || 'Richiesta cliente'}`
+                        : `${clean(result.property?.city)} ï¿½ ${getPropertyTypeLabel(result.property?.type)} ï¿½ ${getContractTypeLabel(result.property?.contractType)} ï¿½ EUR ${(result.property?.salePrice || result.property?.rentPrice || 0).toLocaleString()}`}
                     </p>
 
                   </div>
@@ -26902,13 +26902,13 @@ function ClientViewModal({
 
   const requiredDocumentTypes = [
 
-    'Documento identitÃƒÂ ',
+    'Documento identitÃƒÆ’Ã‚Â ',
 
     'Codice fiscale',
 
     'Visura catastale',
 
-    'Atto di proprietÃƒÂ '
+    'Atto di proprietÃƒÆ’Ã‚Â '
 
   ]
 
@@ -27146,7 +27146,7 @@ function ClientViewModal({
               <div style={{ marginBottom: '2rem' }}>
                 <h4 style={{ fontSize: '1.1rem', fontWeight: 'bold', marginBottom: '1rem', color: '#374151' }}>
 
-                  ~ï¸ Informazioni Proprietario
+                  ~Ã¯Â¸Â Informazioni Proprietario
 
                 </h4>
 
@@ -27236,7 +27236,7 @@ function ClientViewModal({
 
                       <MapPin size={16} style={{ display: 'inline', marginRight: '0.25rem' }} />
 
-                      CittÒ 
+                      CittÃ’Â 
 
                     </p>
 
@@ -27361,7 +27361,7 @@ function ClientViewModal({
 
                     <p style={{ fontSize: '0.875rem', color: '#6b7280', marginBottom: '0.25rem' }}>
 
-                      ï¸ Luogo di nascita
+                      Ã¯Â¸Â Luogo di nascita
 
                     </p>
 
@@ -27876,7 +27876,7 @@ function ClientViewModal({
               {activeClientViewTab === 'assets' && (
               <div style={{ marginBottom: '2rem' }}>
                 <h4 style={{ fontSize: '1.1rem', fontWeight: 'bold', marginBottom: '1rem', color: '#374151' }}>
-                  ðŸ  Immobili del proprietario {propertiesLoading ? '(caricamento...)' : `(${properties.length})`}
+                  Ã°Å¸ÂÂ  Immobili del proprietario {propertiesLoading ? '(caricamento...)' : `(${properties.length})`}
                 </h4>
                 {properties.length === 0 && !propertiesLoading && (
 
@@ -28014,7 +28014,7 @@ function ClientViewModal({
               {activeClientViewTab === 'profile' && (
               <div style={{ marginBottom: '2rem' }}>
                 <h4 style={{ fontSize: '1.1rem', fontWeight: 'bold', marginBottom: '1rem', color: '#374151' }}>
-                  ~ï¸ Informazioni Cliente
+                  ~Ã¯Â¸Â Informazioni Cliente
                 </h4>
 
 
@@ -28103,7 +28103,7 @@ function ClientViewModal({
 
                       <MapPin size={16} style={{ display: 'inline', marginRight: '0.25rem' }} />
 
-                      CittÒ 
+                      CittÃ’Â 
 
                     </p>
 
@@ -28165,7 +28165,7 @@ function ClientViewModal({
 
                     <h4 style={{ fontSize: '1.1rem', fontWeight: 'bold', marginBottom: '0.75rem', color: '#374151' }}>
 
-                      ðŸŽ¯ Richiesta immobile
+                      Ã°Å¸Å½Â¯ Richiesta immobile
 
                     </h4>
 
@@ -28346,7 +28346,7 @@ function ClientViewModal({
 
                           <p style={{ fontSize: '0.875rem', color: '#6b7280', marginBottom: '0.5rem' }}>
 
-                            S {property.city}   ðŸ  {property.type}   ?ï¸ {property.bedrooms} camere   ? {property.bathrooms} bagni
+                            S {property.city}   Ã°Å¸ÂÂ  {property.type}   ?Ã¯Â¸Â {property.bedrooms} camere   ? {property.bathrooms} bagni
 
                           </p>
 
@@ -28394,7 +28394,7 @@ function ClientViewModal({
 
                             >
 
-                              ï¸ Dettagli
+                              Ã¯Â¸Â Dettagli
 
                             </button>
 
@@ -28426,7 +28426,7 @@ function ClientViewModal({
 
                             >
 
-                              ðŸ¤ Proponi
+                              Ã°Å¸Â¤Â Proponi
 
                             </button>
 
@@ -28740,7 +28740,7 @@ function ClientDetailPage({
             <div style={{ fontWeight: 600 }}>{contact.type || 'N/D'}</div>
           </div>
           <div>
-            <div style={{ fontSize: '0.8rem', color: '#6b7280' }}>Città / Provincia</div>
+            <div style={{ fontSize: '0.8rem', color: '#6b7280' }}>CittÃ  / Provincia</div>
             <div style={{ fontWeight: 600 }}>{[contact.city, contact.province].filter(Boolean).join(', ') || 'N/D'}</div>
           </div>
         </div>
@@ -28762,7 +28762,7 @@ function ClientDetailPage({
           <div>
             <div style={{ fontSize: '0.8rem', color: '#6b7280' }}>Budget</div>
             <div style={{ fontWeight: 600 }}>
-              {request?.maxPrice || contact.budget ? `€${Number(request?.maxPrice || contact.budget || 0).toLocaleString('it-IT')}` : 'N/D'}
+              {request?.maxPrice || contact.budget ? `â‚¬${Number(request?.maxPrice || contact.budget || 0).toLocaleString('it-IT')}` : 'N/D'}
             </div>
           </div>
           <div>
@@ -28793,7 +28793,7 @@ function ClientDetailPage({
                   <div>
                     <div style={{ fontWeight: 700 }}>{property.title}</div>
                     <div style={{ color: '#6b7280', fontSize: '0.9rem' }}>
-                      {[property.city, property.address].filter(Boolean).join(', ')} | €{Number(property.price || 0).toLocaleString('it-IT')}
+                      {[property.city, property.address].filter(Boolean).join(', ')} | â‚¬{Number(property.price || 0).toLocaleString('it-IT')}
                     </div>
                   </div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
@@ -28906,13 +28906,13 @@ function ClientsPage({
 
   const requiredDocumentTypes = [
 
-    'Documento identitÃƒÂ ',
+    'Documento identitÃƒÆ’Ã‚Â ',
 
     'Codice fiscale',
 
     'Visura catastale',
 
-    'Atto di proprietÃƒÂ '
+    'Atto di proprietÃƒÆ’Ã‚Â '
 
   ]
 
@@ -29375,7 +29375,7 @@ function ClientsPage({
 
           <h1 style={{ fontSize: '2rem', fontWeight: 'bold', marginBottom: '0.5rem' }}>
 
-            Ã°Å¸â€˜Â¥ {getCategoryLabel(activeTab)} ({totalContacts})
+            ÃƒÂ°Ã…Â¸Ã¢â‚¬ËœÃ‚Â¥ {getCategoryLabel(activeTab)} ({totalContacts})
 
           </h1>
 
@@ -29498,7 +29498,7 @@ function ClientsPage({
 
         >
 
-          Ã°Å¸â€˜Â¥ Clienti ({tabTotals.CLIENT})
+          ÃƒÂ°Ã…Â¸Ã¢â‚¬ËœÃ‚Â¥ Clienti ({tabTotals.CLIENT})
 
         </button>
 
@@ -29516,7 +29516,7 @@ function ClientsPage({
               fontSize: '1rem'
             }}
           >
-            Ã°Å¸ÂÂ  Proprietari ({tabTotals.PROPRIETOR})
+            ÃƒÂ°Ã…Â¸Ã‚ÂÃ‚Â  Proprietari ({tabTotals.PROPRIETOR})
           </button>
         )}
 
@@ -29642,7 +29642,7 @@ function ClientsPage({
 
               <MapPin size={16} style={{ display: 'inline', marginRight: '0.5rem' }} />
 
-              Città
+              CittÃ 
 
             </label>
 
@@ -29650,7 +29650,7 @@ function ClientsPage({
 
               type="text"
 
-              placeholder="Filtra per cittÒ ..."
+              placeholder="Filtra per cittÃ’Â ..."
 
               value={filterCity}
 
@@ -29881,7 +29881,7 @@ function ClientsPage({
 
                       <MapPin size={16} style={{ display: 'inline', marginRight: '0.25rem' }} />
 
-                      Città
+                      CittÃ 
 
                     </p>
 
@@ -32763,7 +32763,7 @@ function CalendarEventModal({
 
                     <div style={{ color: '#374151' }}>
 
-                      Ã¢â€šÂ¬ {(selectedProperty?.salePrice ?? selectedProperty?.rentPrice)!.toLocaleString('it-IT')}
+                      ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ {(selectedProperty?.salePrice ?? selectedProperty?.rentPrice)!.toLocaleString('it-IT')}
 
                     </div>
 
@@ -32773,7 +32773,7 @@ function CalendarEventModal({
 
                     <div style={{ color: '#6b7280', fontSize: '0.9rem' }}>
 
-                      {selectedProperty.surface} mÃ‚Â²
+                      {selectedProperty.surface} mÃƒâ€šÃ‚Â²
 
                     </div>
 
@@ -33128,7 +33128,7 @@ function CalendarEventModal({
 
               <div>
 
-                <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: '500' }}>Città</label>
+                <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: '500' }}>CittÃ </label>
 
                 <div style={{ position: 'relative' }}>
 
@@ -33224,7 +33224,7 @@ function CalendarEventModal({
 
                           <div style={{ fontSize: '0.75rem', color: '#6b7280' }}>
 
-                            {city.provinceCode} Ã‚Â· {city.regionName}
+                            {city.provinceCode} Ãƒâ€šÃ‚Â· {city.regionName}
 
                           </div>
 
@@ -33556,7 +33556,7 @@ function CalendarEventModal({
 
                 <div>
 
-                    <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: '500' }}>Città</label>
+                    <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: '500' }}>CittÃ </label>
 
                     <input
 
@@ -34650,7 +34650,7 @@ function CalendarEventModal({
                                     style={{ border: 'none', background: 'transparent', cursor: 'pointer', color: '#64748b', fontSize: '0.85rem', lineHeight: 1 }}
                                     title="Rimuovi agente"
                                   >
-                                    �
+                                    ï¿½
                                   </button>
                                 </span>
                               ))}
@@ -34669,7 +34669,7 @@ function CalendarEventModal({
 
                         {isAdmin
 
-                          ? "Obbligatorio: seleziona almeno un agente. Verr� creato un solo appuntamento con tutti i partecipanti."
+                          ? "Obbligatorio: seleziona almeno un agente. Verrï¿½ creato un solo appuntamento con tutti i partecipanti."
 
                           : "Seleziona uno o piu agenti responsabili per questo evento"}
 
@@ -34838,7 +34838,7 @@ function CalendarEventModal({
 
 
 
-// Pagina AttivitÒ 
+// Pagina AttivitÃ’Â 
 
 type ActivityTypeOption = { value: string; label: string }
 
@@ -35034,7 +35034,7 @@ function ActivitiesPage({
 
 
 
-  // Popola il form quando si modifica un'attività
+  // Popola il form quando si modifica un'attivitÃ 
 
   useEffect(() => {
 
@@ -35082,7 +35082,7 @@ function ActivitiesPage({
       : [currentUserId || activityFormData.assignedToId].filter(Boolean) as string[]
 
     if (isAdmin && !selectedAssignees.length) {
-      alert("Seleziona almeno un agente a cui assegnare l'attività")
+      alert("Seleziona almeno un agente a cui assegnare l'attivitÃ ")
       return
     }
 
@@ -35157,7 +35157,7 @@ function ActivitiesPage({
 
   if (dataLoading) {
 
-    return <div>Caricamento attività...</div>
+    return <div>Caricamento attivitÃ ...</div>
 
   }
 
@@ -35278,18 +35278,18 @@ function ActivitiesPage({
         const source = String((parsed as any).source || '').toUpperCase()
         if (source === 'LINKED_REQUEST') {
           return {
-            human: 'Attività generata automaticamente da una richiesta cliente collegata a questo immobile.',
+            human: 'AttivitÃ  generata automaticamente da una richiesta cliente collegata a questo immobile.',
             technical: formatReadableJson(raw)
           }
         }
         if (source) {
           return {
-            human: `Attività generata automaticamente dal sistema (origine: ${source.replace(/_/g, ' ').toLowerCase()}).`,
+            human: `AttivitÃ  generata automaticamente dal sistema (origine: ${source.replace(/_/g, ' ').toLowerCase()}).`,
             technical: formatReadableJson(raw)
           }
         }
         return {
-          human: 'Attività generata automaticamente dal sistema.',
+          human: 'AttivitÃ  generata automaticamente dal sistema.',
           technical: formatReadableJson(raw)
         }
       }
@@ -35352,13 +35352,13 @@ function ActivitiesPage({
 
           <h1 style={{ fontSize: '2rem', fontWeight: 'bold', marginBottom: '0.5rem' }}>
 
-            Attività ({activities.length})
+            AttivitÃ  ({activities.length})
 
           </h1>
 
           <p style={{ color: '#6b7280' }}>
 
-            Gestisci le tue attività e follow-up
+            Gestisci le tue attivitÃ  e follow-up
 
           </p>
 
@@ -35392,7 +35392,7 @@ function ActivitiesPage({
 
           <Plus size={20} style={{ marginRight: '0.5rem' }} />
 
-          Nuova Attività
+          Nuova AttivitÃ 
 
         </button>
 
@@ -35501,7 +35501,7 @@ function ActivitiesPage({
 
 
 
-      {/* Lista attività */}
+      {/* Lista attivitÃ  */}
 
       <div style={{ display: 'grid', gap: '1rem' }}>
 
@@ -35921,13 +35921,13 @@ function ActivitiesPage({
 
           <h3 style={{ fontSize: '1.125rem', fontWeight: '500', marginBottom: '0.5rem' }}>
 
-            Nessuna attività trovata
+            Nessuna attivitÃ  trovata
 
           </h3>
 
           <p style={{ color: '#6b7280' }}>
 
-            Crea la tua prima attività per iniziare
+            Crea la tua prima attivitÃ  per iniziare
 
           </p>
 
@@ -35995,7 +35995,7 @@ function ActivitiesPage({
 
               <h2 className="manus-contact-title" style={{ margin: 0, color: '#111827' }}>
 
-                {editingActivity ? 'Modifica Attività' : 'Nuova Attività'}
+                {editingActivity ? 'Modifica AttivitÃ ' : 'Nuova AttivitÃ '}
 
               </h2>
 
@@ -36004,14 +36004,14 @@ function ActivitiesPage({
                   <button
                     type="button"
                     onClick={() => {
-                      if (confirm('Sei sicuro di voler eliminare questa attività?')) {
+                      if (confirm('Sei sicuro di voler eliminare questa attivitÃ ?')) {
                         onDeleteActivity(editingActivity.id)
                         setEditingActivity(null)
                       }
                     }}
                     style={{ color: '#ef4444', background: 'none', border: 'none', cursor: 'pointer', borderRadius: '0.45rem', padding: '0.32rem' }}
-                    aria-label="Elimina attività"
-                    title="Elimina attività"
+                    aria-label="Elimina attivitÃ "
+                    title="Elimina attivitÃ "
                   >
                     <Trash2 size={20} />
                   </button>
@@ -36193,7 +36193,7 @@ function ActivitiesPage({
                 </div>
               ) : (
                 <div style={{ marginBottom: '1rem', fontSize: '0.85rem', color: '#374151' }}>
-                  L'attività verrà assegnata automaticamente al tuo utente.
+                  L'attivitÃ  verrÃ  assegnata automaticamente al tuo utente.
                 </div>
               )}
 
@@ -36221,7 +36221,7 @@ function ActivitiesPage({
 
               <div style={{ marginBottom: '1rem' }}>
 
-                <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: '500' }}>Priorità</label>
+                <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: '500' }}>PrioritÃ </label>
 
                 <select
 
@@ -36313,7 +36313,7 @@ function ActivitiesPage({
 
                 >
 
-                  {editingActivity ? 'Salva Modifiche' : 'Crea Attività'}
+                  {editingActivity ? 'Salva Modifiche' : 'Crea AttivitÃ '}
 
                 </button>
 
@@ -36380,7 +36380,7 @@ function ActivitiesPage({
 
             <div className="manus-contact-modal-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.8rem', borderBottom: '1px solid rgba(148, 163, 184, 0.16)', paddingBottom: '0.8rem' }}>
 
-              <h2 className="manus-contact-title" style={{ margin: 0 }}>Dettaglio Attività</h2>
+              <h2 className="manus-contact-title" style={{ margin: 0 }}>Dettaglio AttivitÃ </h2>
 
               <button
 
@@ -36523,7 +36523,7 @@ function ActivitiesPage({
 
                   <div style={{ marginTop: '1rem' }}>
 
-                    <p style={{ fontSize: '0.875rem', color: '#6b7280', marginBottom: '0.25rem' }}>Report attività</p>
+                    <p style={{ fontSize: '0.875rem', color: '#6b7280', marginBottom: '0.25rem' }}>Report attivitÃ </p>
 
                     <div style={{ color: '#4b5563', whiteSpace: 'pre-wrap', wordBreak: 'break-word', overflowWrap: 'anywhere', lineHeight: 1.5 }}>
                       {renderTextWithLinks(activityReportText)}
@@ -36788,7 +36788,7 @@ function ActivitiesPage({
 
             <div style={{ padding: '1.5rem', borderBottom: '1px solid #e5e7eb', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
 
-              <h2 style={{ fontSize: '1.25rem', fontWeight: '600', margin: 0 }}>Completa attività</h2>
+              <h2 style={{ fontSize: '1.25rem', fontWeight: '600', margin: 0 }}>Completa attivitÃ </h2>
 
               <button
 
@@ -36820,7 +36820,7 @@ function ActivitiesPage({
 
                 <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: '500' }}>
 
-                  Report attività{isAgent ? ' *' : ''}
+                  Report attivitÃ {isAgent ? ' *' : ''}
 
                 </label>
 
@@ -36862,7 +36862,7 @@ function ActivitiesPage({
 
                   if (isAgent && !value) {
 
-                    alert('Inserisci un report per completare l\'attività')
+                    alert('Inserisci un report per completare l\'attivitÃ ')
 
                     return
 
@@ -37109,7 +37109,7 @@ function ReportPage({ stats, properties, contacts: _contacts, agents, userRole }
 
             <BarChart3 size={24} style={{ color: '#f59e0b', marginRight: '0.5rem' }} />
 
-            <h3 style={{ fontSize: '1rem', fontWeight: '600' }}>Efficienza AttivitÒ </h3>
+            <h3 style={{ fontSize: '1rem', fontWeight: '600' }}>Efficienza AttivitÃ’Â </h3>
 
           </div>
 
@@ -37121,7 +37121,7 @@ function ReportPage({ stats, properties, contacts: _contacts, agents, userRole }
 
           <p style={{ fontSize: '0.875rem', color: '#6b7280' }}>
 
-            AttivitÒ  completate
+            AttivitÃ’Â  completate
 
           </p>
 
@@ -37303,11 +37303,11 @@ function ReportPage({ stats, properties, contacts: _contacts, agents, userRole }
 
             <div style={{ fontSize: '0.875rem', color: '#6b7280' }}>
 
-              <p>ðŸ  Totali: {stats.totalProperties}</p>
+              <p>Ã°Å¸ÂÂ  Totali: {stats.totalProperties}</p>
 
               <p>? Disponibili: {stats.availableProperties}</p>
 
-              <p>â³ Prenotati: {stats.reservedProperties}</p>
+              <p>Ã¢ÂÂ³ Prenotati: {stats.reservedProperties}</p>
 
               <p>\" Venduti: {stats.soldProperties}</p>
 
@@ -37325,11 +37325,11 @@ function ReportPage({ stats, properties, contacts: _contacts, agents, userRole }
 
               <p> Totali: {stats.totalContacts}</p>
 
-              <p>ðŸŸ¢ Attivi: {stats.activeContacts}</p>
+              <p>Ã°Å¸Å¸Â¢ Attivi: {stats.activeContacts}</p>
 
               <p>?\" Acquirenti: {stats.buyers}</p>
 
-              <p>ðŸ¤ Venditori: {stats.sellers}</p>
+              <p>Ã°Å¸Â¤Â Venditori: {stats.sellers}</p>
 
             </div>
 
@@ -37337,19 +37337,19 @@ function ReportPage({ stats, properties, contacts: _contacts, agents, userRole }
 
           <div>
 
-            <h4 style={{ fontSize: '1rem', fontWeight: '600', marginBottom: '0.5rem' }}>OperativitÒ </h4>
+            <h4 style={{ fontSize: '1rem', fontWeight: '600', marginBottom: '0.5rem' }}>OperativitÃ’Â </h4>
 
             <div style={{ fontSize: '0.875rem', color: '#6b7280' }}>
 
-              <p>Sï¸ Appuntamenti: {stats.totalAppointments}</p>
+              <p>SÃ¯Â¸Â Appuntamenti: {stats.totalAppointments}</p>
 
               <p>S Programmati: {stats.scheduledAppointments}</p>
 
-              <p>  AttivitÒ  totali: {stats.totalActivities}</p>
+              <p>  AttivitÃ’Â  totali: {stats.totalActivities}</p>
 
-              <p>?ï¸ Completate: {stats.completedActivities}</p>
+              <p>?Ã¯Â¸Â Completate: {stats.completedActivities}</p>
 
-              <p>â³ Pendenti: {stats.pendingActivities}</p>
+              <p>Ã¢ÂÂ³ Pendenti: {stats.pendingActivities}</p>
 
             </div>
 
@@ -39422,7 +39422,7 @@ function PropertyOverviewTab({
     return labels[key] || (value ? String(value) : 'Non specificata')
   }
   const mapContractLabel = (value: any) => (String(value || '').toUpperCase() === 'RENT' ? 'Affitto' : 'Vendita')
-  const formatBool = (value: any) => (value === true ? 'S�' : value === false ? 'No' : '-')
+  const formatBool = (value: any) => (value === true ? 'Sï¿½' : value === false ? 'No' : '-')
   const formatDateTimeLocal = (value: any) => {
     if (!value) return '-'
     const parsed = new Date(value)
@@ -39487,7 +39487,7 @@ function PropertyOverviewTab({
 
               <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: '500' }}>
 
-                Prezzo Vendita (Ã¢â€šÂ¬)
+                Prezzo Vendita (ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬)
 
               </label>
 
@@ -39525,7 +39525,7 @@ function PropertyOverviewTab({
 
               <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: '500' }}>
 
-                Prezzo Affitto (Ã¢â€šÂ¬/mese)
+                Prezzo Affitto (ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬/mese)
 
               </label>
 
@@ -40254,7 +40254,7 @@ function PropertyImagesTab({
 
           <p style={{ color: '#6b7280', fontSize: '0.875rem' }}>
 
-            {uploadingImages ? 'Caricamento in corso...' : 'Seleziona una o piÒ¹ immagini (JPG, PNG, max 5MB ciascuna)'}
+            {uploadingImages ? 'Caricamento in corso...' : 'Seleziona una o piÃ’Â¹ immagini (JPG, PNG, max 5MB ciascuna)'}
 
           </p>
 
@@ -40549,8 +40549,8 @@ function PropertyDocumentsTab({
                   <div style={{ fontWeight: 800, color: '#0f172a' }}>{doc.label || doc.type || 'Documento'}</div>
                   <div style={{ color: '#334155', marginTop: '0.15rem', wordBreak: 'break-word' }}>{doc.fileName}</div>
                   <div style={{ color: '#64748b', fontSize: '0.82rem', marginTop: '0.2rem' }}>
-                    {doc.uploadedAt ? new Date(doc.uploadedAt).toLocaleString('it-IT') : '-'} � {formatBytes(doc.size)}
-                    {doc.legacyOnly ? ' � file storico non scaricabile: ricaricalo qui sopra' : ''}
+                    {doc.uploadedAt ? new Date(doc.uploadedAt).toLocaleString('it-IT') : '-'} ï¿½ {formatBytes(doc.size)}
+                    {doc.legacyOnly ? ' ï¿½ file storico non scaricabile: ricaricalo qui sopra' : ''}
                   </div>
                 </div>
                 <div style={{ display: 'flex', gap: '0.45rem', flexWrap: 'wrap', justifyContent: 'flex-end' }}>
@@ -40652,7 +40652,7 @@ function PropertyDetailsTab({
     return labels[key] || (value ? String(value) : 'Non specificata')
   }
   const mapContractLabel = (value: any) => (String(value || '').toUpperCase() === 'RENT' ? 'Affitto' : 'Vendita')
-  const formatBool = (value: any) => (value === true ? 'S�' : value === false ? 'No' : '-')
+  const formatBool = (value: any) => (value === true ? 'Sï¿½' : value === false ? 'No' : '-')
   const formatDateTimeLocal = (value: any) => {
     if (!value) return '-'
     const parsed = new Date(value)
@@ -40834,7 +40834,7 @@ function PropertyDetailsTab({
 
                 <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: '500' }}>
 
-                  Città
+                  CittÃ 
 
                 </label>
 
@@ -41193,7 +41193,7 @@ function PropertyDetailsTab({
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '0.9rem' }}>
                 <div><h5 style={{ fontWeight: 700, marginBottom: '0.35rem' }}>Indirizzo</h5><p>{displayValue(property.address)}</p></div>
                 <div><h5 style={{ fontWeight: 700, marginBottom: '0.35rem' }}>Numero civico</h5><p>{displayValue((property as any).streetNumber || oneClickData.civico)}</p></div>
-                <div><h5 style={{ fontWeight: 700, marginBottom: '0.35rem' }}>Citt�</h5><p>{displayValue(property.city)}</p></div>
+                <div><h5 style={{ fontWeight: 700, marginBottom: '0.35rem' }}>Cittï¿½</h5><p>{displayValue(property.city)}</p></div>
                 <div><h5 style={{ fontWeight: 700, marginBottom: '0.35rem' }}>Provincia</h5><p>{displayValue(property.province)}</p></div>
                 <div><h5 style={{ fontWeight: 700, marginBottom: '0.35rem' }}>CAP</h5><p>{displayValue(property.zipCode)}</p></div>
                 <div><h5 style={{ fontWeight: 700, marginBottom: '0.35rem' }}>Comune ISTAT</h5><p>{displayValue((property as any).municipalityCode || oneClickData.cod_comune_istat)}</p></div>
@@ -41432,7 +41432,7 @@ function PublicCheckoutPage() {
 
           setCheckoutMessage(
 
-            nextMessage || 'La tua istanza Ò¨ pronta. Reindirizzamento in corso...'
+            nextMessage || 'La tua istanza Ã’Â¨ pronta. Reindirizzamento in corso...'
 
           )
 
@@ -41452,7 +41452,7 @@ function PublicCheckoutPage() {
 
           setCheckoutMessage(
 
-            nextMessage || 'Si Ò¨ verificato un errore durante il provisioning della tua istanza.'
+            nextMessage || 'Si Ã’Â¨ verificato un errore durante il provisioning della tua istanza.'
 
           )
 
@@ -41474,7 +41474,7 @@ function PublicCheckoutPage() {
 
               nextMessage ||
 
-                'Stiamo configurando la tua istanza. Questa operazione puÒ² richiedere alcuni minuti.'
+                'Stiamo configurando la tua istanza. Questa operazione puÃ’Â² richiedere alcuni minuti.'
 
             )
 
@@ -41484,7 +41484,7 @@ function PublicCheckoutPage() {
 
               nextMessage ||
 
-                'Stiamo preparando la tua agenzia. Questa operazione puÒ² richiedere alcuni minuti.'
+                'Stiamo preparando la tua agenzia. Questa operazione puÃ’Â² richiedere alcuni minuti.'
 
             )
 
@@ -41528,7 +41528,7 @@ function PublicCheckoutPage() {
 
         setCheckoutMessage(
 
-          'Il provisioning sta impiegando piÒ¹ tempo del previsto. Contatta il supporto per verificare lo stato della tua istanza.'
+          'Il provisioning sta impiegando piÃ’Â¹ tempo del previsto. Contatta il supporto per verificare lo stato della tua istanza.'
 
         )
 
@@ -41704,9 +41704,9 @@ function PublicCheckoutPage() {
 
       (effectiveStatus === 'PROVISIONING'
 
-        ? 'Stiamo configurando la tua istanza. Questa operazione puÒ² richiedere alcuni minuti.'
+        ? 'Stiamo configurando la tua istanza. Questa operazione puÃ’Â² richiedere alcuni minuti.'
 
-        : 'Stiamo preparando il tuo gestionale. Questa operazione puÒ² richiedere alcuni minuti.')
+        : 'Stiamo preparando il tuo gestionale. Questa operazione puÃ’Â² richiedere alcuni minuti.')
 
     const secondaryMessage =
 
@@ -41714,7 +41714,7 @@ function PublicCheckoutPage() {
 
         ? "Se il problema persiste, contatta il supporto indicando l'email utilizzata in fase di acquisto."
 
-        : 'Puoi tenere aperta questa pagina: verrai reindirizzato automaticamente non appena tutto sarÒ  pronto.'
+        : 'Puoi tenere aperta questa pagina: verrai reindirizzato automaticamente non appena tutto sarÃ’Â  pronto.'
 
     const badgeLabel =
 
@@ -42008,7 +42008,7 @@ function PublicCheckoutPage() {
 
             <p style={{ fontSize: '0.95rem', color: '#4b5563', marginBottom: '1.5rem' }}>
 
-              Scegli il piano piÃƒÂ¹ adatto alle tue esigenze, inserisci i dati principali della tua agenzia e vieni reindirizzato al checkout sicuro Stripe.
+              Scegli il piano piÃƒÆ’Ã‚Â¹ adatto alle tue esigenze, inserisci i dati principali della tua agenzia e vieni reindirizzato al checkout sicuro Stripe.
 
             </p>
 
@@ -42066,7 +42066,7 @@ function PublicCheckoutPage() {
 
                         <li key={feature} style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', marginBottom: '0.25rem' }}>
 
-                          <span style={{ fontSize: '0.9rem', color: '#16a34a' }}>Ã¢â‚¬Â¢</span>
+                          <span style={{ fontSize: '0.9rem', color: '#16a34a' }}>ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¢</span>
 
                           <span>{feature}</span>
 
@@ -42383,7 +42383,7 @@ function PublicPropertyPage({
 
       try {
 
-        // Se l'utente ÃƒÂ¨ autenticato, prova prima l'endpoint protetto
+        // Se l'utente ÃƒÆ’Ã‚Â¨ autenticato, prova prima l'endpoint protetto
 
         if (token) {
 
@@ -44519,7 +44519,7 @@ function PropertyPortalsTab({
 
                 ) : (
 
-                  <span style={{ fontSize: '0.875rem', color: '#9ca3af' }}>Ã¢â‚¬â€</span>
+                  <span style={{ fontSize: '0.875rem', color: '#9ca3af' }}>ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â</span>
 
                 )}
 
@@ -44639,7 +44639,7 @@ function PropertyPortalsTab({
 
             <div style={{ fontSize: '0.875rem', color: '#6b7280' }}>
 
-              Per i portali a feed il CRM invia gli immobili e controlla solo se sono inclusi nel feed e se mancano requisiti minimi; l'esito approvato/rifiutato dell'annuncio ÃƒÂ¨ sempre deciso dal portale e, senza API di ritorno, non ÃƒÂ¨ visibile nel gestionale.
+              Per i portali a feed il CRM invia gli immobili e controlla solo se sono inclusi nel feed e se mancano requisiti minimi; l'esito approvato/rifiutato dell'annuncio ÃƒÆ’Ã‚Â¨ sempre deciso dal portale e, senza API di ritorno, non ÃƒÆ’Ã‚Â¨ visibile nel gestionale.
 
             </div>
 
@@ -44647,9 +44647,9 @@ function PropertyPortalsTab({
 
               <div><strong>NON SELEZIONATO</strong>: l'immobile non viene inviato a quel portale.</div>
 
-              <div><strong>INCLUSO NEL FEED</strong>: l'immobile ÃƒÂ¨ presente nel file/feed inviato al portale.</div>
+              <div><strong>INCLUSO NEL FEED</strong>: l'immobile ÃƒÆ’Ã‚Â¨ presente nel file/feed inviato al portale.</div>
 
-              <div><strong>A RISCHIO RIFIUTO</strong>: l'immobile Ò¨ incluso nel feed ma manca almeno un requisito obbligatorio; il portale puÒ² rifiutarlo.</div>
+              <div><strong>A RISCHIO RIFIUTO</strong>: l'immobile Ã’Â¨ incluso nel feed ma manca almeno un requisito obbligatorio; il portale puÃ’Â² rifiutarlo.</div>
 
               <div><strong>PUBBLICATO</strong>: il portale ha confermato la pubblicazione tramite API di ritorno (quando disponibili).</div>
 
@@ -44716,7 +44716,7 @@ function PropertyCrossCallsTab({
                     <div style={{ color: '#0f172a', fontWeight: 700 }}>{fullName}</div>
                     <div style={{ color: '#334155', fontSize: '0.82rem' }}>
                       {row?.contact?.phone || 'Telefono non disponibile'}
-                      {row?.contact?.email ? ` · ${row.contact.email}` : ''}
+                      {row?.contact?.email ? ` Â· ${row.contact.email}` : ''}
                     </div>
                     <button
                       type="button"
@@ -44743,7 +44743,7 @@ function PropertyCrossCallsTab({
                 </div>
 
                 <div style={{ border: '1px solid #e2e8f0', borderRadius: '0.55rem', background: '#ffffff', padding: '0.55rem' }}>
-                  <div style={{ color: '#0f172a', fontWeight: 600, marginBottom: '0.3rem' }}>Perché è compatibile</div>
+                  <div style={{ color: '#0f172a', fontWeight: 600, marginBottom: '0.3rem' }}>PerchÃ© Ã¨ compatibile</div>
                   <ul style={{ margin: 0, paddingLeft: '1rem', color: '#334155', fontSize: '0.82rem' }}>
                     {reasons.slice(0, 4).map((reason: string, idx: number) => (
                       <li key={`reason-${idx}`}>{reason}</li>
@@ -45900,7 +45900,7 @@ function PropertyModal({
 
       if (file.size > 5 * 1024 * 1024) {
 
-        alert(`Il file ${file.name} Ò¨ troppo grande. Massimo 5MB per immagine.`)
+        alert(`Il file ${file.name} Ã’Â¨ troppo grande. Massimo 5MB per immagine.`)
 
         return
 
@@ -45912,7 +45912,7 @@ function PropertyModal({
 
       if (!file.type.startsWith('image/')) {
 
-        alert(`Il file ${file.name} non Ò¨ un'immagine valida.`)
+        alert(`Il file ${file.name} non Ã’Â¨ un'immagine valida.`)
 
         return
 
@@ -46305,7 +46305,7 @@ function PropertyModal({
 
     if (!formData.city.trim()) {
 
-      alert('La cittÒ  Ò¨ obbligatoria')
+      alert('La cittÃ’Â  Ã’Â¨ obbligatoria')
 
       return
 
@@ -46313,7 +46313,7 @@ function PropertyModal({
 
     if (!formData.zipCode.trim()) {
 
-      alert('Il CAP Ò¨ obbligatorio')
+      alert('Il CAP Ã’Â¨ obbligatorio')
 
       return
 
@@ -46338,7 +46338,7 @@ function PropertyModal({
     }
 
     if (isAdminUser && !formData.title.trim()) {
-      alert('Il titolo annuncio Ò¨ obbligatorio per la pubblicazione')
+      alert('Il titolo annuncio Ã’Â¨ obbligatorio per la pubblicazione')
       setActiveStep(10)
       return
     }
@@ -46348,7 +46348,7 @@ function PropertyModal({
       return
     }
     if (isAdminUser && !formData.description.trim()) {
-      alert('La descrizione annuncio Ò¨ obbligatoria')
+      alert('La descrizione annuncio Ã’Â¨ obbligatoria')
       setActiveStep(10)
       return
     }
@@ -46450,7 +46450,7 @@ function PropertyModal({
 
       console.error('Error saving property:', error)
 
-      alert('Si Ò¨ verificato un errore durante il salvataggio.')
+      alert('Si Ã’Â¨ verificato un errore durante il salvataggio.')
 
     } finally {
 
@@ -46809,7 +46809,7 @@ function PropertyModal({
 
               }}>
 
-                Ã°Å¸â€œâ€¹ Informazioni Generali
+                ÃƒÂ°Ã…Â¸Ã¢â‚¬Å“Ã¢â‚¬Â¹ Informazioni Generali
 
               </h4>
 
@@ -47254,7 +47254,7 @@ function PropertyModal({
 
               }}>
 
-                Ã°Å¸â€œÂ Ubicazione
+                ÃƒÂ°Ã…Â¸Ã¢â‚¬Å“Ã‚Â Ubicazione
 
               </h4>
 
@@ -47399,7 +47399,7 @@ function PropertyModal({
 
                       <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: '500' }}>
 
-                        Città *
+                        CittÃ  *
 
                       </label>
 
@@ -47735,7 +47735,7 @@ function PropertyModal({
 
               }}>
 
-                Ã°Å¸ÂÂ  Caratteristiche Principali
+                ÃƒÂ°Ã…Â¸Ã‚ÂÃ‚Â  Caratteristiche Principali
 
               </h4>
 
@@ -48189,7 +48189,7 @@ function PropertyModal({
 
               }}>
 
-                ÃƒÂ¢Ã…Â¡Ã‚Â¡ Impianti e Tecnologie
+                ÃƒÆ’Ã‚Â¢Ãƒâ€¦Ã‚Â¡Ãƒâ€šÃ‚Â¡ Impianti e Tecnologie
 
               </h4>
 
@@ -48399,7 +48399,7 @@ function PropertyModal({
 
               }}>
 
-                Ã°Å¸â€™Â° Prezzi e Costi
+                ÃƒÂ°Ã…Â¸Ã¢â‚¬â„¢Ã‚Â° Prezzi e Costi
 
               </h4>
 
@@ -48413,7 +48413,7 @@ function PropertyModal({
 
                     <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: '500' }}>
 
-                      Prezzo al pubblico ({formData.contractType === 'RENT' ? 'â‚¬/mese' : 'â‚¬'})
+                      Prezzo al pubblico ({formData.contractType === 'RENT' ? 'Ã¢â€šÂ¬/mese' : 'Ã¢â€šÂ¬'})
 
                     </label>
 
@@ -48495,7 +48495,7 @@ function PropertyModal({
                     />
 
                     <p style={{ margin: '0.4rem 0 0', color: '#94a3b8', fontSize: '0.78rem' }}>
-                      Dato interno agenzia: non verrÃ  pubblicato sui portali.
+                      Dato interno agenzia: non verrÃƒÂ  pubblicato sui portali.
                     </p>
 
                   </div>
@@ -48553,7 +48553,7 @@ function PropertyModal({
 
                     <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: '500' }}>
 
-                      Spese Condominiali (Ã¢â€šÂ¬/mese)
+                      Spese Condominiali (ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬/mese)
 
                     </label>
 
@@ -48591,7 +48591,7 @@ function PropertyModal({
 
                     <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: '500' }}>
 
-                      IMU (Ã¢â€šÂ¬/anno)
+                      IMU (ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬/anno)
 
                     </label>
 
@@ -48661,11 +48661,11 @@ function PropertyModal({
                   {[
                     ['planimetria', 'Planimetria (Obbligatorio)'],
                     ['visura', 'Visura (Obbligatorio)'],
-                    ['agibilita', 'Certificato di agibilitÒ /abitabilitÒ '],
+                    ['agibilita', 'Certificato di agibilitÃ’Â /abitabilitÃ’Â '],
                     ['attoProvenienza', 'Atto di provenienza'],
                     ['titoliEdilizi', 'Titoli edilizi'],
                     ['ape', 'APE'],
-                    ['conformitaImpianti', 'ConformitÒ  impianti'],
+                    ['conformitaImpianti', 'ConformitÃ’Â  impianti'],
                     ['rti', 'Relazione Tecnica Integrata (RTI)'],
                     ['dichiarazioneAmministratore', 'Dichiarazione amministratore'],
                     ['verbaliAssemblee', 'Verbali ultime assemblee'],
@@ -49178,7 +49178,7 @@ function PropertyModal({
 
                     <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: '500' }}>
 
-                      Città
+                      CittÃ 
 
                     </label>
 
@@ -50617,7 +50617,7 @@ function PropertyViewModal({
 
             <p className="manus-contact-subtitle" style={{ margin: '0.2rem 0 0' }}>
 
-              {property.reference || 'Senza riferimento'} Ã‚Â· {property.city || 'N/D'}
+              {property.reference || 'Senza riferimento'} Ãƒâ€šÃ‚Â· {property.city || 'N/D'}
 
             </p>
 
@@ -50731,7 +50731,7 @@ function PropertyViewModal({
 
                 <p><strong>Indirizzo:</strong> {property.address}</p>
 
-                <p><strong>Città:</strong> {property.city}</p>
+                <p><strong>CittÃ :</strong> {property.city}</p>
 
                 <p><strong>Provincia:</strong> {property.province}</p>
 
@@ -50763,7 +50763,7 @@ function PropertyViewModal({
 
                 <p style={{ fontSize: '1.35rem', fontWeight: 'bold', color: '#34d399', margin: '0 0 0.45rem 0' }}>
 
-                  Ã¢â€šÂ¬{property.salePrice.toLocaleString()}
+                  ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬{property.salePrice.toLocaleString()}
 
                 </p>
 
@@ -50773,7 +50773,7 @@ function PropertyViewModal({
 
                 <p style={{ fontSize: '1.35rem', fontWeight: 'bold', color: '#34d399', margin: 0 }}>
 
-                  Ã¢â€šÂ¬{property.rentPrice.toLocaleString()}/mese
+                  ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬{property.rentPrice.toLocaleString()}/mese
 
                 </p>
 
@@ -51186,7 +51186,7 @@ function AgentDetailPage({
 
           { id: 'properties', label: 'Immobili', icon: Building },
 
-          { id: 'activities', label: 'AttivitÒ ', icon: CheckSquare },
+          { id: 'activities', label: 'AttivitÃ’Â ', icon: CheckSquare },
 
           { id: 'appointments', label: 'Appuntamenti', icon: Calendar },
 
@@ -51337,7 +51337,7 @@ function AgentDetailPage({
 
                    <div style={{ fontSize: '0.75rem', color: '#6b7280', fontWeight: '600', textTransform: 'uppercase', marginBottom: '0.5rem' }}>
 
-                      {p.type} Ã¢â‚¬Â¢ {p.contractType === 'SALE' ? 'VENDITA' : 'AFFITTO'}
+                      {p.type} ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¢ {p.contractType === 'SALE' ? 'VENDITA' : 'AFFITTO'}
 
                    </div>
 
@@ -51359,7 +51359,7 @@ function AgentDetailPage({
 
                       <div style={{ fontWeight: 'bold', fontSize: '1.25rem', color: '#2563eb' }}>
 
-                        Ã¢â€šÂ¬ {(p.salePrice || p.rentPrice || 0).toLocaleString()}
+                        ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ {(p.salePrice || p.rentPrice || 0).toLocaleString()}
 
                       </div>
 
@@ -51397,7 +51397,7 @@ function AgentDetailPage({
 
            <div style={{ display: 'grid', gap: '0.5rem' }}>
 
-             {activities.length === 0 ? <p style={{ color: '#6b7280' }}>Nessuna attivitÃƒÂ  assegnata.</p> : activities.map(a => (
+             {activities.length === 0 ? <p style={{ color: '#6b7280' }}>Nessuna attivitÃƒÆ’Ã‚Â  assegnata.</p> : activities.map(a => (
 
                <div key={a.id} style={{ padding: '1rem', border: '1px solid #e5e7eb', borderRadius: '0.5rem', backgroundColor: 'white', display: 'flex', justifyContent: 'space-between' }}>
 
@@ -52475,7 +52475,7 @@ function AgentModal({
 
     if (!agent && !formData.password.trim()) {
 
-      alert('La password Ò¨ obbligatoria per il nuovo agente')
+      alert('La password Ã’Â¨ obbligatoria per il nuovo agente')
 
       return
 
@@ -52597,7 +52597,7 @@ function AgentModal({
 
             <p className="manus-contact-subtitle" style={{ margin: '0.22rem 0 0', color: '#9aa3b2', fontSize: '0.8rem' }}>
 
-              Profilo, operativitÃƒÂ  e sicurezza accesso
+              Profilo, operativitÃƒÆ’Ã‚Â  e sicurezza accesso
 
             </p>
 
@@ -52693,7 +52693,7 @@ function AgentModal({
 
           <button type="button" onClick={() => setActiveAgentTab('profile')} className={`manus-contact-tab ${activeAgentTab === 'profile' ? 'is-active' : ''}`}>Profilo</button>
 
-          <button type="button" onClick={() => setActiveAgentTab('operations')} className={`manus-contact-tab ${activeAgentTab === 'operations' ? 'is-active' : ''}`}>Operatività</button>
+          <button type="button" onClick={() => setActiveAgentTab('operations')} className={`manus-contact-tab ${activeAgentTab === 'operations' ? 'is-active' : ''}`}>OperativitÃ </button>
 
           <button type="button" onClick={() => setActiveAgentTab('security')} className={`manus-contact-tab ${activeAgentTab === 'security' ? 'is-active' : ''}`}>Sicurezza</button>
 
@@ -53241,7 +53241,7 @@ function ContactModal({
 
     city: contact?.city || '',
 
-    province: contact?.province || '',
+    province: contact?.province || (category === 'CLIENT' ? 'PE' : ''),
 
     address: contact?.address || '',
 
@@ -53254,6 +53254,8 @@ function ContactModal({
     fiscalCode: contact?.fiscalCode || '',
 
     budget: contact?.budget || undefined,
+    budgetMin: (contact as any)?.budgetMin ?? (contact?.budget || undefined),
+    budgetMax: (contact as any)?.budgetMax ?? (contact?.budget || undefined),
 
     preferences: contact?.preferences || '',
 
@@ -53483,16 +53485,12 @@ function ContactModal({
         alert('Per il cliente email e telefono sono obbligatori')
         return
       }
-      if (!formData.city.trim() || !formData.province.trim()) {
-        alert('Per il cliente citt� e provincia sono obbligatorie')
-        return
-      }
-      if (!String(formData.address || '').trim()) {
-        alert('Per il cliente l\'indirizzo � obbligatorio')
+      if (!formData.province.trim()) {
+        alert('Per il cliente la provincia è obbligatoria')
         return
       }
       if (!String((formData as any).requestGoal || '').trim()) {
-        alert('Seleziona la finalit� della richiesta')
+        alert('Seleziona la finalità della richiesta')
         return
       }
       if (!String((formData as any).requestPropertyType || '').trim()) {
@@ -53503,101 +53501,10 @@ function ContactModal({
         alert('Inserisci la zona richiesta')
         return
       }
-      const isApartment = String((formData as any).requestPropertyType || '').toUpperCase() === 'APARTMENT'
-      if (isApartment && !String(formData.requestApartmentType || '').trim()) {
-        alert('Seleziona la tipologia appartamento')
-        return
-      }
-      if ((isLandRequest || isCommercialRequest || isWarehouseRequest || isGarageRequest) && (formData as any).requestSurfaceSqm == null) {
-        alert('Inserisci i mq richiesti')
-        return
-      }
-      if (isResidentialRequest && !formData.requestBedrooms) {
-        alert('Inserisci almeno il numero camere richieste')
-        return
-      }
-      if (isResidentialRequest && !formData.requestBathrooms) {
-        alert('Inserisci il numero bagni richiesti')
-        return
-      }
-      if (isResidentialRequest && !formData.requestFloor) {
-        alert('Inserisci il piano richiesto')
-        return
-      }
-      if (isResidentialRequest && !String((formData as any).requestCondition || '').trim()) {
-        alert('Seleziona lo stato immobile richiesto')
-        return
-      }
-      if (isCommercialRequest) {
-        if ((formData as any).requestSurfaceSqm == null) {
-          alert('Inserisci i mq richiesti')
-          return
-        }
-        if (!formData.requestBathrooms) {
-          alert('Inserisci il numero bagni richiesti')
-          return
-        }
-        if (!(formData as any).requestCommercialRooms) {
-          alert('Inserisci il numero locali richiesti')
-          return
-        }
-        if (!(formData as any).requestParkingSpots) {
-          alert('Inserisci i posti auto richiesti')
-          return
-        }
-        if (isShopLikeRequest && !(formData as any).requestShopWindows) {
-          alert('Inserisci il numero vetrine richieste')
-          return
-        }
-        if (!String((formData as any).requestCondition || '').trim()) {
-          alert('Seleziona lo stato immobile richiesto')
-          return
-        }
-      }
-      if (isWarehouseRequest) {
-        if ((formData as any).requestSurfaceSqm == null) {
-          alert('Inserisci i mq richiesti')
-          return
-        }
-        if (!(formData as any).requestParkingSpots) {
-          alert('Inserisci i posti auto richiesti')
-          return
-        }
-      }
-      if (isLandRequest) {
-        if ((formData as any).requestSurfaceSqm == null) {
-          alert('Inserisci i mq richiesti')
-          return
-        }
-        if (!String((formData as any).requestLandUse || '').trim()) {
-          alert('Inserisci uso terreno')
-          return
-        }
-        if (!String((formData as any).requestBuildable || '').trim()) {
-          alert('Indica se il terreno � edificabile')
-          return
-        }
-      }
-      if (isGarageRequest) {
-        if ((formData as any).requestSurfaceSqm == null) {
-          alert('Inserisci i mq richiesti')
-          return
-        }
-        if (!String((formData as any).requestGarageType || '').trim()) {
-          alert('Seleziona il tipo box richiesto')
-          return
-        }
-      }
-      if (String((formData as any).requestGoal || '').toUpperCase() === 'RENT' && !String((formData as any).rentContractSubtype || '').trim()) {
-        alert('Seleziona il tipo contratto per l\'affitto')
-        return
-      }
-      if ((formData as any).budget == null || Number((formData as any).budget) <= 0) {
-        alert('Inserisci il budget richiesto')
-        return
-      }
-      if (!String(formData.notes || '').trim()) {
-        alert('Inserisci le note richiesta')
+      const budgetMin = Number((formData as any).budgetMin)
+      const budgetMax = Number((formData as any).budgetMax)
+      if (!Number.isFinite(budgetMin) || budgetMin <= 0 || !Number.isFinite(budgetMax) || budgetMax <= 0) {
+        alert('Inserisci budget minimo e massimo richiesti')
         return
       }
     }
@@ -53608,7 +53515,7 @@ function ContactModal({
 
       if (!formData.fiscalCode || !formData.fiscalCode.trim()) {
 
-        alert('Per il proprietario il codice fiscale Ò¨ obbligatorio')
+        alert('Per il proprietario il codice fiscale Ã’Â¨ obbligatorio')
 
         return
 
@@ -53648,8 +53555,20 @@ function ContactModal({
       .trim()
     const mergedPreferences = [basePreferences, dynamicDetails].filter(Boolean).join('\n\n')
 
+    const rawBudgetMin = Number((formData as any).budgetMin)
+    const rawBudgetMax = Number((formData as any).budgetMax)
+    const normalizedBudgetMin = Number.isFinite(rawBudgetMin) && Number.isFinite(rawBudgetMax)
+      ? Math.min(rawBudgetMin, rawBudgetMax)
+      : (Number.isFinite(rawBudgetMin) ? rawBudgetMin : undefined)
+    const normalizedBudgetMax = Number.isFinite(rawBudgetMin) && Number.isFinite(rawBudgetMax)
+      ? Math.max(rawBudgetMin, rawBudgetMax)
+      : (Number.isFinite(rawBudgetMax) ? rawBudgetMax : undefined)
+
     onSave({
       ...(formData as any),
+      budgetMin: normalizedBudgetMin,
+      budgetMax: normalizedBudgetMax,
+      budget: normalizedBudgetMax ?? normalizedBudgetMin ?? (formData as any).budget,
       preferences: mergedPreferences
     })
 
@@ -54909,7 +54828,7 @@ function ContactModal({
 
                   <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: '500' }}>
 
-                    Finalit� richiesta *
+                    Finalitï¿½ richiesta *
 
                   </label>
 
@@ -54924,7 +54843,7 @@ function ContactModal({
                     }}
                     required
                   >
-                    <option value="">Seleziona finalit�...</option>
+                    <option value="">Seleziona finalitï¿½...</option>
                     {requestGoalOptions.map((option) => (
                       <option key={option.value} value={option.value}>
                         {option.label}
@@ -55001,7 +54920,7 @@ function ContactModal({
                   </div>
                   <div>
                     <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: '500' }}>
-                      Citt� *
+                      Città
                     </label>
                     <select
                       value={formData.city}
@@ -55021,11 +54940,10 @@ function ContactModal({
                         border: '1px solid #d1d5db',
                         borderRadius: '0.375rem'
                       }}
-                      required
                     >
                       <option value="">
                         {formData.province
-                          ? `Seleziona citt� dalla provincia ${formData.province}`
+                          ? `Seleziona cittï¿½ dalla provincia ${formData.province}`
                           : 'Seleziona prima la provincia'}
                       </option>
                       {provinceCityOptions.map(city => (
@@ -55061,7 +54979,7 @@ function ContactModal({
                   {isRentRequest && (
                     <>
                       <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: '500' }}>
-                        Tipo contratto affitto *
+                        Tipo contratto affitto
                       </label>
                       <select
                         value={(formData as any).rentContractSubtype || ''}
@@ -55072,7 +54990,6 @@ function ContactModal({
                           border: '1px solid #d1d5db',
                           borderRadius: '0.375rem'
                         }}
-                        required={isRentRequest}
                       >
                         <option value="">Seleziona contratto...</option>
                         {rentContractSubtypeOptions.map((option) => (
@@ -55089,20 +55006,20 @@ function ContactModal({
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
                 <div>
                   <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: '500' }}>
-                    Budget (EUR){category === 'CLIENT' ? ' *' : ''}
+                    Budget Min (EUR) *
                   </label>
                   <input
                     type="number"
                     min={0}
                     step="1000"
-                    value={formData.budget ?? ''}
+                    value={(formData as any).budgetMin ?? ''}
                     onChange={(e) =>
                       setFormData((prev) => ({
                         ...prev,
-                        budget: e.target.value ? Number(e.target.value) : undefined
+                        budgetMin: e.target.value ? Number(e.target.value) : undefined
                       }))
                     }
-                    placeholder="Es. 250000"
+                    placeholder="Es. 147000"
                     style={{
                       width: '100%',
                       padding: '0.75rem',
@@ -55112,7 +55029,31 @@ function ContactModal({
                     required={category === 'CLIENT'}
                   />
                 </div>
-                <div />
+                <div>
+                  <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: '500' }}>
+                    Budget Max (EUR) *
+                  </label>
+                  <input
+                    type="number"
+                    min={0}
+                    step="1000"
+                    value={(formData as any).budgetMax ?? ''}
+                    onChange={(e) =>
+                      setFormData((prev) => ({
+                        ...prev,
+                        budgetMax: e.target.value ? Number(e.target.value) : undefined
+                      }))
+                    }
+                    placeholder="Es. 143000"
+                    style={{
+                      width: '100%',
+                      padding: '0.75rem',
+                      border: '1px solid #d1d5db',
+                      borderRadius: '0.375rem'
+                    }}
+                    required={category === 'CLIENT'}
+                  />
+                </div>
               </div>
 
 
@@ -55123,13 +55064,12 @@ function ContactModal({
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '0.75rem' }}>
                     <div>
                       <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: '600', color: '#111111' }}>
-                        Camere richieste *
+                        Camere richieste
                       </label>
                       <select
                         value={formData.requestBedrooms ? formData.requestBedrooms.toString() : ''}
                         onChange={(e) => setFormData(prev => ({ ...prev, requestBedrooms: e.target.value ? parseInt(e.target.value, 10) : undefined }))}
                         style={{ width: '100%', padding: '0.75rem', border: '1px solid #d1d5db', borderRadius: '0.375rem' }}
-                        required={isResidentialRequest}
                       >
                         <option value="">Seleziona camere...</option>
                         {numberOptions.map(n => <option key={n} value={n}>{n}</option>)}
@@ -55182,7 +55122,7 @@ function ContactModal({
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '0.75rem' }}>
                     <div>
                       <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: '600', color: '#111111' }}>
-                        MQ richiesti *
+                        MQ richiesti
                       </label>
                       <input
                         type="number"
@@ -55193,7 +55133,6 @@ function ContactModal({
                           requestSurfaceSqm: e.target.value ? parseInt(e.target.value, 10) : undefined
                         }))}
                         style={{ width: '100%', padding: '0.75rem', border: '1px solid #d1d5db', borderRadius: '0.375rem' }}
-                        required
                       />
                     </div>
                     {(isCommercialRequest || isWarehouseRequest) && (
@@ -55328,7 +55267,7 @@ function ContactModal({
                 )}
                 {isLandRequest && isLandAgriculturalLike && (
                   <div style={{ marginTop: '0.5rem', fontSize: '0.8rem', color: '#4b5563' }}>
-                    Focus suggerito: accesso carrabile, disponibilit� acqua, eventuali vincoli agricoli.
+                    Focus suggerito: accesso carrabile, disponibilitï¿½ acqua, eventuali vincoli agricoli.
                   </div>
                 )}
                 {isLandRequest && isLandIndustrialLike && (
@@ -55424,7 +55363,7 @@ function ContactModal({
 
                 >
 
-                  Ã°Å¸â€œÅ½ Documentazione proprietario
+                  ÃƒÂ°Ã…Â¸Ã¢â‚¬Å“Ã…Â½ Documentazione proprietario
 
                 </h4>
 
@@ -55436,7 +55375,7 @@ function ContactModal({
 
                     Per caricare i documenti, salva prima il proprietario. Dopo il salvataggio potrai
 
-                    aggiungere qui documento d'identitÒ , codice fiscale, visura e atto di proprietÒ .
+                    aggiungere qui documento d'identitÃ’Â , codice fiscale, visura e atto di proprietÃ’Â .
 
                   </div>
 
@@ -56639,7 +56578,7 @@ function NotificationsPage({
 
       case 'EVENT_REMINDER': return 'Promemoria eventi'
 
-      case 'ACTIVITY_CREATED': return 'Attività create'
+      case 'ACTIVITY_CREATED': return 'AttivitÃ  create'
 
       default: return type
 
@@ -58315,11 +58254,11 @@ function SettingsPage({
 
       setEffectiveBaseUrl(saved || window.location.origin)
 
-      alert('Ã¢Å“â€¦ URL pubblico base salvato')
+      alert('ÃƒÂ¢Ã…â€œÃ¢â‚¬Â¦ URL pubblico base salvato')
 
     } catch (e) {
 
-      alert('Ã¢ÂÅ’ Errore di connessione durante il salvataggio')
+      alert('ÃƒÂ¢Ã‚ÂÃ…â€™ Errore di connessione durante il salvataggio')
 
     } finally {
 
@@ -58383,13 +58322,13 @@ function SettingsPage({
 
       setApimoToken('')
 
-      alert('Ã¢Å“â€¦ Config APIMO salvata')
+      alert('ÃƒÂ¢Ã…â€œÃ¢â‚¬Â¦ Config APIMO salvata')
 
       await loadApimoStatus()
 
     } catch (e) {
 
-      alert('Ã¢ÂÅ’ Errore di connessione durante il salvataggio')
+      alert('ÃƒÂ¢Ã‚ÂÃ…â€™ Errore di connessione durante il salvataggio')
 
     } finally {
 
@@ -58421,13 +58360,13 @@ function SettingsPage({
 
       }
 
-      alert('Ã¢Å“â€¦ Sync APIMO completata')
+      alert('ÃƒÂ¢Ã…â€œÃ¢â‚¬Â¦ Sync APIMO completata')
 
       await loadApimoStatus()
 
     } catch (e) {
 
-      alert('Ã¢ÂÅ’ Errore di connessione durante la sincronizzazione')
+      alert('ÃƒÂ¢Ã‚ÂÃ…â€™ Errore di connessione durante la sincronizzazione')
 
     } finally {
 
@@ -58453,7 +58392,7 @@ function SettingsPage({
 
         if (!aiPropertyId.trim()) {
 
-          alert('Ã¢ÂÅ’ Inserisci un propertyId (id immobile)')
+          alert('ÃƒÂ¢Ã‚ÂÃ…â€™ Inserisci un propertyId (id immobile)')
 
           return
 
@@ -58493,7 +58432,7 @@ function SettingsPage({
 
         if (!aiInputText.trim()) {
 
-          alert('Ã¢ÂÅ’ Inserisci un testo da tradurre')
+          alert('ÃƒÂ¢Ã‚ÂÃ…â€™ Inserisci un testo da tradurre')
 
           return
 
@@ -58531,7 +58470,7 @@ function SettingsPage({
 
         if (!aiInputText.trim()) {
 
-          alert('Ã¢ÂÅ’ Inserisci un testo da migliorare')
+          alert('ÃƒÂ¢Ã‚ÂÃ…â€™ Inserisci un testo da migliorare')
 
           return
 
@@ -58637,11 +58576,11 @@ function SettingsPage({
 
       setImmoPassword('')
 
-      alert('Ã¢Å“â€¦ Config Immobiliare.it salvata')
+      alert('ÃƒÂ¢Ã…â€œÃ¢â‚¬Â¦ Config Immobiliare.it salvata')
 
     } catch (e) {
 
-      alert('Ã¢ÂÅ’ Errore di connessione durante il salvataggio')
+      alert('ÃƒÂ¢Ã‚ÂÃ…â€™ Errore di connessione durante il salvataggio')
 
     } finally {
 
@@ -58659,7 +58598,7 @@ function SettingsPage({
 
     if (raw && !/^\d+$/.test(raw)) {
 
-      alert('Ã¢ÂÅ’ giAgencyId non valido (usa solo numeri)')
+      alert('ÃƒÂ¢Ã‚ÂÃ…â€™ giAgencyId non valido (usa solo numeri)')
 
       return
 
@@ -58693,11 +58632,11 @@ function SettingsPage({
 
       setGiAgencyId(data.data?.giAgencyId != null ? String(data.data.giAgencyId) : '')
 
-      alert('Ã¢Å“â€¦ Config GestionaleImmobiliare.it salvata')
+      alert('ÃƒÂ¢Ã…â€œÃ¢â‚¬Â¦ Config GestionaleImmobiliare.it salvata')
 
     } catch (e) {
 
-      alert('Ã¢ÂÅ’ Errore di connessione durante il salvataggio')
+      alert('ÃƒÂ¢Ã‚ÂÃ…â€™ Errore di connessione durante il salvataggio')
 
     } finally {
 
@@ -58721,7 +58660,7 @@ function SettingsPage({
 
       'APPOINTMENT_CREATED',
 
-      'Ã°Å¸â€œâ€¦ Nuovo Appuntamento',
+      'ÃƒÂ°Ã…Â¸Ã¢â‚¬Å“Ã¢â‚¬Â¦ Nuovo Appuntamento',
 
       'Visita immobile con Mario Rossi - Domani alle 14:00',
 
@@ -58737,9 +58676,9 @@ function SettingsPage({
 
       'MATCH_FOUND',
 
-      'Ã°Å¸Å½Â¯ Nuovo Match Trovato!',
+      'ÃƒÂ°Ã…Â¸Ã…Â½Ã‚Â¯ Nuovo Match Trovato!',
 
-      'Attico Panoramico Centro matcha perfettamente con Mario Rossi (95% compatibilità)',
+      'Attico Panoramico Centro matcha perfettamente con Mario Rossi (95% compatibilitÃ )',
 
       'demo-match-1'
 
@@ -58753,7 +58692,7 @@ function SettingsPage({
 
       'APPOINTMENT_REMINDER',
 
-      'Ã¢ÂÂ° Appuntamento Imminente',
+      'ÃƒÂ¢Ã‚ÂÃ‚Â° Appuntamento Imminente',
 
       'Visita immobile tra 30 minuti - Via Torino 2',
 
@@ -58769,7 +58708,7 @@ function SettingsPage({
 
       'TASK_COMPLETED',
 
-      'Ã¢Å“â€¦ Task Completato',
+      'ÃƒÂ¢Ã…â€œÃ¢â‚¬Â¦ Task Completato',
 
       'Contratto di vendita firmato per Villa Indipendente',
 
@@ -58785,9 +58724,9 @@ function SettingsPage({
 
       'PROPERTY_ADDED',
 
-      'Ã°Å¸ÂÂ  Nuovo Immobile Aggiunto',
+      'ÃƒÂ°Ã…Â¸Ã‚ÂÃ‚Â  Nuovo Immobile Aggiunto',
 
-      'Bilocale Moderno Isola - Ã¢â€šÂ¬1.200/mese',
+      'Bilocale Moderno Isola - ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬1.200/mese',
 
       'demo-prop-1'
 
@@ -58801,7 +58740,7 @@ function SettingsPage({
 
       'CLIENT_ADDED',
 
-      'Ã°Å¸â€˜Â¤ Nuovo Cliente',
+      'ÃƒÂ°Ã…Â¸Ã¢â‚¬ËœÃ‚Â¤ Nuovo Cliente',
 
       'Giulia Verdi - Acquirente interessato a ville',
 
@@ -59156,7 +59095,7 @@ function SettingsPage({
 
         <h3 style={{ display: 'none', fontSize: '1.25rem', fontWeight: '600', marginBottom: '1rem' }}>
 
-          ðŸ  Immobiliare.it
+          Ã°Å¸ÂÂ  Immobiliare.it
 
         </h3>
 
@@ -59272,7 +59211,7 @@ function SettingsPage({
 
             <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: '500' }}>
 
-              Password {immoHasPassword ? '(già salvata)' : '(non impostata)'}
+              Password {immoHasPassword ? '(giÃ  salvata)' : '(non impostata)'}
 
             </label>
 
@@ -59356,7 +59295,7 @@ function SettingsPage({
 
         <h3 style={{ display: 'none', fontSize: '1.25rem', fontWeight: '600', marginBottom: '1rem' }}>
 
-          ðŸ¢ GestionaleImmobiliare.it
+          Ã°Å¸ÂÂ¢ GestionaleImmobiliare.it
 
         </h3>
 
@@ -59540,7 +59479,7 @@ function SettingsPage({
 
             <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: '500' }}>
 
-              Token {apimoHasToken ? '(già salvato)' : '(non impostato)'}
+              Token {apimoHasToken ? '(giÃ  salvato)' : '(non impostato)'}
 
             </label>
 
@@ -59756,7 +59695,7 @@ function SettingsPage({
 
             <div style={{ display: 'grid', gap: '0.25rem', color: '#374151', fontSize: '0.9rem' }}>
 
-              <div>Configurato: {apimoStatusLoaded ? (apimoStatus?.configured ? 'sì' : 'no') : '-'}</div>
+              <div>Configurato: {apimoStatusLoaded ? (apimoStatus?.configured ? 'sÃ¬' : 'no') : '-'}</div>
 
               <div>Ultimo timestamp pull: {apimoStatusLoaded ? (apimoStatus?.apimoLastPullTimestamp ?? '-') : '-'}</div>
 
@@ -59848,7 +59787,7 @@ function SettingsPage({
 
             <div style={{ display: 'grid', gap: '0.25rem', marginTop: '0.5rem', color: '#374151', fontSize: '0.9rem' }}>
 
-              <div>Configurato: {aiStatusLoaded ? (aiStatus?.configured ? 'sì' : 'no') : '-'}</div>
+              <div>Configurato: {aiStatusLoaded ? (aiStatus?.configured ? 'sÃ¬' : 'no') : '-'}</div>
 
               <div>Modello: {aiStatusLoaded ? (aiStatus?.model || '-') : '-'}</div>
 
@@ -59998,7 +59937,7 @@ function SettingsPage({
 
                   onChange={(e) => setAiTargetLanguage(e.target.value)}
 
-                  placeholder="Italiano / English / FranÒ§ais"
+                  placeholder="Italiano / English / FranÃ’Â§ais"
 
                   style={{
 
@@ -60218,7 +60157,7 @@ function SettingsPage({
 
             >
 
-              {aiRunning ? 'Ã¢ÂÂ³ Esecuzione...' : 'Ã¢Å“Â¨ Esegui'}
+              {aiRunning ? 'ÃƒÂ¢Ã‚ÂÃ‚Â³ Esecuzione...' : 'ÃƒÂ¢Ã…â€œÃ‚Â¨ Esegui'}
 
             </button>
 
@@ -60274,7 +60213,7 @@ function SettingsPage({
 
         <h3 style={{ fontSize: '1.25rem', fontWeight: '600', marginBottom: '1.5rem' }}>
 
-          ðŸ—‘ï¸ Elimina tutti i dati
+          Ã°Å¸â€”â€˜Ã¯Â¸Â Elimina tutti i dati
 
         </h3>
 
@@ -60320,13 +60259,13 @@ function SettingsPage({
 
             >
 
-              {generating ? 'Ã¢ÂÂ³ Generazione in corso...' : 'Ã¢Å“Â¨ Genera Dati Demo'}
+              {generating ? 'ÃƒÂ¢Ã‚ÂÃ‚Â³ Generazione in corso...' : 'ÃƒÂ¢Ã…â€œÃ‚Â¨ Genera Dati Demo'}
 
             </button>
 
             <p style={{ color: '#6b7280', fontSize: '0.875rem' }}>
 
-              Aggiunge immobili, clienti e agenti di prova per testare le funzionalità.
+              Aggiunge immobili, clienti e agenti di prova per testare le funzionalitÃ .
 
             </p>
 
@@ -60420,7 +60359,7 @@ function SettingsPage({
 
             >
 
-              {generating ? 'Ã¢ÂÂ³ Eliminazione...' : 'Ã°Å¸â€”â€˜Ã¯Â¸Â Elimina Tutti i Dati'}
+              {generating ? 'ÃƒÂ¢Ã‚ÂÃ‚Â³ Eliminazione...' : 'ÃƒÂ°Ã…Â¸Ã¢â‚¬â€Ã¢â‚¬ËœÃƒÂ¯Ã‚Â¸Ã‚Â Elimina Tutti i Dati'}
 
             </button>
 
@@ -60451,6 +60390,7 @@ export default App
 // Force HMR update
 
  
+
 
 
 
