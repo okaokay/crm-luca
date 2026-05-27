@@ -5973,6 +5973,98 @@ function InternalLoginPage() {
 
       </div>
 
+      {isGalleryOpen && imageList.length > 0 ? (
+        <div
+          onClick={() => setIsGalleryOpen(false)}
+          style={{
+            position: 'fixed',
+            inset: 0,
+            background: 'rgba(15, 23, 42, 0.92)',
+            zIndex: 2147483646,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: '1rem'
+          }}
+        >
+          <button
+            type="button"
+            onClick={(event) => { event.stopPropagation(); setIsGalleryOpen(false) }}
+            style={{ position: 'absolute', top: '1rem', right: '1rem', border: 'none', background: 'rgba(255,255,255,0.2)', color: '#fff', borderRadius: '999px', width: '2.25rem', height: '2.25rem', cursor: 'pointer' }}
+            aria-label="Chiudi galleria"
+          >
+            <X size={18} />
+          </button>
+          <button
+            type="button"
+            onClick={(event) => { event.stopPropagation(); showPrevGalleryImage() }}
+            style={{ position: 'absolute', left: '1rem', border: 'none', background: 'rgba(255,255,255,0.2)', color: '#fff', borderRadius: '999px', width: '2.5rem', height: '2.5rem', cursor: 'pointer' }}
+            aria-label="Immagine precedente"
+          >
+            <ArrowLeft size={18} />
+          </button>
+          <img
+            src={imageList[galleryIndex]}
+            alt={`${property.title} - ${galleryIndex + 1}`}
+            onClick={(event) => event.stopPropagation()}
+            style={{ maxWidth: '94vw', maxHeight: '88vh', objectFit: 'contain', borderRadius: '0.5rem' }}
+          />
+          <button
+            type="button"
+            onClick={(event) => { event.stopPropagation(); showNextGalleryImage() }}
+            style={{ position: 'absolute', right: '1rem', border: 'none', background: 'rgba(255,255,255,0.2)', color: '#fff', borderRadius: '999px', width: '2.5rem', height: '2.5rem', cursor: 'pointer' }}
+            aria-label="Immagine successiva"
+          >
+            <ArrowRight size={18} />
+          </button>
+        </div>
+      ) : null}
+      {isPublicGalleryOpen && publicImageList.length > 0 ? (
+        <div
+          onClick={() => setIsPublicGalleryOpen(false)}
+          style={{
+            position: 'fixed',
+            inset: 0,
+            background: 'rgba(15, 23, 42, 0.92)',
+            zIndex: 2147483646,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: '1rem'
+          }}
+        >
+          <button
+            type="button"
+            onClick={(event) => { event.stopPropagation(); setIsPublicGalleryOpen(false) }}
+            style={{ position: 'absolute', top: '1rem', right: '1rem', border: 'none', background: 'rgba(255,255,255,0.2)', color: '#fff', borderRadius: '999px', width: '2.25rem', height: '2.25rem', cursor: 'pointer' }}
+            aria-label="Chiudi galleria"
+          >
+            <X size={18} />
+          </button>
+          <button
+            type="button"
+            onClick={(event) => { event.stopPropagation(); showPrevPublicGalleryImage() }}
+            style={{ position: 'absolute', left: '1rem', border: 'none', background: 'rgba(255,255,255,0.2)', color: '#fff', borderRadius: '999px', width: '2.5rem', height: '2.5rem', cursor: 'pointer' }}
+            aria-label="Immagine precedente"
+          >
+            <ArrowLeft size={18} />
+          </button>
+          <img
+            src={publicImageList[activeImageIndex]}
+            alt={`${property.title} - ${activeImageIndex + 1}`}
+            onClick={(event) => event.stopPropagation()}
+            style={{ maxWidth: '94vw', maxHeight: '88vh', objectFit: 'contain', borderRadius: '0.5rem' }}
+          />
+          <button
+            type="button"
+            onClick={(event) => { event.stopPropagation(); showNextPublicGalleryImage() }}
+            style={{ position: 'absolute', right: '1rem', border: 'none', background: 'rgba(255,255,255,0.2)', color: '#fff', borderRadius: '999px', width: '2.5rem', height: '2.5rem', cursor: 'pointer' }}
+            aria-label="Immagine successiva"
+          >
+            <ArrowRight size={18} />
+          </button>
+        </div>
+      ) : null}
     </div>
 
   )
@@ -9327,23 +9419,14 @@ function App() {
   const handleCreateProperty = async (propertyData: Omit<Property, 'id' | 'createdAt'>) => {
 
     try {
-      const pendingImageFiles = Array.isArray((propertyData as any).__pendingImageFiles)
-        ? ((propertyData as any).__pendingImageFiles as File[]).filter((file) => file instanceof File)
-        : []
-      const sanitizedPropertyData: any = { ...propertyData }
-      delete sanitizedPropertyData.__pendingImageFiles
       const payload = {
 
-        ...sanitizedPropertyData,
+        ...propertyData,
 
         agencyId: user?.agency?.id,
 
-        ownerId: sanitizedPropertyData.agentId || user?.id
+        ownerId: propertyData.agentId || user?.id
 
-      }
-      if (user?.role === 'AGENT' && user?.id) {
-        payload.agentId = user.id
-        payload.ownerId = user.id
       }
 
       const response = await fetch('/api/properties', {
@@ -9369,7 +9452,7 @@ function App() {
 
       if (!response.ok) {
         if (response.status === 413) {
-          alert('Caricamento troppo pesante (413). Il salvataggio deve inviare solo i dati e caricare le immagini separatamente in automatico.')
+          alert('Caricamento troppo pesante (413). Salva prima l\'immobile senza immagini, poi caricale nel secondo step.')
           return null
         }
         const messageFromServer =
@@ -9383,24 +9466,6 @@ function App() {
       if (data?.success) {
 
         const newProperty = { ...data.data, createdAt: new Date().toISOString() }
-        if (pendingImageFiles.length > 0 && newProperty.id) {
-          const uploadedUrls: string[] = []
-          for (const file of pendingImageFiles) {
-            const formData = new FormData()
-            formData.append('images', file)
-            const uploadResponse = await fetch(`/api/properties/${newProperty.id}/images`, {
-              method: 'POST',
-              headers: token ? { Authorization: `Bearer ${token}` } : undefined,
-              body: formData
-            })
-            const uploadData = await uploadResponse.json().catch(() => null)
-            if (!uploadResponse.ok || !uploadData?.success) {
-              throw new Error(uploadData?.message || 'Immobile creato, ma caricamento immagini non riuscito')
-            }
-            if (Array.isArray(uploadData.imageUrls)) uploadedUrls.push(...uploadData.imageUrls)
-          }
-          if (uploadedUrls.length > 0) newProperty.images = uploadedUrls
-        }
 
         setProperties(prev => [newProperty, ...prev])
 
@@ -24108,26 +24173,17 @@ function PropertiesPage({
     // FIX: Ensure user is defined safely to avoid ReferenceError
 
     const currentUser = user;
-    const pendingImageFiles = Array.isArray((propertyData as any).__pendingImageFiles)
-      ? ((propertyData as any).__pendingImageFiles as File[]).filter((file) => file instanceof File)
-      : []
-    const sanitizedPropertyData: any = { ...propertyData }
-    delete sanitizedPropertyData.__pendingImageFiles
 
 
 
     const payload = {
 
-      ...sanitizedPropertyData,
+      ...propertyData,
 
       agencyId: currentUser?.agency?.id,
 
-      ownerId: sanitizedPropertyData.agentId || currentUser?.id
+      ownerId: propertyData.agentId || currentUser?.id
 
-    }
-    if (currentUser?.role === 'AGENT' && currentUser?.id) {
-      payload.agentId = currentUser.id
-      payload.ownerId = currentUser.id
     }
 
     console.log('handleCreateProperty payload:', payload)
@@ -24172,27 +24228,10 @@ function PropertiesPage({
       }
 
       if (data.success) {
-        const createdProperty = data.data
 
         setShowCreateModal(false)
         setEditingProperty(null)
         setApprovingPropertyId(null)
-
-        if (pendingImageFiles.length > 0 && createdProperty?.id) {
-          for (const file of pendingImageFiles) {
-            const uploadFormData = new FormData()
-            uploadFormData.append('images', file)
-            const uploadResponse = await fetch(`/api/properties/${createdProperty.id}/images`, {
-              method: 'POST',
-              headers: authHeaders,
-              body: uploadFormData
-            })
-            const uploadData = await uploadResponse.json().catch(() => null)
-            if (!uploadResponse.ok || !uploadData?.success) {
-              throw new Error(uploadData?.message || 'Immobile creato, ma caricamento immagini non riuscito')
-            }
-          }
-        }
 
         onRefreshData() // Ricarica i dati
 
@@ -24212,7 +24251,7 @@ function PropertiesPage({
 
       const message =
         error instanceof Error && error.message === 'PAYLOAD_TOO_LARGE'
-          ? 'Caricamento troppo pesante: il server ha rifiutato la richiesta (413). Il payload dati non deve contenere immagini in base64.'
+          ? 'Caricamento troppo pesante: il server ha rifiutato la richiesta (413). Riduci immagini/video oppure salva prima l\'immobile e carica le immagini dalla scheda immobile.'
           : error instanceof Error && error.message
             ? error.message
             : 'Errore di connessione'
@@ -37543,6 +37582,8 @@ function PropertyDetailPage({
   const [isEditing, setIsEditing] = useState(false)
 
   const [activeTab, setActiveTab] = useState('overview')
+  const [isGalleryOpen, setIsGalleryOpen] = useState(false)
+  const [galleryIndex, setGalleryIndex] = useState(0)
 
   const [uploadingImages, setUploadingImages] = useState(false)
   const [propertyDocuments, setPropertyDocuments] = useState<PropertyDocumentRow[]>([])
@@ -38448,6 +38489,20 @@ function PropertyDetailPage({
   const imageList = Array.isArray(property.images) ? property.images.filter(Boolean) : []
   const heroImage = imageList[0] || ''
   const thumbImages = imageList.slice(1, 5)
+  const openGalleryAt = (index: number) => {
+    if (!imageList.length) return
+    const nextIndex = Math.max(0, Math.min(index, imageList.length - 1))
+    setGalleryIndex(nextIndex)
+    setIsGalleryOpen(true)
+  }
+  const showPrevGalleryImage = () => {
+    if (!imageList.length) return
+    setGalleryIndex((prev) => (prev - 1 + imageList.length) % imageList.length)
+  }
+  const showNextGalleryImage = () => {
+    if (!imageList.length) return
+    setGalleryIndex((prev) => (prev + 1) % imageList.length)
+  }
   const hasPortals = Array.isArray(property.portalTargets) && property.portalTargets.length > 0
   const sidebarLinkedRequests = [...linkedRequests]
     .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
@@ -38686,7 +38741,8 @@ function PropertyDetailPage({
                     <img
                       src={heroImage}
                       alt={property.title}
-                      style={{ width: '100%', height: isCompactLayout ? '250px' : '360px', objectFit: 'cover', borderRadius: '0.75rem', border: '1px solid #d5deea' }}
+                      onClick={() => openGalleryAt(0)}
+                      style={{ width: '100%', height: isCompactLayout ? '250px' : '360px', objectFit: 'cover', borderRadius: '0.75rem', border: '1px solid #d5deea', cursor: 'zoom-in' }}
                     />
                     <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '0.65rem' }}>
                       {thumbImages.length > 0 ? thumbImages.map((img, idx) => (
@@ -38694,7 +38750,8 @@ function PropertyDetailPage({
                           key={img + idx}
                           src={img}
                           alt={property.title + ' ' + (idx + 2)}
-                          style={{ width: '100%', height: isCompactLayout ? '110px' : '84px', objectFit: 'cover', borderRadius: '0.65rem', border: '1px solid #d5deea' }}
+                          onClick={() => openGalleryAt(idx + 1)}
+                          style={{ width: '100%', height: isCompactLayout ? '110px' : '84px', objectFit: 'cover', borderRadius: '0.65rem', border: '1px solid #d5deea', cursor: 'zoom-in' }}
                         />
                       )) : (
                         <div style={{ border: '1px dashed #bfd1ef', borderRadius: '0.65rem', minHeight: isCompactLayout ? '110px' : '180px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#64748b' }}>
@@ -42271,6 +42328,7 @@ function PublicPropertyPage({
   const [loading, setLoading] = useState(true)
 
   const [activeImageIndex, setActiveImageIndex] = useState(0)
+  const [isPublicGalleryOpen, setIsPublicGalleryOpen] = useState(false)
 
   const [showContactForm, setShowContactForm] = useState(false)
 
@@ -42302,6 +42360,21 @@ function PublicPropertyPage({
         alignItems: 'start'
       }
   const heroHeight = isMobile ? 250 : isTablet ? 320 : 400
+  const publicImageList = Array.isArray(property?.images) ? property.images.filter(Boolean) : []
+  const openPublicGalleryAt = (index: number) => {
+    if (!publicImageList.length) return
+    const nextIndex = Math.max(0, Math.min(index, publicImageList.length - 1))
+    setActiveImageIndex(nextIndex)
+    setIsPublicGalleryOpen(true)
+  }
+  const showPrevPublicGalleryImage = () => {
+    if (!publicImageList.length) return
+    setActiveImageIndex((prev) => (prev - 1 + publicImageList.length) % publicImageList.length)
+  }
+  const showNextPublicGalleryImage = () => {
+    if (!publicImageList.length) return
+    setActiveImageIndex((prev) => (prev + 1) % publicImageList.length)
+  }
 
 
 
@@ -42638,8 +42711,8 @@ function PublicPropertyPage({
                     <img
 
                       src={property.images[activeImageIndex]}
-
                       alt={property.title}
+                      onClick={() => openPublicGalleryAt(activeImageIndex)}
 
                       style={{
 
@@ -42647,7 +42720,8 @@ function PublicPropertyPage({
 
                         height: heroHeight,
 
-                        objectFit: 'cover'
+                        objectFit: 'cover',
+                        cursor: 'zoom-in'
 
                       }}
 
@@ -42709,7 +42783,7 @@ function PublicPropertyPage({
 
                           alt={`${property.title} - ${index + 1}`}
 
-                          onClick={() => setActiveImageIndex(index)}
+                          onClick={() => openPublicGalleryAt(index)}
 
                           style={{
 
@@ -42725,7 +42799,8 @@ function PublicPropertyPage({
 
                             border: activeImageIndex === index ? '2px solid #2563eb' : '2px solid transparent',
 
-                            flexShrink: 0
+                            flexShrink: 0,
+                            cursor: 'zoom-in'
 
                           }}
 
@@ -45187,9 +45262,8 @@ function PropertyModal({
   })
   const [istatManualOverride, setIstatManualOverride] = useState(false)
 
-  const { token, user } = useAuthStore()
+  const { token } = useAuthStore()
   const isAdminUser = currentUserRole === 'SUPER_ADMIN' || currentUserRole === 'AGENCY_ADMIN'
-  const isAgentUser = currentUserRole === 'AGENT'
 
 
 
@@ -45262,38 +45336,6 @@ function PropertyModal({
     fetchAgents()
 
   }, [token])
-
-  const effectiveAvailableAgents = React.useMemo(() => {
-    if (isAgentUser && user?.id) {
-      const selfId = String(user.id)
-      const fromApi = availableAgents.find((agent) => String(agent.id) === selfId)
-      if (fromApi) return [fromApi]
-      return [{
-        id: selfId,
-        name: `${user.firstName || ''} ${user.lastName || ''}`.trim() || user.email || 'Agente',
-        email: user.email || '',
-        phone: user.phone || '',
-        role: 'AGENT'
-      } as Agent]
-    }
-    return availableAgents
-  }, [isAgentUser, user, availableAgents])
-
-  useEffect(() => {
-    if (!isAgentUser) return
-    const selfAgent = effectiveAvailableAgents[0]
-    if (!selfAgent) return
-    setFormData((prev) => {
-      if (String(prev.agentId || '') === String(selfAgent.id)) return prev
-      return {
-        ...prev,
-        agentId: selfAgent.id,
-        agentName: selfAgent.name,
-        agentPhone: selfAgent.phone || '',
-        agentEmail: selfAgent.email || ''
-      }
-    })
-  }, [isAgentUser, effectiveAvailableAgents])
 
 
   useEffect(() => {
@@ -45876,7 +45918,7 @@ function PropertyModal({
 
   const handleAgentSelection = (agentId: string) => {
 
-    const selectedAgent = effectiveAvailableAgents.find(agent => agent.id === agentId)
+    const selectedAgent = availableAgents.find(agent => agent.id === agentId)
 
     if (selectedAgent) {
 
@@ -46150,13 +46192,13 @@ function PropertyModal({
       ...randomData,
       portalTargets: ['ONECLICKANNUNCI'],
 
-      agentId: effectiveAvailableAgents.length > 0 ? effectiveAvailableAgents[0].id : prev.agentId,
+      agentId: availableAgents.length > 0 ? availableAgents[0].id : prev.agentId,
 
-      agentName: effectiveAvailableAgents.length > 0 ? effectiveAvailableAgents[0].name : prev.agentName,
+      agentName: availableAgents.length > 0 ? availableAgents[0].name : prev.agentName,
 
-      agentPhone: effectiveAvailableAgents.length > 0 ? effectiveAvailableAgents[0].phone : prev.agentPhone,
+      agentPhone: availableAgents.length > 0 ? availableAgents[0].phone : prev.agentPhone,
 
-      agentEmail: effectiveAvailableAgents.length > 0 ? effectiveAvailableAgents[0].email : prev.agentEmail,
+      agentEmail: availableAgents.length > 0 ? availableAgents[0].email : prev.agentEmail,
 
     }))
 
@@ -49601,7 +49643,6 @@ function PropertyModal({
                     value={formData.agentId}
 
                     onChange={(e) => handleAgentSelection(e.target.value)}
-                    disabled={isAgentUser}
 
                     style={{
 
@@ -49625,7 +49666,7 @@ function PropertyModal({
 
                     <option value="">-- Seleziona un agente --</option>
 
-                    {effectiveAvailableAgents.map(agent => (
+                    {availableAgents.map(agent => (
 
                       <option key={agent.id} value={agent.id}>
 
@@ -53156,7 +53197,7 @@ function ContactModal({
 
     city: contact?.city || '',
 
-    province: contact?.province || (category === 'CLIENT' ? 'PE' : ''),
+    province: contact?.province || '',
 
     address: contact?.address || '',
 
@@ -53404,10 +53445,6 @@ function ContactModal({
       }
       if (!String(formData.address || '').trim()) {
         alert('Per il cliente l\'indirizzo � obbligatorio')
-        return
-      }
-      if (!String(formData.zipCode || '').trim()) {
-        alert('Per il cliente il CAP � obbligatorio')
         return
       }
       if (!String(formData.birthDate || '').trim()) {
@@ -60378,12 +60415,6 @@ export default App
 // Force HMR update
 
  
-
-
-
-
-
-
 
 
 

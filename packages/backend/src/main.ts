@@ -17254,10 +17254,11 @@ app.post('/api/properties', async (req, res) => {
     const normalizedPortalTargets = { valid: true, portalIds: ['ONECLICKANNUNCI'] as string[] };
 
     if (auth.role === 'AGENT') {
-      // Hard-enforce self assignment for agent submissions.
-      body.ownerId = auth.id;
-      body.agentId = auth.id;
-      body.agencyId = auth.agencyId;
+      const ownerIdCandidate = body?.ownerId != null ? String(body.ownerId).trim() : '';
+      const agentIdCandidate = body?.agentId != null ? String(body.agentId).trim() : '';
+      if ((ownerIdCandidate && ownerIdCandidate !== auth.id) || (agentIdCandidate && agentIdCandidate !== auth.id)) {
+        return res.status(403).json({ success: false, message: 'Forbidden' });
+      }
     }
     
     const submitForApproval = Boolean(body?.submitForApproval);
@@ -20103,7 +20104,6 @@ app.post('/api/contacts', async (req, res) => {
       const city = parseOptionalString(data.city);
       const province = parseOptionalString(data.province);
       const address = parseOptionalString(data.address);
-      const zipCode = parseOptionalString(data.zipCode);
       const birthDate = parseOptionalString(data.birthDate);
       const birthPlace = parseOptionalString(data.birthPlace);
       const requestGoal = parseOptionalString(data.requestGoal)?.toUpperCase();
@@ -20132,7 +20132,6 @@ app.post('/api/contacts', async (req, res) => {
       if (!email || !phone) validationErrors.push('Per il cliente email e telefono sono obbligatori');
       if (!city || !province) validationErrors.push('Per il cliente città e provincia sono obbligatorie');
       if (!address) validationErrors.push('Per il cliente indirizzo obbligatorio');
-      if (!zipCode) validationErrors.push('Per il cliente CAP obbligatorio');
       if (!birthDate) validationErrors.push('Per il cliente data di nascita obbligatoria');
       if (!birthPlace) validationErrors.push('Per il cliente luogo di nascita obbligatorio');
       if (!requestGoal) validationErrors.push('Seleziona la finalità della richiesta');
@@ -22992,7 +22991,5 @@ if (shouldStartHttpServer) {
 
 export { app };
 export default app;
-
-
 
 
