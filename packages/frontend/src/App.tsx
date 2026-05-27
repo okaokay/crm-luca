@@ -5973,98 +5973,7 @@ function InternalLoginPage() {
 
       </div>
 
-      {isGalleryOpen && imageList.length > 0 ? (
-        <div
-          onClick={() => setIsGalleryOpen(false)}
-          style={{
-            position: 'fixed',
-            inset: 0,
-            background: 'rgba(15, 23, 42, 0.92)',
-            zIndex: 2147483646,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            padding: '1rem'
-          }}
-        >
-          <button
-            type="button"
-            onClick={(event) => { event.stopPropagation(); setIsGalleryOpen(false) }}
-            style={{ position: 'absolute', top: '1rem', right: '1rem', border: 'none', background: 'rgba(255,255,255,0.2)', color: '#fff', borderRadius: '999px', width: '2.25rem', height: '2.25rem', cursor: 'pointer' }}
-            aria-label="Chiudi galleria"
-          >
-            <X size={18} />
-          </button>
-          <button
-            type="button"
-            onClick={(event) => { event.stopPropagation(); showPrevGalleryImage() }}
-            style={{ position: 'absolute', left: '1rem', border: 'none', background: 'rgba(255,255,255,0.2)', color: '#fff', borderRadius: '999px', width: '2.5rem', height: '2.5rem', cursor: 'pointer' }}
-            aria-label="Immagine precedente"
-          >
-            <ArrowLeft size={18} />
-          </button>
-          <img
-            src={imageList[galleryIndex]}
-            alt={`${property.title} - ${galleryIndex + 1}`}
-            onClick={(event) => event.stopPropagation()}
-            style={{ maxWidth: '94vw', maxHeight: '88vh', objectFit: 'contain', borderRadius: '0.5rem' }}
-          />
-          <button
-            type="button"
-            onClick={(event) => { event.stopPropagation(); showNextGalleryImage() }}
-            style={{ position: 'absolute', right: '1rem', border: 'none', background: 'rgba(255,255,255,0.2)', color: '#fff', borderRadius: '999px', width: '2.5rem', height: '2.5rem', cursor: 'pointer' }}
-            aria-label="Immagine successiva"
-          >
-            <ArrowRight size={18} />
-          </button>
-        </div>
-      ) : null}
-      {isPublicGalleryOpen && publicImageList.length > 0 ? (
-        <div
-          onClick={() => setIsPublicGalleryOpen(false)}
-          style={{
-            position: 'fixed',
-            inset: 0,
-            background: 'rgba(15, 23, 42, 0.92)',
-            zIndex: 2147483646,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            padding: '1rem'
-          }}
-        >
-          <button
-            type="button"
-            onClick={(event) => { event.stopPropagation(); setIsPublicGalleryOpen(false) }}
-            style={{ position: 'absolute', top: '1rem', right: '1rem', border: 'none', background: 'rgba(255,255,255,0.2)', color: '#fff', borderRadius: '999px', width: '2.25rem', height: '2.25rem', cursor: 'pointer' }}
-            aria-label="Chiudi galleria"
-          >
-            <X size={18} />
-          </button>
-          <button
-            type="button"
-            onClick={(event) => { event.stopPropagation(); showPrevPublicGalleryImage() }}
-            style={{ position: 'absolute', left: '1rem', border: 'none', background: 'rgba(255,255,255,0.2)', color: '#fff', borderRadius: '999px', width: '2.5rem', height: '2.5rem', cursor: 'pointer' }}
-            aria-label="Immagine precedente"
-          >
-            <ArrowLeft size={18} />
-          </button>
-          <img
-            src={publicImageList[activeImageIndex]}
-            alt={`${property.title} - ${activeImageIndex + 1}`}
-            onClick={(event) => event.stopPropagation()}
-            style={{ maxWidth: '94vw', maxHeight: '88vh', objectFit: 'contain', borderRadius: '0.5rem' }}
-          />
-          <button
-            type="button"
-            onClick={(event) => { event.stopPropagation(); showNextPublicGalleryImage() }}
-            style={{ position: 'absolute', right: '1rem', border: 'none', background: 'rgba(255,255,255,0.2)', color: '#fff', borderRadius: '999px', width: '2.5rem', height: '2.5rem', cursor: 'pointer' }}
-            aria-label="Immagine successiva"
-          >
-            <ArrowRight size={18} />
-          </button>
-        </div>
-      ) : null}
+
     </div>
 
   )
@@ -28699,6 +28608,7 @@ function ClientViewModal({
 
       </div>
 
+
     </div>
 
   )
@@ -39356,6 +39266,52 @@ function PropertyDetailPage({
         </aside>}
       </div>
     </div>
+    {isGalleryOpen && imageList.length > 0 ? (
+      <div
+        onClick={() => setIsGalleryOpen(false)}
+        style={{
+          position: 'fixed',
+          inset: 0,
+          background: 'rgba(15, 23, 42, 0.92)',
+          zIndex: 2147483646,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          padding: '1rem'
+        }}
+      >
+        <button
+          type="button"
+          onClick={(event) => { event.stopPropagation(); setIsGalleryOpen(false) }}
+          style={{ position: 'absolute', top: '1rem', right: '1rem', border: 'none', background: 'rgba(255,255,255,0.2)', color: '#fff', borderRadius: '999px', width: '2.25rem', height: '2.25rem', cursor: 'pointer' }}
+          aria-label="Chiudi galleria"
+        >
+          <X size={18} />
+        </button>
+        <button
+          type="button"
+          onClick={(event) => { event.stopPropagation(); showPrevGalleryImage() }}
+          style={{ position: 'absolute', left: '1rem', border: 'none', background: 'rgba(255,255,255,0.2)', color: '#fff', borderRadius: '999px', width: '2.5rem', height: '2.5rem', cursor: 'pointer' }}
+          aria-label="Immagine precedente"
+        >
+          <ArrowLeft size={18} />
+        </button>
+        <img
+          src={imageList[galleryIndex]}
+          alt={`${property.title} - ${galleryIndex + 1}`}
+          onClick={(event) => event.stopPropagation()}
+          style={{ maxWidth: '94vw', maxHeight: '88vh', objectFit: 'contain', borderRadius: '0.5rem' }}
+        />
+        <button
+          type="button"
+          onClick={(event) => { event.stopPropagation(); showNextGalleryImage() }}
+          style={{ position: 'absolute', right: '1rem', border: 'none', background: 'rgba(255,255,255,0.2)', color: '#fff', borderRadius: '999px', width: '2.5rem', height: '2.5rem', cursor: 'pointer' }}
+          aria-label="Immagine successiva"
+        >
+          <ArrowRight size={18} />
+        </button>
+      </div>
+    ) : null}
     {showQuickClientModal ? (
       <ContactModal
         contact={null}
@@ -40162,6 +40118,7 @@ function PropertyOverviewTab({
         </div>
 
       </div>
+
 
     </div>
 
@@ -42964,6 +42921,53 @@ function PublicPropertyPage({
         </div>
 
       </div>
+
+      {isPublicGalleryOpen && publicImageList.length > 0 ? (
+        <div
+          onClick={() => setIsPublicGalleryOpen(false)}
+          style={{
+            position: 'fixed',
+            inset: 0,
+            background: 'rgba(15, 23, 42, 0.92)',
+            zIndex: 2147483646,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: '1rem'
+          }}
+        >
+          <button
+            type="button"
+            onClick={(event) => { event.stopPropagation(); setIsPublicGalleryOpen(false) }}
+            style={{ position: 'absolute', top: '1rem', right: '1rem', border: 'none', background: 'rgba(255,255,255,0.2)', color: '#fff', borderRadius: '999px', width: '2.25rem', height: '2.25rem', cursor: 'pointer' }}
+            aria-label="Chiudi galleria"
+          >
+            <X size={18} />
+          </button>
+          <button
+            type="button"
+            onClick={(event) => { event.stopPropagation(); showPrevPublicGalleryImage() }}
+            style={{ position: 'absolute', left: '1rem', border: 'none', background: 'rgba(255,255,255,0.2)', color: '#fff', borderRadius: '999px', width: '2.5rem', height: '2.5rem', cursor: 'pointer' }}
+            aria-label="Immagine precedente"
+          >
+            <ArrowLeft size={18} />
+          </button>
+          <img
+            src={publicImageList[activeImageIndex]}
+            alt={`${property.title} - ${activeImageIndex + 1}`}
+            onClick={(event) => event.stopPropagation()}
+            style={{ maxWidth: '94vw', maxHeight: '88vh', objectFit: 'contain', borderRadius: '0.5rem' }}
+          />
+          <button
+            type="button"
+            onClick={(event) => { event.stopPropagation(); showNextPublicGalleryImage() }}
+            style={{ position: 'absolute', right: '1rem', border: 'none', background: 'rgba(255,255,255,0.2)', color: '#fff', borderRadius: '999px', width: '2.5rem', height: '2.5rem', cursor: 'pointer' }}
+            aria-label="Immagine successiva"
+          >
+            <ArrowRight size={18} />
+          </button>
+        </div>
+      ) : null}
 
     </div>
 
