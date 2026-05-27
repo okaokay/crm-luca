@@ -20104,8 +20104,6 @@ app.post('/api/contacts', async (req, res) => {
       const city = parseOptionalString(data.city);
       const province = parseOptionalString(data.province);
       const address = parseOptionalString(data.address);
-      const birthDate = parseOptionalString(data.birthDate);
-      const birthPlace = parseOptionalString(data.birthPlace);
       const requestGoal = parseOptionalString(data.requestGoal)?.toUpperCase();
       const requestPropertyTypeRaw = parseOptionalString(data.requestPropertyType);
       const requestPropertyType = mapRequestPropertyType(requestPropertyTypeRaw);
@@ -20132,8 +20130,6 @@ app.post('/api/contacts', async (req, res) => {
       if (!email || !phone) validationErrors.push('Per il cliente email e telefono sono obbligatori');
       if (!city || !province) validationErrors.push('Per il cliente città e provincia sono obbligatorie');
       if (!address) validationErrors.push('Per il cliente indirizzo obbligatorio');
-      if (!birthDate) validationErrors.push('Per il cliente data di nascita obbligatoria');
-      if (!birthPlace) validationErrors.push('Per il cliente luogo di nascita obbligatorio');
       if (!requestGoal) validationErrors.push('Seleziona la finalità della richiesta');
       if (!requestPropertyTypeRaw || !requestPropertyType) {
         validationErrors.push('Seleziona la tipologia immobile richiesta');
@@ -22991,5 +22987,4 @@ if (shouldStartHttpServer) {
 
 export { app };
 export default app;
-
 

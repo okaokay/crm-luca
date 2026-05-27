@@ -53447,14 +53447,6 @@ function ContactModal({
         alert('Per il cliente l\'indirizzo � obbligatorio')
         return
       }
-      if (!String(formData.birthDate || '').trim()) {
-        alert('Per il cliente la data di nascita � obbligatoria')
-        return
-      }
-      if (!String(formData.birthPlace || '').trim()) {
-        alert('Per il cliente il luogo di nascita � obbligatorio')
-        return
-      }
       if (!String((formData as any).requestGoal || '').trim()) {
         alert('Seleziona la finalit� della richiesta')
         return
