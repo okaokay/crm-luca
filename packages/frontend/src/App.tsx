@@ -38413,6 +38413,26 @@ function PropertyDetailPage({
     if (!imageList.length) return
     setGalleryIndex((prev) => (prev + 1) % imageList.length)
   }
+  useEffect(() => {
+    if (!isGalleryOpen || imageList.length === 0) return
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        setIsGalleryOpen(false)
+        return
+      }
+      if (event.key === 'ArrowLeft') {
+        event.preventDefault()
+        showPrevGalleryImage()
+        return
+      }
+      if (event.key === 'ArrowRight') {
+        event.preventDefault()
+        showNextGalleryImage()
+      }
+    }
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [isGalleryOpen, imageList.length])
   const hasPortals = Array.isArray(property.portalTargets) && property.portalTargets.length > 0
   const sidebarLinkedRequests = [...linkedRequests]
     .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
@@ -42332,6 +42352,26 @@ function PublicPropertyPage({
     if (!publicImageList.length) return
     setActiveImageIndex((prev) => (prev + 1) % publicImageList.length)
   }
+  useEffect(() => {
+    if (!isPublicGalleryOpen || publicImageList.length === 0) return
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        setIsPublicGalleryOpen(false)
+        return
+      }
+      if (event.key === 'ArrowLeft') {
+        event.preventDefault()
+        showPrevPublicGalleryImage()
+        return
+      }
+      if (event.key === 'ArrowRight') {
+        event.preventDefault()
+        showNextPublicGalleryImage()
+      }
+    }
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [isPublicGalleryOpen, publicImageList.length])
 
 
 
