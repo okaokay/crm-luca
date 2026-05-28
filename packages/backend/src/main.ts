@@ -1329,6 +1329,29 @@ const getPreferredContractPrice = (property: any): number | null => {
   return sale ?? rent;
 };
 
+const normalizePropertyPricesForUi = (property: any) => {
+  if (!property || typeof property !== 'object') return property;
+  const oneClick = property.oneClickData && typeof property.oneClickData === 'object' ? property.oneClickData : {};
+  const feedPriceRaw = (oneClick as any)?.prezzo;
+  const feedPrice = Number(feedPriceRaw);
+  if (!Number.isFinite(feedPrice) || feedPrice <= 0) return property;
+
+  const contractType = String(property.contractType || '').trim().toUpperCase();
+  if (contractType === 'RENT') {
+    return {
+      ...property,
+      advertisingRentPrice: feedPrice,
+      rentPrice: feedPrice
+    };
+  }
+
+  return {
+    ...property,
+    advertisingSalePrice: feedPrice,
+    salePrice: feedPrice
+  };
+};
+
 const isRequirementSatisfied = (requirement: PortalRequirement, property: Prisma.PropertyGetPayload<{}>) => {
   if (requirement === 'price') {
     const value = getPreferredContractPrice(property);
@@ -16404,7 +16427,7 @@ app.get('/api/properties', async (req, res) => {
 
     res.json({
       success: true,
-      data: properties,
+      data: properties.map((property: any) => normalizePropertyPricesForUi(property)),
       pagination: {
         page: Number(page),
         limit: Number(limit),
@@ -16529,11 +16552,11 @@ app.get('/api/properties/:id', async (req, res) => {
         .join(' ')
         .trim();
       const agentName = ownerFullName || property.owner?.email || '';
-      const serialized = {
+      const serialized = normalizePropertyPricesForUi({
         ...property,
         agentId: property.owner?.id || property.ownerId || null,
         agentName: agentName || null
-      } as any;
+      }) as any;
       delete serialized.owner;
       res.json({ success: true, data: serialized });
     } else {
