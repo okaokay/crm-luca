@@ -8975,6 +8975,8 @@ function App() {
         payload.requestFloor = contactData.requestFloor
 
         payload.budget = contactData.budget
+        payload.budgetMin = (contactData as any).budgetMin
+        payload.budgetMax = (contactData as any).budgetMax
 
         payload.preferences = contactData.preferences
 
@@ -9124,6 +9126,8 @@ function App() {
         payload.requestBathrooms = (contactData as any).requestBathrooms
         payload.requestFloor = (contactData as any).requestFloor
         payload.budget = (contactData as any).budget
+        payload.budgetMin = (contactData as any).budgetMin
+        payload.budgetMax = (contactData as any).budgetMax
         payload.preferences = (contactData as any).preferences
       }
 
@@ -54828,7 +54832,7 @@ function ContactModal({
 
                   <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: '500' }}>
 
-                    Finalitï¿½ richiesta *
+                    Finalità richiesta *
 
                   </label>
 
@@ -54843,7 +54847,7 @@ function ContactModal({
                     }}
                     required
                   >
-                    <option value="">Seleziona finalitï¿½...</option>
+                    <option value="">Seleziona finalità...</option>
                     {requestGoalOptions.map((option) => (
                       <option key={option.value} value={option.value}>
                         {option.label}
@@ -54943,7 +54947,7 @@ function ContactModal({
                     >
                       <option value="">
                         {formData.province
-                          ? `Seleziona cittï¿½ dalla provincia ${formData.province}`
+                          ? `Seleziona città dalla provincia ${formData.province}`
                           : 'Seleziona prima la provincia'}
                       </option>
                       {provinceCityOptions.map(city => (
