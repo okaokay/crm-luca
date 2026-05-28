@@ -7891,6 +7891,127 @@ app.post('/api/agent-zones/dynamic-groups', async (req, res) => {
   }
 });
 
+app.put('/api/agent-zones/dynamic-groups/:groupId', async (req, res) => {
+  try {
+    const auth = getAuth(req);
+    if (!auth) return res.status(401).json({ success: false, message: 'Unauthorized' });
+    if (!isAdminRole(auth.role)) return res.status(403).json({ success: false, message: 'Forbidden' });
+    const prismaAny = prisma as any;
+    const groupId = String(req.params.groupId || '').trim();
+    const nextGroupName = String(req.body?.groupName || '').trim();
+    const rawStreets = Array.isArray(req.body?.streets) ? req.body.streets : [];
+    if (!groupId) return res.status(400).json({ success: false, message: 'groupId obbligatorio' });
+    if (!nextGroupName) return res.status(400).json({ success: false, message: 'groupName obbligatorio' });
+
+    const group = await prismaAny.zoneStreetGroup.findUnique({
+      where: { id: groupId },
+      include: {
+        zone: { select: { id: true, agencyId: true, notes: true, city: true, province: true, region: true, zone: true } },
+        members: {
+          orderBy: { position: 'asc' },
+          include: {
+            street: { select: { id: true, name: true, normalizedName: true } }
+          }
+        }
+      }
+    });
+    if (!group || !group.zone) return res.status(404).json({ success: false, message: 'Gruppo non trovato' });
+    if (String(group.zone.notes || '') !== DYNAMIC_ZONE_GROUP_MARKER) {
+      return res.status(400).json({ success: false, message: 'Il gruppo selezionato non è dinamico' });
+    }
+    if (auth.agencyId && auth.role !== 'SUPER_ADMIN' && String(group.zone.agencyId) !== String(auth.agencyId)) {
+      return res.status(403).json({ success: false, message: 'Forbidden' });
+    }
+
+    const existingNorms = new Set<string>(
+      (group.members || [])
+        .map((member: any) => String(member?.street?.normalizedName || '').trim())
+        .filter(Boolean)
+    );
+    const dedupIncoming = new Map<string, string>();
+    for (const raw of rawStreets) {
+      const sanitized = sanitizeStreetName(String(raw || ''));
+      const normalized = normalizeStreetName(sanitized);
+      if (!sanitized || !normalized) continue;
+      if (!existingNorms.has(normalized) && !dedupIncoming.has(normalized)) dedupIncoming.set(normalized, sanitized);
+    }
+    const streetsToCreate = Array.from(dedupIncoming.entries());
+
+    const updated = await prismaAny.$transaction(async (tx: any) => {
+      const updatedGroup = await tx.zoneStreetGroup.update({
+        where: { id: group.id },
+        data: { name: nextGroupName }
+      });
+
+      let nextPosition = Number(
+        (group.members || []).reduce((acc: number, member: any) => Math.max(acc, Number(member.position || 0)), -1)
+      ) + 1;
+
+      for (const [normalizedName, streetName] of streetsToCreate) {
+        const street = await tx.zoneStreet.create({
+          data: {
+            agencyId: String(group.zone.agencyId),
+            zoneId: String(group.zone.id),
+            name: streetName,
+            normalizedName,
+            orderIndex: nextPosition
+          }
+        });
+        await tx.zoneStreetGroupMember.create({
+          data: {
+            groupId: String(group.id),
+            streetId: String(street.id),
+            position: nextPosition
+          }
+        });
+        nextPosition += 1;
+      }
+
+      const refreshedGroupSize = await tx.zoneStreetGroupMember.count({ where: { groupId: String(group.id) } });
+      await tx.zoneStreetGroup.update({
+        where: { id: String(group.id) },
+        data: { groupSize: refreshedGroupSize }
+      });
+      const refreshedZoneStreetCount = await tx.zoneStreet.count({ where: { zoneId: String(group.zone.id) } });
+      await tx.agentZone.update({
+        where: { id: String(group.zone.id) },
+        data: { groupSize: refreshedZoneStreetCount, lastImportedAt: new Date() }
+      });
+
+      const finalGroup = await tx.zoneStreetGroup.findUnique({
+        where: { id: String(group.id) },
+        include: {
+          members: {
+            orderBy: { position: 'asc' },
+            include: { street: { select: { id: true, name: true } } }
+          }
+        }
+      });
+      return { updatedGroup, finalGroup };
+    });
+
+    res.json({
+      success: true,
+      data: {
+        zoneId: String(group.zone.id),
+        groupId: String(group.id),
+        city: String(group.zone.city || ''),
+        province: String(group.zone.province || ''),
+        region: String(group.zone.region || ''),
+        zoneName: parseDynamicZoneLabel(group.zone.zone),
+        groupName: String(updated.updatedGroup.name || ''),
+        streets: (updated.finalGroup?.members || [])
+          .map((member: any) => member?.street)
+          .filter(Boolean)
+          .map((street: any) => ({ id: String(street.id), name: String(street.name) })),
+        createdStreets: streetsToCreate.length
+      }
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, message: 'Error updating dynamic group' });
+  }
+});
+
 app.delete('/api/agent-zones/dynamic-groups/:groupId', async (req, res) => {
   try {
     const auth = getAuth(req);

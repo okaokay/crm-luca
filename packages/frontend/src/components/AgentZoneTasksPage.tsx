@@ -1,6 +1,6 @@
 
 import React, { useEffect, useMemo, useState } from 'react'
-import { MapPin, Search } from 'lucide-react'
+import { ChevronDown, ChevronUp, MapPin, Pencil, Search } from 'lucide-react'
 import { useAuthStore } from '../store/authStore'
 import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
@@ -603,6 +603,15 @@ export function AgentZoneTasksPage({ agents, onRefreshGlobalData }: AgentZoneTas
   const [dynamicAssignAgentId, setDynamicAssignAgentId] = useState('')
   const [dynamicDeletingGroupId, setDynamicDeletingGroupId] = useState<string | null>(null)
   const [dynamicCreateTargetZone, setDynamicCreateTargetZone] = useState<{ zoneId: string; city: string; zoneName: string } | null>(null)
+  const [dynamicEditModal, setDynamicEditModal] = useState<{
+    open: boolean
+    zoneId: string
+    groupId: string
+    groupName: string
+    existingStreets: Array<{ id: string; name: string }>
+  }>({ open: false, zoneId: '', groupId: '', groupName: '', existingStreets: [] })
+  const [dynamicEditNewStreets, setDynamicEditNewStreets] = useState<string[]>([''])
+  const [dynamicEditSaving, setDynamicEditSaving] = useState(false)
 
   const authFetch = async (input: RequestInfo | URL, init: RequestInit = {}) => {
     const h = token ? { ...(init.headers as Record<string, string>), Authorization: `Bearer ${token}` } : init.headers
@@ -676,7 +685,7 @@ export function AgentZoneTasksPage({ agents, onRefreshGlobalData }: AgentZoneTas
       return
     }
     if (!dynamicCreateTargetZone && (!city || !zoneName)) {
-      setMsg('Compila città, nome zona, nome gruppo e almeno una via')
+      setMsg('Compila cittï¿½, nome zona, nome gruppo e almeno una via')
       return
     }
     try {
@@ -1036,6 +1045,60 @@ export function AgentZoneTasksPage({ agents, onRefreshGlobalData }: AgentZoneTas
     })
     setDynamicAssignAgentId('')
   }
+
+  const openDynamicEditModal = (group: DynamicZoneGroup) => {
+    setDynamicEditModal({
+      open: true,
+      zoneId: group.zoneId,
+      groupId: group.groupId,
+      groupName: group.groupName,
+      existingStreets: Array.isArray(group.streets) ? group.streets : []
+    })
+    setDynamicEditNewStreets([''])
+  }
+
+  const saveDynamicGroupEdit = async () => {
+    if (!dynamicEditModal.open || !dynamicEditModal.groupId) return
+    const cleanedGroupName = String(dynamicEditModal.groupName || '').trim()
+    if (!cleanedGroupName) {
+      setMsg('Il nome gruppo Ã¨ obbligatorio')
+      return
+    }
+
+    const newStreets = dynamicEditNewStreets
+      .map((street) => String(street || '').trim())
+      .filter(Boolean)
+
+    setDynamicEditSaving(true)
+    try {
+      const response = await authFetch('/api/agent-zones/dynamic-groups/' + encodeURIComponent(dynamicEditModal.groupId), {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          groupName: cleanedGroupName,
+          streets: newStreets
+        })
+      })
+      const parsed = await parseJsonSafe(response)
+      if (!parsed.ok || !parsed.data?.success) {
+        setMsg(parsed.ok ? (parsed.data?.message || 'Errore modifica gruppo') : 'Errore modifica gruppo')
+        return
+      }
+
+      const editedGroupId = dynamicEditModal.groupId
+      setDynamicEditModal({ open: false, zoneId: '', groupId: '', groupName: '', existingStreets: [] })
+      setDynamicEditNewStreets([''])
+      await loadDynamicGroups()
+      if (dynamicSelectedGroupId === editedGroupId) {
+        await openDynamicGroupWorkspace(editedGroupId)
+      }
+      setMsg('Gruppo aggiornato con successo')
+    } catch {
+      setMsg('Errore modifica gruppo')
+    } finally {
+      setDynamicEditSaving(false)
+    }
+  }
   // Desktop + tablet: 3 colonne affiancate. Solo mobile stretto va in colonna.
   const isMobileLayout = viewportWidth < 640
   const regions = useMemo(() => Array.from(new Set(geo.map((x) => x.region))).sort(), [geo])
@@ -1315,7 +1378,7 @@ export function AgentZoneTasksPage({ agents, onRefreshGlobalData }: AgentZoneTas
     if (opts?.trackOpen !== false) {
       await trackGroupEvent(
         ctx,
-        `Apertura task di zona · CAP ${ctx.cap} · Gruppo ${ctx.groupIndex}`,
+        `Apertura task di zona ï¿½ CAP ${ctx.cap} ï¿½ Gruppo ${ctx.groupIndex}`,
         `${actorLabel} ha aperto task di zona alle ${new Date().toLocaleString('it-IT')}.`,
         { traceEvent: 'ZONE_GROUP_OPEN' }
       )
@@ -1971,7 +2034,7 @@ export function AgentZoneTasksPage({ agents, onRefreshGlobalData }: AgentZoneTas
     if (opts?.trackOpen !== false) {
       await trackStreetEvent(
         ctx,
-        `Apertura dettagli via · ${ctx.streetName}`,
+        `Apertura dettagli via ï¿½ ${ctx.streetName}`,
         `${actorLabel} ha aperto i dettagli della via "${ctx.streetName}" alle ${new Date().toLocaleString('it-IT')}.`,
         { traceEvent: 'ZONE_STREET_OPEN', streetName: ctx.streetName }
       )
@@ -2058,7 +2121,7 @@ export function AgentZoneTasksPage({ agents, onRefreshGlobalData }: AgentZoneTas
     setListingDetail(null)
     void trackGroupEvent(
       { cap: ctx.cap, groupIndex: ctx.groupIndex, region: ctx.region, province: ctx.province, city: ctx.city },
-      `Apertura dettagli via · ${ctx.streetName}`,
+      `Apertura dettagli via ï¿½ ${ctx.streetName}`,
       `${actorLabel} ha aperto i dettagli della via "${ctx.streetName}" alle ${new Date().toLocaleString('it-IT')}.`,
       { traceEvent: 'ZONE_STREET_OPEN_MANUAL', streetName: ctx.streetName }
     )
@@ -2106,7 +2169,7 @@ export function AgentZoneTasksPage({ agents, onRefreshGlobalData }: AgentZoneTas
       const listingTitle = data?.data?.listing?.title || `Immobile ${data?.data?.listing?.sourceListingId || listingId}`
       await trackListingEvent(
         listingId,
-        `Apertura scheda immobile · ${listingTitle}`,
+        `Apertura scheda immobile ï¿½ ${listingTitle}`,
         `${actorLabel} ha aperto scheda immobile "${listingTitle}" alle ${new Date().toLocaleString('it-IT')}.`,
         { traceEvent: 'ZONE_LISTING_OPEN', listingTitle }
       )
@@ -2309,7 +2372,7 @@ export function AgentZoneTasksPage({ agents, onRefreshGlobalData }: AgentZoneTas
                   onClick={() => {
                     void trackListingEvent(
                       listingDetail.listing.id,
-                      `Apertura annuncio sorgente · ${listingDetail.listing.title || listingDetail.listing.sourceListingId}`,
+                      `Apertura annuncio sorgente ï¿½ ${listingDetail.listing.title || listingDetail.listing.sourceListingId}`,
                       `${actorLabel} ha cliccato su "Apri annuncio dettaglio" per "${listingDetail.listing.title || listingDetail.listing.sourceListingId}" alle ${new Date().toLocaleString('it-IT')}.`,
                       {
                         traceEvent: 'ZONE_LISTING_SOURCE_OPEN',
@@ -2423,7 +2486,7 @@ export function AgentZoneTasksPage({ agents, onRefreshGlobalData }: AgentZoneTas
 
         {streetLoading && <div style={{ ...card, padding: '12px' }}>Caricamento scheda via...</div>}
         {!streetLoading && streetWs && (
-          <div style={{ display: 'grid', gap: '12px', gridTemplateColumns: isMobileLayout ? '1fr' : 'repeat(3, minmax(0, 1fr))' }}>
+          <div style={{ display: 'grid', gap: '12px', gridTemplateColumns: isMobileLayout ? '1fr' : 'repeat(4, minmax(0, 1fr))' }}>
             <div style={{ ...card, padding: '12px', gridColumn: isMobileLayout ? 'auto' : 'span 2' }}>
               <h3 style={{ marginTop: 0 }}>Statistiche e mercato della via</h3>
               {streetInsightsLoading && <div style={{ color: '#64748b' }}>Caricamento dati mercato...</div>}
@@ -2457,7 +2520,7 @@ export function AgentZoneTasksPage({ agents, onRefreshGlobalData }: AgentZoneTas
                     <div style={{ fontWeight: 700, marginBottom: '6px' }}>
                       {streetInsights.marketTitle || `Mercato immobiliare in ${streetCtx.streetName}`}
                     </div>
-                    <div><strong>Prezzo medio al m²:</strong> {streetInsights.avgPricePerSqm || '-'}</div>
+                    <div><strong>Prezzo medio al mï¿½:</strong> {streetInsights.avgPricePerSqm || '-'}</div>
                     {streetInsights.avgRangeText && <div><strong>Range indicativo:</strong> {streetInsights.avgRangeText}</div>}
                   </div>
                   <div style={{ border: '1px solid #e5e7eb', borderRadius: '10px', padding: '10px' }}>
@@ -2559,7 +2622,7 @@ export function AgentZoneTasksPage({ agents, onRefreshGlobalData }: AgentZoneTas
                               onClick={() => {
                                 void trackListingEvent(
                                   listing.id,
-                                  `Apertura annuncio sorgente · ${listing.title || listing.sourceListingId}`,
+                                  `Apertura annuncio sorgente ï¿½ ${listing.title || listing.sourceListingId}`,
                                   `${actorLabel} ha cliccato su "Apri annuncio dettaglio" per "${listing.title || listing.sourceListingId}" alle ${new Date().toLocaleString('it-IT')}.`,
                                   {
                                     traceEvent: 'ZONE_LISTING_SOURCE_OPEN',
@@ -3266,7 +3329,7 @@ export function AgentZoneTasksPage({ agents, onRefreshGlobalData }: AgentZoneTas
                   <input value={zoneClientRecordForm.email} onChange={(e) => setZoneClientRecordForm((p) => ({ ...p, email: e.target.value }))} placeholder="Email" style={inputStyle} />
                   <input value={zoneClientRecordForm.address} onChange={(e) => setZoneClientRecordForm((p) => ({ ...p, address: e.target.value }))} placeholder="Indirizzo" style={inputStyle} />
                   <input value={zoneClientRecordForm.zipCode} onChange={(e) => setZoneClientRecordForm((p) => ({ ...p, zipCode: e.target.value }))} placeholder="CAP" style={inputStyle} />
-                  <input value={zoneClientRecordForm.city} onChange={(e) => setZoneClientRecordForm((p) => ({ ...p, city: e.target.value }))} placeholder="Città" style={inputStyle} />
+                  <input value={zoneClientRecordForm.city} onChange={(e) => setZoneClientRecordForm((p) => ({ ...p, city: e.target.value }))} placeholder="Cittï¿½" style={inputStyle} />
                   <input value={zoneClientRecordForm.province} onChange={(e) => setZoneClientRecordForm((p) => ({ ...p, province: e.target.value }))} placeholder="Provincia" style={inputStyle} />
                 </div>
                 <select value={zoneClientRecordForm.type} onChange={(e) => setZoneClientRecordForm((p) => ({ ...p, type: e.target.value as 'SELLER' | 'LEAD' }))} style={inputStyle}>
@@ -3583,7 +3646,7 @@ export function AgentZoneTasksPage({ agents, onRefreshGlobalData }: AgentZoneTas
                     <input value={zoneClientRecordEditForm.email} onChange={(e) => setZoneClientRecordEditForm((p) => ({ ...p, email: e.target.value }))} placeholder="Email" style={inputStyle} />
                     <input value={zoneClientRecordEditForm.address} onChange={(e) => setZoneClientRecordEditForm((p) => ({ ...p, address: e.target.value }))} placeholder="Indirizzo" style={inputStyle} />
                     <input value={zoneClientRecordEditForm.zipCode} onChange={(e) => setZoneClientRecordEditForm((p) => ({ ...p, zipCode: e.target.value }))} placeholder="CAP" style={inputStyle} />
-                    <input value={zoneClientRecordEditForm.city} onChange={(e) => setZoneClientRecordEditForm((p) => ({ ...p, city: e.target.value }))} placeholder="Città" style={inputStyle} />
+                    <input value={zoneClientRecordEditForm.city} onChange={(e) => setZoneClientRecordEditForm((p) => ({ ...p, city: e.target.value }))} placeholder="Cittï¿½" style={inputStyle} />
                     <input value={zoneClientRecordEditForm.province} onChange={(e) => setZoneClientRecordEditForm((p) => ({ ...p, province: e.target.value }))} placeholder="Provincia" style={inputStyle} />
                   </div>
                   <select value={zoneClientRecordEditForm.type} onChange={(e) => setZoneClientRecordEditForm((p) => ({ ...p, type: e.target.value as 'SELLER' | 'LEAD' }))} style={{ ...inputStyle, marginTop: '8px' }}>
@@ -3722,7 +3785,7 @@ export function AgentZoneTasksPage({ agents, onRefreshGlobalData }: AgentZoneTas
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
                       <h3 style={{ margin: 0, fontSize: '1rem' }}>Mega griglia informazioni zona</h3>
                       <div style={{ color: '#64748b', fontSize: '0.86rem' }}>
-                        Totale: <strong>{megaGridRows.length}</strong> · Filtrate: <strong>{megaGridRowsFiltered.length}</strong>
+                        Totale: <strong>{megaGridRows.length}</strong> ï¿½ Filtrate: <strong>{megaGridRowsFiltered.length}</strong>
                       </div>
                     </div>
                     <div style={{ display: 'grid', gap: '8px', gridTemplateColumns: isMobileLayout ? '1fr' : 'repeat(4, minmax(0, 1fr))' }}>
@@ -3751,8 +3814,8 @@ export function AgentZoneTasksPage({ agents, onRefreshGlobalData }: AgentZoneTas
                       <input type="date" value={megaGridDateFrom} onChange={(e) => setMegaGridDateFrom(e.target.value)} style={inputStyle} />
                       <input type="date" value={megaGridDateTo} onChange={(e) => setMegaGridDateTo(e.target.value)} style={inputStyle} />
                       <select value={megaGridSort} onChange={(e) => setMegaGridSort(e.target.value as 'DESC' | 'ASC')} style={inputStyle}>
-                        <option value="DESC">Ordina: più recenti</option>
-                        <option value="ASC">Ordina: più vecchie</option>
+                        <option value="DESC">Ordina: piï¿½ recenti</option>
+                        <option value="ASC">Ordina: piï¿½ vecchie</option>
                       </select>
                       <button
                         type="button"
@@ -3847,7 +3910,7 @@ export function AgentZoneTasksPage({ agents, onRefreshGlobalData }: AgentZoneTas
                         {!groupOverviewLoading && activeDailyListing && (
                           <>
                             <div style={{ fontSize: '0.78rem', color: '#166534', fontWeight: 700 }}>
-                              Nuovo immobile · {fmt(activeDailyListing.firstSeenAt)}
+                              Nuovo immobile ï¿½ {fmt(activeDailyListing.firstSeenAt)}
                             </div>
                             <div style={{ fontWeight: 700, fontSize: '0.92rem' }}>{activeDailyListing.title || 'Immobile'}</div>
                             <div style={{ color: '#334155', fontSize: '0.86rem' }}>
@@ -3875,7 +3938,7 @@ export function AgentZoneTasksPage({ agents, onRefreshGlobalData }: AgentZoneTas
                         <div style={{ fontSize: '0.88rem', color: '#334155' }}>Cartelli: <strong>{zoneSigns.length}</strong></div>
                         <div style={{ fontSize: '0.88rem', color: '#334155' }}>Immobili manuali: <strong>{zoneProperties.length}</strong></div>
                         <div style={{ color: '#64748b', fontSize: '0.8rem' }}>
-                          Ultimi clienti: {zoneClientRecords.slice(0, 2).map((c: any) => c.fullName || `${c.firstName} ${c.lastName}`.trim()).join(' · ') || '-'}
+                          Ultimi clienti: {zoneClientRecords.slice(0, 2).map((c: any) => c.fullName || `${c.firstName} ${c.lastName}`.trim()).join(' ï¿½ ') || '-'}
                         </div>
                         <div style={{ borderTop: '1px solid #e2e8f0', marginTop: '4px', paddingTop: '6px', display: 'grid', gap: '6px' }}>
                           <div style={{ fontSize: '0.84rem', fontWeight: 700, color: '#0f172a' }}>Log di Zona</div>
@@ -3897,7 +3960,7 @@ export function AgentZoneTasksPage({ agents, onRefreshGlobalData }: AgentZoneTas
                             <div key={l.id} style={{ border: '1px solid #e5e7eb', borderRadius: '8px', padding: '6px 8px' }}>
                               <div style={{ fontSize: '0.82rem', fontWeight: 700 }}>{l.title || 'Aggiornamento zona'}</div>
                               <div style={{ fontSize: '0.78rem', color: '#334155' }}>{String(l.content || '').slice(0, 120)}</div>
-                              <div style={{ fontSize: '0.74rem', color: '#64748b' }}>{fmt(l.createdAt)}{l?.metadata?.streetName ? ` · ${String(l.metadata.streetName)}` : ''}</div>
+                              <div style={{ fontSize: '0.74rem', color: '#64748b' }}>{fmt(l.createdAt)}{l?.metadata?.streetName ? ` ï¿½ ${String(l.metadata.streetName)}` : ''}</div>
                             </div>
                           ))}
                           <button type="button" style={{ ...btnPrimary, padding: '7px 10px', background: '#1e293b' }} onClick={() => setGroupPage({ mode: 'zone_log', assignmentId: selectedAssignmentId })}>
@@ -4030,7 +4093,7 @@ export function AgentZoneTasksPage({ agents, onRefreshGlobalData }: AgentZoneTas
                         ) : null}
                         <div style={{ color: '#64748b', fontSize: '0.85rem' }}>
                           {fmt(l.createdAt)} - {l.createdBy.firstName} {l.createdBy.lastName}
-                          {l?.metadata?.streetName ? ` · Sotto-zona: ${String(l.metadata.streetName)}` : ''}
+                          {l?.metadata?.streetName ? ` ï¿½ Sotto-zona: ${String(l.metadata.streetName)}` : ''}
                         </div>
                       </div>
                     ))}
@@ -4074,7 +4137,7 @@ export function AgentZoneTasksPage({ agents, onRefreshGlobalData }: AgentZoneTas
             <div style={{ ...card, width: 'min(520px, 92vw)', padding: '16px', display: 'grid', gap: '10px' }}>
               <h3 style={{ margin: 0 }}>Riassegna gruppo ad altro agente</h3>
               <p style={{ margin: 0, color: '#64748b' }}>
-                Verrà chiuso il gruppo attuale, archiviato lo storico e assegnato il gruppo al nuovo agente.
+                Verrï¿½ chiuso il gruppo attuale, archiviato lo storico e assegnato il gruppo al nuovo agente.
               </p>
               <select value={reassignAgentId} onChange={(e) => setReassignAgentId(e.target.value)} style={inputStyle}>
                 <option value="">Seleziona agente</option>
@@ -4186,7 +4249,7 @@ export function AgentZoneTasksPage({ agents, onRefreshGlobalData }: AgentZoneTas
             <input
               value={dynamicKeyword}
               onChange={(e) => setDynamicKeyword(e.target.value)}
-              placeholder="Ricerca per città, zona, gruppo o via..."
+              placeholder="Ricerca per cittï¿½, zona, gruppo o via..."
               style={{ ...inputStyle, minWidth: '260px' }}
             />
           </div>
@@ -4224,7 +4287,7 @@ export function AgentZoneTasksPage({ agents, onRefreshGlobalData }: AgentZoneTas
         </div>
         <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
           <select value={dynamicCityFilter} onChange={(e) => setDynamicCityFilter(e.target.value)} style={{ ...inputStyle, maxWidth: '260px' }}>
-            <option value="">Tutte le città</option>
+            <option value="">Tutte le cittï¿½</option>
             {dynamicCityOptions.map((city) => <option key={city} value={city}>{city}</option>)}
           </select>
           <button type="button" style={{ ...btnPrimary, padding: '9px 12px' }} onClick={() => loadDynamicGroups()}>
@@ -4236,9 +4299,9 @@ export function AgentZoneTasksPage({ agents, onRefreshGlobalData }: AgentZoneTas
         <div style={{ ...card, padding: '12px', marginBottom: '12px', display: 'grid', gap: '6px' }}>
           <div style={{ fontWeight: 800 }}>Report import CSV zone ({dynamicImportReport.mode || '-'})</div>
           <div style={{ color: '#334155', fontSize: '0.92rem' }}>
-            Righe totali: {dynamicImportReport.totalRows ?? 0} · Valide: {dynamicImportReport.validRows ?? 0} ·
-            Zone create: {dynamicImportReport.zoneCreated ?? 0} · Gruppi creati: {dynamicImportReport.groupCreated ?? 0} ·
-            Gruppi aggiornati: {dynamicImportReport.groupUpdated ?? 0} · Vie create: {dynamicImportReport.streetsCreated ?? 0} ·
+            Righe totali: {dynamicImportReport.totalRows ?? 0} ï¿½ Valide: {dynamicImportReport.validRows ?? 0} ï¿½
+            Zone create: {dynamicImportReport.zoneCreated ?? 0} ï¿½ Gruppi creati: {dynamicImportReport.groupCreated ?? 0} ï¿½
+            Gruppi aggiornati: {dynamicImportReport.groupUpdated ?? 0} ï¿½ Vie create: {dynamicImportReport.streetsCreated ?? 0} ï¿½
             Duplicati ignorati: {dynamicImportReport.duplicatesIgnored ?? 0}
           </div>
           {Array.isArray(dynamicImportReport.rejectedRows) && dynamicImportReport.rejectedRows.length > 0 && (
@@ -4266,7 +4329,7 @@ export function AgentZoneTasksPage({ agents, onRefreshGlobalData }: AgentZoneTas
               <div style={{ display: 'flex', justifyContent: 'space-between', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
                 <div>
                   <div style={{ fontWeight: 900, fontSize: '1.02rem' }}>{zone.zoneName}</div>
-                  <div style={{ color: '#64748b', fontSize: '0.9rem' }}>{zone.city} · {zone.province} · {zone.region}</div>
+                  <div style={{ color: '#64748b', fontSize: '0.9rem' }}>{zone.city} ï¿½ {zone.province} ï¿½ {zone.region}</div>
                 </div>
                 {isAdmin ? (
                   <button
@@ -4365,7 +4428,7 @@ export function AgentZoneTasksPage({ agents, onRefreshGlobalData }: AgentZoneTas
                           style={{
                             display: 'grid',
                             gap: '6px',
-                            gridTemplateColumns: isMobileLayout ? '1fr' : 'repeat(3, minmax(0, 1fr))',
+                            gridTemplateColumns: isMobileLayout ? '1fr' : 'repeat(4, minmax(0, 1fr))',
                             alignItems: 'stretch'
                           }}
                         >
@@ -4405,6 +4468,13 @@ export function AgentZoneTasksPage({ agents, onRefreshGlobalData }: AgentZoneTas
                           )}
                           <button
                             type="button"
+                            style={{ ...btnPrimary, background: '#1d4ed8', padding: '6px 8px', fontSize: '0.78rem', lineHeight: 1.15, minHeight: '34px' }}
+                            onClick={() => openDynamicEditModal(group)}
+                            disabled={dynamicEditSaving || dynamicDeletingGroupId === group.groupId}
+                          >
+                            <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}><Pencil size={13} /> Modifica gruppo</span>
+                          </button>
+                          <button
                             style={{ ...btnPrimary, background: '#dc2626', padding: '6px 8px', fontSize: '0.78rem', lineHeight: 1.15, minHeight: '34px' }}
                             onClick={() => deleteDynamicGroup(group.groupId, group.groupName)}
                             disabled={dynamicDeletingGroupId === group.groupId || Boolean(group.activeAssignment && dynamicClosingAssignmentId === group.activeAssignment.assignmentId)}
@@ -4431,7 +4501,7 @@ export function AgentZoneTasksPage({ agents, onRefreshGlobalData }: AgentZoneTas
           {!dynamicWorkspaceLoading && dynamicWorkspace && (
             <>
               <div style={{ ...card, padding: '12px', display: 'grid', gap: '8px' }}>
-                <h2 style={{ margin: 0 }}>Scheda gruppo: {dynamicWorkspace.zoneName} · {dynamicWorkspace.groupName}</h2>
+                <h2 style={{ margin: 0 }}>Scheda gruppo: {dynamicWorkspace.zoneName} ï¿½ {dynamicWorkspace.groupName}</h2>
                 <div style={{ color: '#64748b' }}>
                   {dynamicWorkspace.region} {'>'} {dynamicWorkspace.province} {'>'} {dynamicWorkspace.city}
                 </div>
@@ -4449,9 +4519,9 @@ export function AgentZoneTasksPage({ agents, onRefreshGlobalData }: AgentZoneTas
                             event.stopPropagation()
                             setStreetMenuOpenId((prev) => (prev === street.id ? null : street.id))
                           }}
-                          style={{ position: 'absolute', right: '9px', top: '50%', transform: 'translateY(-50%)', borderLeft: '1px solid #cbd5e1', paddingLeft: '7px', fontWeight: 700 }}
+                          style={{ position: 'absolute', right: '9px', top: '50%', transform: 'translateY(-50%)', borderLeft: '1px solid #cbd5e1', paddingLeft: '7px', display: 'inline-flex', alignItems: 'center', color: '#334155' }}
                         >
-                          ?
+                          {streetMenuOpenId === street.id ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
                         </span>
                       </button>
                       {streetMenuOpenId === street.id && (
@@ -4495,7 +4565,7 @@ export function AgentZoneTasksPage({ agents, onRefreshGlobalData }: AgentZoneTas
               </div>
                   <div style={{ ...card, padding: '10px', display: 'grid', gap: '8px' }}>
                     <h3 style={{ margin: 0 }}>
-                      Aggiungi informazioni di zona {currentDynamicStreet ? `· ${currentDynamicStreet.name}` : '· gruppo completo'}
+                      Aggiungi informazioni di zona {currentDynamicStreet ? `ï¿½ ${currentDynamicStreet.name}` : 'ï¿½ gruppo completo'}
                     </h3>
                     <div style={{ display: 'grid', gridTemplateColumns: isMobileLayout ? '1fr' : '1fr 1fr', gap: '8px' }}>
                       <button
@@ -4571,7 +4641,7 @@ export function AgentZoneTasksPage({ agents, onRefreshGlobalData }: AgentZoneTas
 
                   <div style={{ ...card, padding: '12px', display: 'grid', gap: '8px' }}>
                     <h3 style={{ margin: 0 }}>
-                      Mega griglia informazioni zona {currentDynamicStreet ? `· ${currentDynamicStreet.name}` : '· tutte le vie del gruppo'}
+                      Mega griglia informazioni zona {currentDynamicStreet ? `ï¿½ ${currentDynamicStreet.name}` : 'ï¿½ tutte le vie del gruppo'}
                     </h3>
                     <div style={{ display: 'grid', gap: '8px', gridTemplateColumns: isMobileLayout ? '1fr' : 'repeat(4, minmax(0, 1fr))' }}>
                       <select value={dynamicTypeFilter} onChange={(e) => setDynamicTypeFilter(e.target.value)} style={inputStyle}>
@@ -4594,8 +4664,8 @@ export function AgentZoneTasksPage({ agents, onRefreshGlobalData }: AgentZoneTas
                       <input type="date" value={dynamicDateFromFilter} onChange={(e) => setDynamicDateFromFilter(e.target.value)} style={inputStyle} />
                       <input type="date" value={dynamicDateToFilter} onChange={(e) => setDynamicDateToFilter(e.target.value)} style={inputStyle} />
                       <select value={dynamicOrderBy} onChange={(e) => setDynamicOrderBy(e.target.value as any)} style={inputStyle}>
-                        <option value="DATE_DESC">Ordina: più recenti</option>
-                        <option value="DATE_ASC">Ordina: più vecchi</option>
+                        <option value="DATE_DESC">Ordina: piï¿½ recenti</option>
+                        <option value="DATE_ASC">Ordina: piï¿½ vecchi</option>
                         <option value="TYPE_ASC">Ordina: tipo (A-Z)</option>
                         <option value="AUTHOR_ASC">Ordina: autore (A-Z)</option>
                       </select>
@@ -4642,7 +4712,7 @@ export function AgentZoneTasksPage({ agents, onRefreshGlobalData }: AgentZoneTas
                               <td style={{ borderBottom: '1px solid #f1f5f9', padding: '7px' }}>{row.phone}</td>
                               <td style={{ borderBottom: '1px solid #f1f5f9', padding: '7px' }}>{row.email}</td>
                               <td style={{ borderBottom: '1px solid #f1f5f9', padding: '7px' }}>{row.address}</td>
-                              <td style={{ borderBottom: '1px solid #f1f5f9', padding: '7px' }}>{row.hasPhoto ? 'Sì' : 'No'}</td>
+                              <td style={{ borderBottom: '1px solid #f1f5f9', padding: '7px' }}>{row.hasPhoto ? 'Sï¿½' : 'No'}</td>
                             </tr>
                           ))}
                         </tbody>
@@ -4726,7 +4796,7 @@ export function AgentZoneTasksPage({ agents, onRefreshGlobalData }: AgentZoneTas
             <h3 style={{ margin: 0 }}>Crea nuovo gruppo di zona</h3>
             {dynamicCreateTargetZone ? (
               <div style={{ color: '#475569', fontSize: '0.9rem' }}>
-                Zona selezionata: <strong>{dynamicCreateTargetZone.zoneName}</strong> · {dynamicCreateTargetZone.city}
+                Zona selezionata: <strong>{dynamicCreateTargetZone.zoneName}</strong> ï¿½ {dynamicCreateTargetZone.city}
               </div>
             ) : null}
             <div style={{ display: 'grid', gap: '8px', gridTemplateColumns: isMobileLayout ? '1fr' : '1fr 1fr 1fr' }}>
@@ -4736,7 +4806,7 @@ export function AgentZoneTasksPage({ agents, onRefreshGlobalData }: AgentZoneTas
                 style={inputStyle}
                 disabled={Boolean(dynamicCreateTargetZone)}
               >
-                <option value="">Città</option>
+                <option value="">Cittï¿½</option>
                 {dynamicCityOptions.map((city) => <option key={city} value={city}>{city}</option>)}
               </select>
               <input
@@ -4789,6 +4859,93 @@ export function AgentZoneTasksPage({ agents, onRefreshGlobalData }: AgentZoneTas
                 Annulla
               </button>
               <button type="button" style={btnPrimary} onClick={createDynamicGroup}>Crea gruppo</button>
+            </div>
+          </div>
+        </div>
+      )}
+      {dynamicEditModal.open && (
+        <div style={modalBackdropStyle}>
+          <div style={modalCardStyle}>
+            <h3 style={{ margin: 0 }}>Modifica gruppo di zona</h3>
+            <div style={{ color: '#475569', fontSize: '0.9rem' }}>
+              Aggiorna il nome gruppo e aggiungi nuove vie.
+            </div>
+            <label style={{ fontWeight: 700 }}>Nome gruppo</label>
+            <input
+              value={dynamicEditModal.groupName}
+              onChange={(e) => setDynamicEditModal((prev) => ({ ...prev, groupName: e.target.value }))}
+              style={inputStyle}
+              placeholder="Nome gruppo"
+            />
+
+            <div style={{ display: 'grid', gap: '6px' }}>
+              <div style={{ fontWeight: 700 }}>Vie attuali ({dynamicEditModal.existingStreets.length})</div>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '7px' }}>
+                {dynamicEditModal.existingStreets.length === 0 ? (
+                  <span style={{ color: '#64748b', fontSize: '0.84rem' }}>Nessuna via nel gruppo</span>
+                ) : (
+                  dynamicEditModal.existingStreets.map((street) => (
+                    <span
+                      key={street.id}
+                      style={{
+                        border: '1px solid #cbd5e1',
+                        borderRadius: '999px',
+                        padding: '4px 9px',
+                        fontSize: '0.78rem',
+                        background: '#fff',
+                        color: '#334155'
+                      }}
+                    >
+                      {street.name}
+                    </span>
+                  ))
+                )}
+              </div>
+            </div>
+
+            <div style={{ display: 'grid', gap: '6px' }}>
+              <div style={{ fontWeight: 700 }}>Nuove vie da aggiungere</div>
+              {dynamicEditNewStreets.map((street, idx) => (
+                <div key={`edit-street-${idx}`} style={{ display: 'flex', gap: '8px' }}>
+                  <input
+                    value={street}
+                    onChange={(e) => setDynamicEditNewStreets((prev) => prev.map((item, i) => (i === idx ? e.target.value : item)))}
+                    style={inputStyle}
+                    placeholder="Nome via"
+                  />
+                  <button
+                    type="button"
+                    style={{ ...btnPrimary, background: '#64748b', width: '40px', minWidth: '40px' }}
+                    onClick={() => setDynamicEditNewStreets((prev) => prev.filter((_, i) => i !== idx))}
+                    disabled={dynamicEditNewStreets.length === 1}
+                  >
+                    -
+                  </button>
+                </div>
+              ))}
+              <button
+                type="button"
+                style={{ ...btnPrimary, background: '#0f766e', width: 'fit-content' }}
+                onClick={() => setDynamicEditNewStreets((prev) => [...prev, ''])}
+              >
+                + Aggiungi via
+              </button>
+            </div>
+
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px' }}>
+              <button
+                type="button"
+                style={{ ...btnPrimary, background: '#64748b' }}
+                onClick={() => {
+                  setDynamicEditModal({ open: false, zoneId: '', groupId: '', groupName: '', existingStreets: [] })
+                  setDynamicEditNewStreets([''])
+                }}
+              >
+                Annulla
+              </button>
+              <button type="button" style={btnPrimary} onClick={saveDynamicGroupEdit} disabled={dynamicEditSaving}>
+                {dynamicEditSaving ? 'Salvataggio...' : 'Salva modifiche'}
+              </button>
             </div>
           </div>
         </div>
