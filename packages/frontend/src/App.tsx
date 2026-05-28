@@ -26166,7 +26166,7 @@ function IncrocioPage({
                     .filter((property) => property.status === 'AVAILABLE')
                     .map((property) => (
                       <option key={property.id} value={property.id}>
-                        {clean(property.title)} - {clean(property.city)} - EUR {(property.salePrice || property.rentPrice || 0).toLocaleString()}
+                        {clean(property.title)} - {clean(property.city)} - EUR {(getPropertyDisplayPrice(property) || 0).toLocaleString()}
                       </option>
                     ))}
                 </select>
@@ -27948,11 +27948,11 @@ function ClientViewModal({
 
                           <div style={{ textAlign: 'right' }}>
 
-                            {(property.salePrice || property.rentPrice) && (
+                            {getPropertyDisplayPrice(property) > 0 && (
 
                               <p style={{ fontSize: '0.95rem', fontWeight: 'bold', color: '#059669', margin: 0 }}>
 
-                                a{(property.salePrice || property.rentPrice || 0).toLocaleString()}
+                                a{(getPropertyDisplayPrice(property) || 0).toLocaleString()}
 
                               </p>
 
@@ -28340,7 +28340,7 @@ function ClientViewModal({
 
                             }}>
 
-                              a{(property.salePrice || property.rentPrice || 0).toLocaleString()}
+                              a{(getPropertyDisplayPrice(property) || 0).toLocaleString()}
 
                             </span>
 
@@ -46371,6 +46371,16 @@ function PropertyModal({
       ? `${cleanNotes}${cleanNotes ? '\n' : ''}${INTERNAL_PRICE_TAG}${normalizedInternalPrice}]`
       : cleanNotes
 
+    const effectivePublicPrice =
+      formData.contractType === 'RENT'
+        ? Number(formData.rentPrice || 0) || undefined
+        : Number(formData.salePrice || 0) || undefined
+    const effectiveAdvertisingPrice =
+      formData.contractType === 'RENT'
+        ? Number(formData.advertisingRentPrice || 0) || undefined
+        : Number(formData.advertisingSalePrice || 0) || undefined
+    const finalAdvertisingPrice = effectiveAdvertisingPrice ?? effectivePublicPrice
+
     const computedOneClickData = {
       ...(formData.oneClickData || {}),
       comune_istat: (formData.oneClickData?.comune_istat || formData.giComuneIstat || '').trim(),
@@ -46388,9 +46398,7 @@ function PropertyModal({
       titolo_annuncio:
         (formData.oneClickData?.titolo_annuncio || formData.title || '').trim().slice(0, 50),
       prezzo:
-        formData.contractType === 'RENT'
-          ? Number(formData.advertisingRentPrice || 0) || undefined
-          : Number(formData.advertisingSalePrice || 0) || undefined,
+        finalAdvertisingPrice,
       selectedPortalCodes: Array.isArray(formData.oneClickData?.selectedPortalCodes)
         ? formData.oneClickData.selectedPortalCodes
             .map((v: any) => Number(v))
@@ -46441,8 +46449,8 @@ function PropertyModal({
       notes: notesWithInternalPrice,
       propertyTax: undefined,
       images: uploadedImages,
-      advertisingSalePrice: formData.contractType === 'RENT' ? undefined : (formData.advertisingSalePrice || undefined),
-      advertisingRentPrice: formData.contractType === 'RENT' ? (formData.advertisingRentPrice || undefined) : undefined,
+      advertisingSalePrice: formData.contractType === 'RENT' ? undefined : finalAdvertisingPrice,
+      advertisingRentPrice: formData.contractType === 'RENT' ? finalAdvertisingPrice : undefined,
       portalTargets: ['ONECLICKANNUNCI'],
       oneClickData: computedOneClickData,
       submitForApproval: !isAdminUser,
@@ -48534,8 +48542,7 @@ function PropertyModal({
                           ? { advertisingRentPrice: e.target.value ? parseInt(e.target.value) : undefined, advertisingSalePrice: undefined }
                           : { advertisingSalePrice: e.target.value ? parseInt(e.target.value) : undefined, advertisingRentPrice: undefined })
                       })}
-                      disabled={!isAdminUser}
-                      placeholder={isAdminUser ? 'Inserisci prezzo per i portali' : 'Modificabile solo da admin'}
+                      placeholder="Inserisci prezzo per i portali"
 
                       style={{
 
@@ -48546,7 +48553,7 @@ function PropertyModal({
                         border: '1px solid rgba(71, 85, 105, 0.55)',
 
                         borderRadius: '0.375rem'
-                        , backgroundColor: !isAdminUser ? 'rgba(15, 23, 42, 0.4)' : 'transparent'
+                        , backgroundColor: 'transparent'
 
                       }}
 
