@@ -288,6 +288,29 @@ const btnPrimary: React.CSSProperties = {
   cursor: 'pointer'
 }
 
+const modalBackdropStyle: React.CSSProperties = {
+  position: 'fixed',
+  inset: 0,
+  background: 'rgba(15, 23, 42, 0.45)',
+  display: 'grid',
+  placeItems: 'center',
+  zIndex: 2500,
+  padding: '16px'
+}
+
+const modalCardStyle: React.CSSProperties = {
+  width: 'min(680px, 96vw)',
+  maxHeight: '90vh',
+  overflowY: 'auto',
+  background: '#ffffff',
+  border: '1px solid #dbe3ef',
+  borderRadius: '14px',
+  boxShadow: '0 16px 44px rgba(15,23,42,0.2)',
+  padding: '16px',
+  display: 'grid',
+  gap: '10px'
+}
+
 const normalizeGeomLine = (line: unknown): [number, number][] => {
   if (!Array.isArray(line)) return []
   const points: [number, number][] = []
