@@ -6172,10 +6172,11 @@ const MOJIBAKE_TEXT_REPLACEMENTS: Array<[RegExp, string]> = [
 
 function normalizeMojibakeText(input: string): string {
   let value = input
-  const mojibakeMarkerRegex = /Ãƒ.|Ã‚.|Ã¢.|Ã….|Ã°.|Å¸|Å“|Å¾|Ã¯Â¿Â½|ï¿½/
+  const mojibakeMarkerRegex = /[ÃÂâÅœžï�]|Ã.|Â.|â.|Å.|ï¿½|Ã¯Â¿Â½|ï¿½/
   const mojibakeScore = (raw: string) => {
-    const matches = raw.match(/Ãƒ.|Ã‚.|Ã¢.|Ã….|Ã°.|Å¸|Å“|Å¾|Ã¯Â¿Â½|ï¿½/g)
-    return matches ? matches.length : 0
+    const badChunks = raw.match(/Ã.|Â.|â.|Å.|ï¿½|Ã¯Â¿Â½|ï¿½/g)
+    const replacementChars = raw.match(/�/g)
+    return (badChunks ? badChunks.length : 0) + (replacementChars ? replacementChars.length * 2 : 0)
   }
   const cp1252Reverse: Record<string, number> = {
     'â‚¬': 0x80,
@@ -6248,11 +6249,16 @@ function normalizeMojibakeText(input: string): string {
       return raw
     }
   }
+  const shouldAttemptDecode = (raw: string) => mojibakeMarkerRegex.test(raw)
+  const decodePass = (raw: string) => {
+    const decoded = decodeMojibakeUtf8(raw)
+    if (decoded === raw) return raw
+    return mojibakeScore(decoded) <= mojibakeScore(raw) ? decoded : raw
+  }
   for (let i = 0; i < 4; i += 1) {
-    if (!mojibakeMarkerRegex.test(value)) break
-    const decoded = decodeMojibakeUtf8(value)
+    if (!shouldAttemptDecode(value)) break
+    const decoded = decodePass(value)
     if (decoded === value) break
-    if (mojibakeScore(decoded) > mojibakeScore(value)) break
     value = decoded
   }
   for (const [pattern, replacement] of MOJIBAKE_TEXT_REPLACEMENTS) {
