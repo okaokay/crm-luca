@@ -634,6 +634,7 @@ export function AgentZoneTasksPage({ agents, onRefreshGlobalData }: AgentZoneTas
     existingStreets: Array<{ id: string; name: string }>
   }>({ open: false, zoneId: '', groupId: '', groupName: '', existingStreets: [] })
   const [dynamicEditNewStreets, setDynamicEditNewStreets] = useState<string[]>([''])
+  const [dynamicEditRemovedStreetIds, setDynamicEditRemovedStreetIds] = useState<string[]>([])
   const [dynamicEditSaving, setDynamicEditSaving] = useState(false)
 
   const authFetch = async (input: RequestInfo | URL, init: RequestInit = {}) => {
@@ -1078,6 +1079,7 @@ export function AgentZoneTasksPage({ agents, onRefreshGlobalData }: AgentZoneTas
       existingStreets: Array.isArray(group.streets) ? group.streets : []
     })
     setDynamicEditNewStreets([''])
+    setDynamicEditRemovedStreetIds([])
   }
 
   const saveDynamicGroupEdit = async () => {
@@ -1094,6 +1096,17 @@ export function AgentZoneTasksPage({ agents, onRefreshGlobalData }: AgentZoneTas
 
     setDynamicEditSaving(true)
     try {
+      for (const streetId of dynamicEditRemovedStreetIds) {
+        const deleteRes = await authFetch(`/api/agent-zones/dynamic-groups/streets/${encodeURIComponent(streetId)}`, {
+          method: 'DELETE'
+        })
+        const deleteParsed = await parseJsonSafe(deleteRes)
+        if (!deleteParsed.ok || !deleteParsed.data?.success) {
+          setMsg(deleteParsed.ok ? (deleteParsed.data?.message || 'Errore rimozione via dal gruppo') : 'Errore rimozione via dal gruppo')
+          return
+        }
+      }
+
       const response = await authFetch('/api/agent-zones/dynamic-groups/' + encodeURIComponent(dynamicEditModal.groupId), {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
@@ -1111,6 +1124,7 @@ export function AgentZoneTasksPage({ agents, onRefreshGlobalData }: AgentZoneTas
       const editedGroupId = dynamicEditModal.groupId
       setDynamicEditModal({ open: false, zoneId: '', groupId: '', groupName: '', existingStreets: [] })
       setDynamicEditNewStreets([''])
+      setDynamicEditRemovedStreetIds([])
       await loadDynamicGroups()
       if (dynamicSelectedGroupId === editedGroupId) {
         await openDynamicGroupWorkspace(editedGroupId)
@@ -4913,17 +4927,48 @@ export function AgentZoneTasksPage({ agents, onRefreshGlobalData }: AgentZoneTas
                       style={{
                         border: '1px solid #cbd5e1',
                         borderRadius: '999px',
-                        padding: '4px 9px',
+                        padding: '4px 6px 4px 9px',
                         fontSize: '0.78rem',
                         background: '#fff',
-                        color: '#334155'
+                        color: '#334155',
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '6px',
+                        opacity: dynamicEditRemovedStreetIds.includes(street.id) ? 0.55 : 1
                       }}
                     >
                       {street.name}
+                      <button
+                        type="button"
+                        style={{
+                          border: 'none',
+                          background: dynamicEditRemovedStreetIds.includes(street.id) ? '#16a34a' : '#ef4444',
+                          color: '#fff',
+                          borderRadius: '999px',
+                          width: '20px',
+                          height: '20px',
+                          fontSize: '0.72rem',
+                          lineHeight: 1,
+                          cursor: 'pointer'
+                        }}
+                        onClick={() => {
+                          setDynamicEditRemovedStreetIds((prev) =>
+                            prev.includes(street.id) ? prev.filter((id) => id !== street.id) : [...prev, street.id]
+                          )
+                        }}
+                        title={dynamicEditRemovedStreetIds.includes(street.id) ? 'Ripristina via' : 'Rimuovi via'}
+                      >
+                        {dynamicEditRemovedStreetIds.includes(street.id) ? '+' : '-'}
+                      </button>
                     </span>
                   ))
                 )}
               </div>
+              {dynamicEditRemovedStreetIds.length > 0 && (
+                <div style={{ fontSize: '0.82rem', color: '#b45309' }}>
+                  Vie da rimuovere al salvataggio: {dynamicEditRemovedStreetIds.length}
+                </div>
+              )}
             </div>
 
             <div style={{ display: 'grid', gap: '6px' }}>
@@ -4962,6 +5007,7 @@ export function AgentZoneTasksPage({ agents, onRefreshGlobalData }: AgentZoneTas
                 onClick={() => {
                   setDynamicEditModal({ open: false, zoneId: '', groupId: '', groupName: '', existingStreets: [] })
                   setDynamicEditNewStreets([''])
+                  setDynamicEditRemovedStreetIds([])
                 }}
               >
                 Annulla
