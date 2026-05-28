@@ -12,6 +12,10 @@
       "destination": "https://backend-delta-two-35.vercel.app/internal/$1"
     },
     {
+      "source": "/feeds/(.*)",
+      "destination": "https://backend-delta-two-35.vercel.app/feeds/$1"
+    },
+    {
       "source": "/(.*)",
       "destination": "/index.html"
     }
