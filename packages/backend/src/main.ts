@@ -1314,10 +1314,10 @@ const toPositivePriceOrNull = (value: unknown): number | null => {
 };
 
 const getPreferredSalePrice = (property: any): number | null =>
-  toPositivePriceOrNull(property?.advertisingSalePrice) ?? toPositivePriceOrNull(property?.salePrice);
+  toPositivePriceOrNull(property?.advertisingSalePrice);
 
 const getPreferredRentPrice = (property: any): number | null =>
-  toPositivePriceOrNull(property?.advertisingRentPrice) ?? toPositivePriceOrNull(property?.rentPrice);
+  toPositivePriceOrNull(property?.advertisingRentPrice);
 
 const getPreferredContractPrice = (property: any): number | null => {
   const contractType = (property?.contractType || '').toString().toUpperCase();

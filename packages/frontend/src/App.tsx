@@ -39456,11 +39456,7 @@ function PropertyOverviewTab({
       ? (property.advertisingRentPrice || undefined)
       : (property.advertisingSalePrice || undefined)
   const internalAcquisitionPrice = Number(oneClick?.prezzo_acquisizione || 0) || undefined
-  const fallbackPublicPrice =
-    (property.contractType || '').toUpperCase() === 'RENT'
-      ? (property.rentPrice || property.salePrice || undefined)
-      : (property.salePrice || property.rentPrice || undefined)
-  const publicPrice = advertisingPrice || fallbackPublicPrice
+  const publicPrice = advertisingPrice
   const overviewDescription = String(property.description || oneClick?.descrizione || '').trim()
 
 
@@ -46385,8 +46381,8 @@ function PropertyModal({
         (formData.oneClickData?.titolo_annuncio || formData.title || '').trim().slice(0, 50),
       prezzo:
         formData.contractType === 'RENT'
-          ? Number(formData.advertisingRentPrice || formData.rentPrice || 0) || undefined
-          : Number(formData.advertisingSalePrice || formData.salePrice || 0) || undefined,
+          ? Number(formData.advertisingRentPrice || 0) || undefined
+          : Number(formData.advertisingSalePrice || 0) || undefined,
       selectedPortalCodes: Array.isArray(formData.oneClickData?.selectedPortalCodes)
         ? formData.oneClickData.selectedPortalCodes
             .map((v: any) => Number(v))
