@@ -37439,8 +37439,16 @@ const getPropertyNumberWithFallback = (property: Partial<Property>, coreValue: a
 }
 
 const getPropertyDisplayPrice = (property: Partial<Property>) => {
-  const sale = getPropertyNumberWithFallback(property, property.salePrice, 'prezzo') || 0
-  const rent = getPropertyNumberWithFallback(property, property.rentPrice, 'prezzo') || 0
+  const sale = getPropertyNumberWithFallback(
+    property,
+    (property as any).advertisingSalePrice ?? property.salePrice,
+    'prezzo'
+  ) || 0
+  const rent = getPropertyNumberWithFallback(
+    property,
+    (property as any).advertisingRentPrice ?? property.rentPrice,
+    'prezzo'
+  ) || 0
   if ((property.contractType || '').toUpperCase() === 'RENT') return rent || sale || 0
   return sale || rent || 0
 }

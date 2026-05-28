@@ -17465,13 +17465,13 @@ app.post('/api/properties', async (req, res) => {
       furnished: parseBooleanOrUndefined(firstDefinedValue(body.furnished, parseYesNoFlag(oneClick?.arredato))),
       
       salePrice: parseNumberOrUndefined(firstDefinedValue(
-        body.salePrice,
         contractType !== 'RENT' ? explicitAdvertisingSalePrice : undefined,
+        body.salePrice,
         contractType !== 'RENT' ? inferredPrice : undefined
       )),
       rentPrice: parseNumberOrUndefined(firstDefinedValue(
-        body.rentPrice,
         contractType === 'RENT' ? explicitAdvertisingRentPrice : undefined,
+        body.rentPrice,
         contractType === 'RENT' ? inferredPrice : undefined
       )),
       advertisingSalePrice: explicitAdvertisingSalePrice,
@@ -17847,14 +17847,14 @@ app.put('/api/properties/:id', async (req, res) => {
       furnished: parseBooleanOrUndefined(firstDefinedValue(body.furnished, parseYesNoFlag(oneClick?.arredato), existing?.furnished)),
       
       salePrice: parseNumberOrUndefined(firstDefinedValue(
-        body.salePrice,
         contractType !== 'RENT' ? explicitAdvertisingSalePrice : undefined,
+        body.salePrice,
         contractType !== 'RENT' ? inferredPrice : undefined,
         existing?.salePrice
       )),
       rentPrice: parseNumberOrUndefined(firstDefinedValue(
-        body.rentPrice,
         contractType === 'RENT' ? explicitAdvertisingRentPrice : undefined,
+        body.rentPrice,
         contractType === 'RENT' ? inferredPrice : undefined,
         existing?.rentPrice
       )),
