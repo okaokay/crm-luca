@@ -6139,33 +6139,33 @@ const MOJIBAKE_TEXT_REPLACEMENTS: Array<[RegExp, string]> = [
   [/ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢|Ã¢â‚¬â„¢/g, "'"],
   [/ÃƒÂ¢Ã¢â€šÂ¬Ã…â€œ|Ã¢â‚¬Å“/g, '"'],
   [/ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â|Ã¢â‚¬Â/g, '"'],
-  [/ÃƒÆ’Ã‚Â |ÃƒÂ /g, 'Ã '],
-  [/ÃƒÆ’Ã‚Â¨|ÃƒÂ¨/g, 'Ã¨'],
-  [/ÃƒÆ’Ã‚Â©|ÃƒÂ©/g, 'Ã©'],
-  [/ÃƒÆ’Ã‚Â¬|ÃƒÂ¬/g, 'Ã¬'],
-  [/ÃƒÆ’Ã‚Â²|ÃƒÂ²/g, 'Ã²'],
-  [/ÃƒÆ’Ã‚Â¹|ÃƒÂ¹/g, 'Ã¹'],
-  [/Ã’Â /g, 'Ã '],
-  [/Ã’Â¨/g, 'Ã¨'],
-  [/Ã’Â©/g, 'Ã©'],
-  [/Ã’Â¬/g, 'Ã¬'],
-  [/Ã’Â²/g, 'Ã²'],
-  [/Ã’Â¹/g, 'Ã¹'],
-  [/CittÃƒ[^\s<>"'`]*/g, 'CittÃ '],
-  [/AttivitÃƒ[^\s<>"'`]*/g, 'AttivitÃ '],
-  [/OperativitÃƒ[^\s<>"'`]*/g, 'OperativitÃ '],
-  [/compatibilitÃƒ[^\s<>"'`]*/g, 'compatibilitÃ '],
-  [/funzionalitÃƒ[^\s<>"'`]*/g, 'funzionalitÃ '],
-  [/identitÃƒ[^\s<>"'`]*/g, 'identitÃ '],
-  [/proprietÃƒ[^\s<>"'`]*/g, 'proprietÃ '],
-  [/sarÃƒ[^\s<>"'`]*/g, 'sarÃ '],
-  [/verrÃƒ[^\s<>"'`]*/g, 'verrÃ '],
-  [/giÃƒ[^\s<>"'`]*/g, 'giÃ '],
-  [/sÃƒ[^\s<>"'`]*/g, 'sÃ¬'],
-  [/piÃƒ[^\s<>"'`]*/g, 'piÃ¹'],
+  [/ÃƒÆ’Ã‚Â |ÃƒÂ /g, 'à'],
+  [/ÃƒÆ’Ã‚Â¨|ÃƒÂ¨/g, 'è'],
+  [/ÃƒÆ’Ã‚Â©|ÃƒÂ©/g, 'é'],
+  [/ÃƒÆ’Ã‚Â¬|ÃƒÂ¬/g, 'ì'],
+  [/ÃƒÆ’Ã‚Â²|ÃƒÂ²/g, 'ò'],
+  [/ÃƒÆ’Ã‚Â¹|ÃƒÂ¹/g, 'ù'],
+  [/Ã’Â /g, 'à'],
+  [/Ã’Â¨/g, 'è'],
+  [/Ã’Â©/g, 'é'],
+  [/Ã’Â¬/g, 'ì'],
+  [/Ã’Â²/g, 'ò'],
+  [/Ã’Â¹/g, 'ù'],
+  [/CittÃƒ[^\s<>"'`]*/g, 'Città'],
+  [/AttivitÃƒ[^\s<>"'`]*/g, 'Attività'],
+  [/OperativitÃƒ[^\s<>"'`]*/g, 'Operatività'],
+  [/compatibilitÃƒ[^\s<>"'`]*/g, 'compatibilità'],
+  [/funzionalitÃƒ[^\s<>"'`]*/g, 'funzionalità'],
+  [/identitÃƒ[^\s<>"'`]*/g, 'identità'],
+  [/proprietÃƒ[^\s<>"'`]*/g, 'proprietà'],
+  [/sarÃƒ[^\s<>"'`]*/g, 'sarà'],
+  [/verrÃƒ[^\s<>"'`]*/g, 'verrà'],
+  [/giÃƒ[^\s<>"'`]*/g, 'già'],
+  [/sÃƒ[^\s<>"'`]*/g, 'sì'],
+  [/piÃƒ[^\s<>"'`]*/g, 'più'],
   [/mÃƒâ€šÃ‚Â²/g, 'mq'],
   [/mÃ¯Â¿Â½/g, 'mq'],
-  [/cittÃƒ[^\s<>"'`]*/g, 'cittÃ '],
+  [/cittÃƒ[^\s<>"'`]*/g, 'città'],
   [/mÃ¯Â¿Â½/g, 'mq'],
   [/CittÃ¯Â¿Â½/g, 'Citta']
 ]
@@ -37740,14 +37740,20 @@ function PropertyDetailPage({
       const headers: HeadersInit = token ? { Authorization: `Bearer ${token}` } : {}
 
       const response = await fetch(`/api/properties/${propertyId}`, { headers })
-
-      const data = await response.json()
-
-      if (data.success) {
-
+      const data = await response.json().catch(() => null)
+      if (response.ok && data?.success) {
         setProperty(data.data)
-
+        return
       }
+      if (!token) {
+        const publicResponse = await fetch(`/api/public/properties/${propertyId}`)
+        const publicData = await publicResponse.json().catch(() => null)
+        if (publicResponse.ok && publicData?.success) {
+          setProperty(publicData.data)
+          return
+        }
+      }
+      setProperty(null)
 
     } catch (error) {
 
