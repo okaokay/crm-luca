@@ -46383,6 +46383,10 @@ function PropertyModal({
         new Date().toLocaleString('it-IT'),
       titolo_annuncio:
         (formData.oneClickData?.titolo_annuncio || formData.title || '').trim().slice(0, 50),
+      prezzo:
+        formData.contractType === 'RENT'
+          ? Number(formData.advertisingRentPrice || formData.rentPrice || 0) || undefined
+          : Number(formData.advertisingSalePrice || formData.salePrice || 0) || undefined,
       selectedPortalCodes: Array.isArray(formData.oneClickData?.selectedPortalCodes)
         ? formData.oneClickData.selectedPortalCodes
             .map((v: any) => Number(v))

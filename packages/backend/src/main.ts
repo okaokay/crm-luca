@@ -17428,6 +17428,8 @@ app.post('/api/properties', async (req, res) => {
     const contractType = normalizeContractTypeValue(body?.contractType, oneClick?.idtipologiaannuncio);
     const status = normalizePropertyStatusValue(body?.status);
     const inferredPrice = parseNumberOrUndefined(oneClick?.prezzo);
+    const explicitAdvertisingSalePrice = parseNumberOrUndefined(body.advertisingSalePrice);
+    const explicitAdvertisingRentPrice = parseNumberOrUndefined(body.advertisingRentPrice);
     const inferredSurface = parseNumberOrUndefined(oneClick?.mq);
     const inferredRooms = parseIntOrUndefined(oneClick?.nr_locali);
     const inferredBedrooms = parseIntOrUndefined(oneClick?.nr_camere);
@@ -17462,10 +17464,18 @@ app.post('/api/properties', async (req, res) => {
       elevator: parseBooleanOrUndefined(firstDefinedValue(body.elevator, parseYesNoFlag(oneClick?.ascensore))),
       furnished: parseBooleanOrUndefined(firstDefinedValue(body.furnished, parseYesNoFlag(oneClick?.arredato))),
       
-      salePrice: parseNumberOrUndefined(firstDefinedValue(body.salePrice, contractType !== 'RENT' ? inferredPrice : undefined)),
-      rentPrice: parseNumberOrUndefined(firstDefinedValue(body.rentPrice, contractType === 'RENT' ? inferredPrice : undefined)),
-      advertisingSalePrice: parseNumberOrUndefined(body.advertisingSalePrice),
-      advertisingRentPrice: parseNumberOrUndefined(body.advertisingRentPrice),
+      salePrice: parseNumberOrUndefined(firstDefinedValue(
+        body.salePrice,
+        contractType !== 'RENT' ? explicitAdvertisingSalePrice : undefined,
+        contractType !== 'RENT' ? inferredPrice : undefined
+      )),
+      rentPrice: parseNumberOrUndefined(firstDefinedValue(
+        body.rentPrice,
+        contractType === 'RENT' ? explicitAdvertisingRentPrice : undefined,
+        contractType === 'RENT' ? inferredPrice : undefined
+      )),
+      advertisingSalePrice: explicitAdvertisingSalePrice,
+      advertisingRentPrice: explicitAdvertisingRentPrice,
       expenses: parseNumberOrUndefined(firstDefinedValue(body.condominium, body.expenses)), // Map condominium to expenses
       
       energyClass: inferredEnergyClass,
@@ -17802,6 +17812,8 @@ app.put('/api/properties/:id', async (req, res) => {
     );
     const status = normalizePropertyStatusValue(firstDefinedValue(body?.status, existing?.status));
     const inferredPrice = parseNumberOrUndefined(oneClick?.prezzo);
+    const explicitAdvertisingSalePrice = parseNumberOrUndefined(body.advertisingSalePrice);
+    const explicitAdvertisingRentPrice = parseNumberOrUndefined(body.advertisingRentPrice);
     const inferredSurface = parseNumberOrUndefined(oneClick?.mq);
     const inferredRooms = parseIntOrUndefined(oneClick?.nr_locali);
     const inferredBedrooms = parseIntOrUndefined(oneClick?.nr_camere);
@@ -17834,10 +17846,20 @@ app.put('/api/properties/:id', async (req, res) => {
       elevator: parseBooleanOrUndefined(firstDefinedValue(body.elevator, parseYesNoFlag(oneClick?.ascensore), existing?.elevator)),
       furnished: parseBooleanOrUndefined(firstDefinedValue(body.furnished, parseYesNoFlag(oneClick?.arredato), existing?.furnished)),
       
-      salePrice: parseNumberOrUndefined(firstDefinedValue(body.salePrice, contractType !== 'RENT' ? inferredPrice : undefined, existing?.salePrice)),
-      rentPrice: parseNumberOrUndefined(firstDefinedValue(body.rentPrice, contractType === 'RENT' ? inferredPrice : undefined, existing?.rentPrice)),
-      advertisingSalePrice: parseNumberOrUndefined(firstDefinedValue(body.advertisingSalePrice, existing?.advertisingSalePrice)),
-      advertisingRentPrice: parseNumberOrUndefined(firstDefinedValue(body.advertisingRentPrice, existing?.advertisingRentPrice)),
+      salePrice: parseNumberOrUndefined(firstDefinedValue(
+        body.salePrice,
+        contractType !== 'RENT' ? explicitAdvertisingSalePrice : undefined,
+        contractType !== 'RENT' ? inferredPrice : undefined,
+        existing?.salePrice
+      )),
+      rentPrice: parseNumberOrUndefined(firstDefinedValue(
+        body.rentPrice,
+        contractType === 'RENT' ? explicitAdvertisingRentPrice : undefined,
+        contractType === 'RENT' ? inferredPrice : undefined,
+        existing?.rentPrice
+      )),
+      advertisingSalePrice: parseNumberOrUndefined(firstDefinedValue(explicitAdvertisingSalePrice, existing?.advertisingSalePrice)),
+      advertisingRentPrice: parseNumberOrUndefined(firstDefinedValue(explicitAdvertisingRentPrice, existing?.advertisingRentPrice)),
       expenses: parseNumberOrUndefined(firstDefinedValue(body.condominium, body.expenses, existing?.expenses)), // Map condominium to expenses
       
       energyClass: firstDefinedValue(body.energyClass, oneClick?.classe_energetica, existing?.energyClass),
