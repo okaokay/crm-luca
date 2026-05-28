@@ -38339,22 +38339,6 @@ function PropertyDetailPage({
 
 
 
-  if (loading) {
-
-    return (
-
-      <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '400px' }}>
-
-        <div>Caricamento dettagli immobile...</div>
-
-      </div>
-
-    )
-
-  }
-
-
-
   const compactHeader = isCompactLayout
     ? {
         display: 'flex',
@@ -38426,6 +38410,20 @@ function PropertyDetailPage({
     .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
     .slice(0, 2)
   const hiddenLinkedRequestsCount = Math.max(0, linkedRequests.length - sidebarLinkedRequests.length)
+
+  if (loading) {
+
+    return (
+
+      <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '400px' }}>
+
+        <div>Caricamento dettagli immobile...</div>
+
+      </div>
+
+    )
+
+  }
 
   if (!property) {
 
