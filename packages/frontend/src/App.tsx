@@ -55015,7 +55015,7 @@ function ContactModal({
                   <input
                     type="number"
                     min={0}
-                    step="1000"
+                    step="1"
                     value={(formData as any).budgetMin ?? ''}
                     onChange={(e) =>
                       setFormData((prev) => ({
@@ -55040,7 +55040,7 @@ function ContactModal({
                   <input
                     type="number"
                     min={0}
-                    step="1000"
+                    step="1"
                     value={(formData as any).budgetMax ?? ''}
                     onChange={(e) =>
                       setFormData((prev) => ({
@@ -60394,6 +60394,7 @@ export default App
 // Force HMR update
 
  
+
 
 
 
