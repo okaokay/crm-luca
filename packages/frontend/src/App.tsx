@@ -38355,28 +38355,6 @@ function PropertyDetailPage({
 
 
 
-  if (!property) {
-
-    return (
-
-      <div style={{ textAlign: 'center', padding: '2rem' }}>
-
-        <h2>Immobile non trovato</h2>
-
-        <button onClick={onBack} style={{ marginTop: '1rem', padding: '0.5rem 1rem', backgroundColor: '#6b7280', color: 'white', border: 'none', borderRadius: '0.375rem', cursor: 'pointer' }}>
-
-          Torna alla lista
-
-        </button>
-
-      </div>
-
-    )
-
-  }
-
-
-
   const compactHeader = isCompactLayout
     ? {
         display: 'flex',
@@ -38406,7 +38384,7 @@ function PropertyDetailPage({
         alignItems: 'start'
       }
 
-  const imageList = Array.isArray(property.images) ? property.images.filter(Boolean) : []
+  const imageList = Array.isArray(property?.images) ? property.images.filter(Boolean) : []
   const heroImage = imageList[0] || ''
   const thumbImages = imageList.slice(1, 5)
   const openGalleryAt = (index: number) => {
@@ -38443,11 +38421,31 @@ function PropertyDetailPage({
     window.addEventListener('keydown', handleKeyDown)
     return () => window.removeEventListener('keydown', handleKeyDown)
   }, [isGalleryOpen, imageList.length])
-  const hasPortals = Array.isArray(property.portalTargets) && property.portalTargets.length > 0
+  const hasPortals = Array.isArray(property?.portalTargets) && property.portalTargets.length > 0
   const sidebarLinkedRequests = [...linkedRequests]
     .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
     .slice(0, 2)
   const hiddenLinkedRequestsCount = Math.max(0, linkedRequests.length - sidebarLinkedRequests.length)
+
+  if (!property) {
+
+    return (
+
+      <div style={{ textAlign: 'center', padding: '2rem' }}>
+
+        <h2>Immobile non trovato</h2>
+
+        <button onClick={onBack} style={{ marginTop: '1rem', padding: '0.5rem 1rem', backgroundColor: '#6b7280', color: 'white', border: 'none', borderRadius: '0.375rem', cursor: 'pointer' }}>
+
+          Torna alla lista
+
+        </button>
+
+      </div>
+
+    )
+
+  }
 
   return (
     <>
