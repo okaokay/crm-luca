@@ -636,6 +636,27 @@ export function AgentZoneTasksPage({ agents, onRefreshGlobalData }: AgentZoneTas
   const [dynamicEditNewStreets, setDynamicEditNewStreets] = useState<string[]>([''])
   const [dynamicEditRemovedStreetIds, setDynamicEditRemovedStreetIds] = useState<string[]>([])
   const [dynamicEditSaving, setDynamicEditSaving] = useState(false)
+  const [zoneQuickModal, setZoneQuickModal] = useState<{
+    open: boolean
+    kind: 'ZONE_SIGN' | 'ZONE_PROPERTY' | 'ZONE_CLIENT' | 'ZONE_NOTE' | null
+    title: string
+    content: string
+    fullName: string
+    phone: string
+    email: string
+    address: string
+    contactType: string
+  }>({
+    open: false,
+    kind: null,
+    title: '',
+    content: '',
+    fullName: '',
+    phone: '',
+    email: '',
+    address: '',
+    contactType: ''
+  })
 
   const authFetch = async (input: RequestInfo | URL, init: RequestInit = {}) => {
     const h = token ? { ...(init.headers as Record<string, string>), Authorization: `Bearer ${token}` } : init.headers
@@ -1134,6 +1155,78 @@ export function AgentZoneTasksPage({ agents, onRefreshGlobalData }: AgentZoneTas
       setMsg('Errore modifica gruppo')
     } finally {
       setDynamicEditSaving(false)
+    }
+  }
+
+  const openZoneQuickModal = (kind: 'ZONE_SIGN' | 'ZONE_PROPERTY' | 'ZONE_CLIENT' | 'ZONE_NOTE') => {
+    if (!currentDynamicStreet) {
+      setMsg('Seleziona una via per inserire informazioni puntuali')
+      return
+    }
+    const baseTitle =
+      kind === 'ZONE_SIGN'
+        ? `Cartello zona - ${currentDynamicStreet.name}`
+        : kind === 'ZONE_PROPERTY'
+          ? `Immobile zona - ${currentDynamicStreet.name}`
+          : kind === 'ZONE_CLIENT'
+            ? `Cliente di zona - ${currentDynamicStreet.name}`
+            : `Informazione zona - ${currentDynamicStreet.name}`
+    setZoneQuickModal({
+      open: true,
+      kind,
+      title: baseTitle,
+      content: '',
+      fullName: '',
+      phone: '',
+      email: '',
+      address: '',
+      contactType: kind === 'ZONE_CLIENT' ? 'LEAD' : ''
+    })
+  }
+
+  const submitZoneQuickModal = async () => {
+    if (!zoneQuickModal.kind || !currentDynamicStreet) return
+    const content = String(zoneQuickModal.content || '').trim()
+    if (!content) {
+      setMsg('Inserisci il contenuto principale')
+      return
+    }
+    if (zoneQuickModal.kind === 'ZONE_CLIENT' && !String(zoneQuickModal.fullName || '').trim()) {
+      setMsg('Inserisci nome e cognome cliente')
+      return
+    }
+
+    const metadata: Record<string, any> = {
+      kind: zoneQuickModal.kind,
+      streetId: currentDynamicStreet.id,
+      streetName: currentDynamicStreet.name
+    }
+    if (zoneQuickModal.title.trim()) metadata.title = zoneQuickModal.title.trim()
+    if (zoneQuickModal.fullName.trim()) metadata.fullName = zoneQuickModal.fullName.trim()
+    if (zoneQuickModal.phone.trim()) metadata.phone = zoneQuickModal.phone.trim()
+    if (zoneQuickModal.email.trim()) metadata.email = zoneQuickModal.email.trim()
+    if (zoneQuickModal.address.trim()) metadata.address = zoneQuickModal.address.trim()
+    if (zoneQuickModal.contactType.trim()) metadata.contactType = zoneQuickModal.contactType.trim()
+
+    const entryType = zoneQuickModal.kind === 'ZONE_NOTE' ? 'NOTE' : 'STATUS'
+    const ok = await saveDynamicZoneLog({
+      entryType,
+      title: zoneQuickModal.title.trim() || undefined,
+      content,
+      metadata
+    })
+    if (ok) {
+      setZoneQuickModal({
+        open: false,
+        kind: null,
+        title: '',
+        content: '',
+        fullName: '',
+        phone: '',
+        email: '',
+        address: '',
+        contactType: ''
+      })
     }
   }
   // Desktop + tablet: 3 colonne affiancate. Solo mobile stretto va in colonna.
@@ -4608,68 +4701,28 @@ export function AgentZoneTasksPage({ agents, onRefreshGlobalData }: AgentZoneTas
                       <button
                         type="button"
                         style={{ ...btnPrimary, background: '#1d4ed8' }}
-                        onClick={async () => {
-                          if (!currentDynamicStreet) { setMsg('Seleziona una via per inserire informazioni puntuali'); return }
-                          const content = window.prompt('Dettaglio cartello di zona')
-                          if (!content) return
-                          await saveDynamicZoneLog({
-                            entryType: 'STATUS',
-                            title: `Cartello zona - ${currentDynamicStreet.name}`,
-                            content,
-                            metadata: { kind: 'ZONE_SIGN', streetId: currentDynamicStreet.id, streetName: currentDynamicStreet.name }
-                          })
-                        }}
+                        onClick={() => openZoneQuickModal('ZONE_SIGN')}
                       >
                         AGGIUNGI CARTELLO DI ZONA
                       </button>
                       <button
                         type="button"
                         style={{ ...btnPrimary, background: '#2563eb' }}
-                        onClick={async () => {
-                          if (!currentDynamicStreet) { setMsg('Seleziona una via per inserire informazioni puntuali'); return }
-                          const content = window.prompt('Dettaglio immobile di zona')
-                          if (!content) return
-                          await saveDynamicZoneLog({
-                            entryType: 'STATUS',
-                            title: `Immobile zona - ${currentDynamicStreet.name}`,
-                            content,
-                            metadata: { kind: 'ZONE_PROPERTY', streetId: currentDynamicStreet.id, streetName: currentDynamicStreet.name }
-                          })
-                        }}
+                        onClick={() => openZoneQuickModal('ZONE_PROPERTY')}
                       >
                         AGGIUNGI IMMOBILE DI ZONA
                       </button>
                       <button
                         type="button"
                         style={{ ...btnPrimary, background: '#0f766e' }}
-                        onClick={async () => {
-                          if (!currentDynamicStreet) { setMsg('Seleziona una via per inserire informazioni puntuali'); return }
-                          const content = window.prompt('Dettaglio cliente di zona')
-                          if (!content) return
-                          await saveDynamicZoneLog({
-                            entryType: 'STATUS',
-                            title: `Cliente di zona - ${currentDynamicStreet.name}`,
-                            content,
-                            metadata: { kind: 'ZONE_CLIENT', streetId: currentDynamicStreet.id, streetName: currentDynamicStreet.name }
-                          })
-                        }}
+                        onClick={() => openZoneQuickModal('ZONE_CLIENT')}
                       >
                         AGGIUNGI CLIENTE DI ZONA
                       </button>
                       <button
                         type="button"
                         style={{ ...btnPrimary, background: '#334155' }}
-                        onClick={async () => {
-                          if (!currentDynamicStreet) { setMsg('Seleziona una via per inserire informazioni puntuali'); return }
-                          const content = window.prompt('Inserisci informazione di zona')
-                          if (!content) return
-                          await saveDynamicZoneLog({
-                            entryType: 'NOTE',
-                            title: `Informazione zona - ${currentDynamicStreet.name}`,
-                            content,
-                            metadata: { kind: 'ZONE_NOTE', streetId: currentDynamicStreet.id, streetName: currentDynamicStreet.name }
-                          })
-                        }}
+                        onClick={() => openZoneQuickModal('ZONE_NOTE')}
                       >
                         AGGIUNGI INFORMAZIONI DI ZONA
                       </button>
@@ -4681,6 +4734,13 @@ export function AgentZoneTasksPage({ agents, onRefreshGlobalData }: AgentZoneTas
                       Mega griglia informazioni zona {currentDynamicStreet ? `� ${currentDynamicStreet.name}` : '� tutte le vie del gruppo'}
                     </h3>
                     <div style={{ display: 'grid', gap: '8px', gridTemplateColumns: isMobileLayout ? '1fr' : 'repeat(4, minmax(0, 1fr))' }}>
+                      <input
+                        type="text"
+                        value={dynamicKeyword}
+                        onChange={(e) => setDynamicKeyword(e.target.value)}
+                        placeholder="Ricerca manuale (via, titolo, contenuto, contatto...)"
+                        style={inputStyle}
+                      />
                       <select value={dynamicTypeFilter} onChange={(e) => setDynamicTypeFilter(e.target.value)} style={inputStyle}>
                         <option value="">Tutti i tipi</option>
                         {megaTypeOptions.map((type) => <option key={type} value={type}>{zoneKindLabel(type)}</option>)}
@@ -4758,6 +4818,86 @@ export function AgentZoneTasksPage({ agents, onRefreshGlobalData }: AgentZoneTas
                   </div>
             </>
           )}
+        </div>
+      )}
+
+      {zoneQuickModal.open && (
+        <div style={modalBackdropStyle}>
+          <div style={modalCardStyle}>
+            <h3 style={{ margin: 0 }}>
+              {zoneQuickModal.kind === 'ZONE_SIGN' && 'Aggiungi cartello di zona'}
+              {zoneQuickModal.kind === 'ZONE_PROPERTY' && 'Aggiungi immobile di zona'}
+              {zoneQuickModal.kind === 'ZONE_CLIENT' && 'Aggiungi cliente di zona'}
+              {zoneQuickModal.kind === 'ZONE_NOTE' && 'Aggiungi informazioni di zona'}
+            </h3>
+            <div style={{ color: '#64748b', fontSize: '0.9rem' }}>
+              {currentDynamicStreet ? `Via selezionata: ${currentDynamicStreet.name}` : 'Seleziona una via'}
+            </div>
+
+            <label style={{ fontWeight: 700 }}>Titolo</label>
+            <input
+              value={zoneQuickModal.title}
+              onChange={(e) => setZoneQuickModal((prev) => ({ ...prev, title: e.target.value }))}
+              style={inputStyle}
+              placeholder="Titolo informazione"
+            />
+
+            {zoneQuickModal.kind === 'ZONE_CLIENT' && (
+              <>
+                <label style={{ fontWeight: 700 }}>Nome e Cognome *</label>
+                <input value={zoneQuickModal.fullName} onChange={(e) => setZoneQuickModal((prev) => ({ ...prev, fullName: e.target.value }))} style={inputStyle} placeholder="Es. Mario Rossi" />
+                <div style={{ display: 'grid', gap: '8px', gridTemplateColumns: isMobileLayout ? '1fr' : '1fr 1fr' }}>
+                  <input value={zoneQuickModal.phone} onChange={(e) => setZoneQuickModal((prev) => ({ ...prev, phone: e.target.value }))} style={inputStyle} placeholder="Telefono" />
+                  <input value={zoneQuickModal.email} onChange={(e) => setZoneQuickModal((prev) => ({ ...prev, email: e.target.value }))} style={inputStyle} placeholder="Email" />
+                </div>
+                <input value={zoneQuickModal.address} onChange={(e) => setZoneQuickModal((prev) => ({ ...prev, address: e.target.value }))} style={inputStyle} placeholder="Indirizzo" />
+                <select value={zoneQuickModal.contactType} onChange={(e) => setZoneQuickModal((prev) => ({ ...prev, contactType: e.target.value }))} style={inputStyle}>
+                  <option value="LEAD">Lead</option>
+                  <option value="BUYER">Acquirente</option>
+                  <option value="SELLER">Venditore</option>
+                </select>
+              </>
+            )}
+
+            {zoneQuickModal.kind === 'ZONE_PROPERTY' && (
+              <>
+                <label style={{ fontWeight: 700 }}>Proprietario</label>
+                <input value={zoneQuickModal.fullName} onChange={(e) => setZoneQuickModal((prev) => ({ ...prev, fullName: e.target.value }))} style={inputStyle} placeholder="Nome proprietario" />
+                <div style={{ display: 'grid', gap: '8px', gridTemplateColumns: isMobileLayout ? '1fr' : '1fr 1fr' }}>
+                  <input value={zoneQuickModal.phone} onChange={(e) => setZoneQuickModal((prev) => ({ ...prev, phone: e.target.value }))} style={inputStyle} placeholder="Telefono" />
+                  <input value={zoneQuickModal.address} onChange={(e) => setZoneQuickModal((prev) => ({ ...prev, address: e.target.value }))} style={inputStyle} placeholder="Indirizzo" />
+                </div>
+              </>
+            )}
+
+            {zoneQuickModal.kind === 'ZONE_SIGN' && (
+              <>
+                <label style={{ fontWeight: 700 }}>Azienda / Riferimento</label>
+                <input value={zoneQuickModal.fullName} onChange={(e) => setZoneQuickModal((prev) => ({ ...prev, fullName: e.target.value }))} style={inputStyle} placeholder="Es. Tecnocasa" />
+              </>
+            )}
+
+            <label style={{ fontWeight: 700 }}>Contenuto *</label>
+            <textarea
+              value={zoneQuickModal.content}
+              onChange={(e) => setZoneQuickModal((prev) => ({ ...prev, content: e.target.value }))}
+              style={{ ...inputStyle, minHeight: '110px', resize: 'vertical' }}
+              placeholder="Inserisci dettaglio informazione"
+            />
+
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px' }}>
+              <button
+                type="button"
+                style={{ ...btnPrimary, background: '#64748b' }}
+                onClick={() => setZoneQuickModal({ open: false, kind: null, title: '', content: '', fullName: '', phone: '', email: '', address: '', contactType: '' })}
+              >
+                Annulla
+              </button>
+              <button type="button" style={btnPrimary} onClick={submitZoneQuickModal}>
+                Salva
+              </button>
+            </div>
+          </div>
         </div>
       )}
 
@@ -5093,4 +5233,6 @@ export function AgentZoneTasksPage({ agents, onRefreshGlobalData }: AgentZoneTas
     </div>
   )
 }
+
+
 

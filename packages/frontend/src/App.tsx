@@ -45661,7 +45661,7 @@ function PropertyModal({
 
     // Energia e ambiente
 
-    energyClass: property?.energyClass || 'G',
+    energyClass: property ? (property?.energyClass || 'G') : '',
 
 
 
@@ -45835,7 +45835,13 @@ function PropertyModal({
     setStreetSuggestions([])
   }
 
-  const nextStep = () => setActiveStep((prev) => Math.min(finalStep, prev + 1))
+  const nextStep = () => {
+    if (activeStep === 9 && !String(formData.energyClass || '').trim()) {
+      alert('La classe energetica è obbligatoria')
+      return
+    }
+    setActiveStep((prev) => Math.min(finalStep, prev + 1))
+  }
   const prevStep = () => setActiveStep((prev) => Math.max(1, prev - 1))
 
   useEffect(() => {
@@ -46363,6 +46369,11 @@ function PropertyModal({
     if (isAdminUser && !formData.description.trim()) {
       alert('La descrizione annuncio Ò¨ obbligatoria')
       setActiveStep(10)
+      return
+    }
+    if (!String(formData.energyClass || '').trim()) {
+      alert('La classe energetica � obbligatoria')
+      setActiveStep(9)
       return
     }
 
@@ -48146,9 +48157,9 @@ function PropertyModal({
                     </label>
                   </div>
                   <div>
-                    <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: '500' }}>Classe Energetica</label>
-                    <select value={formData.energyClass} onChange={(e) => setFormData({ ...formData, energyClass: e.target.value })} style={{ width:'100%', padding:'0.75rem', border:'1px solid rgba(71,85,105,.55)', borderRadius:'0.375rem' }}>
-                      <option value="A+">A+</option><option value="A">A</option><option value="B">B</option><option value="C">C</option><option value="D">D</option><option value="E">E</option><option value="F">F</option><option value="G">G</option>
+                    <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: '500' }}>Classe Energetica *</label>
+                    <select value={formData.energyClass} onChange={(e) => setFormData({ ...formData, energyClass: e.target.value })} required style={{ width:'100%', padding:'0.75rem', border:'1px solid rgba(71,85,105,.55)', borderRadius:'0.375rem' }}>
+                      <option value="">Seleziona...</option><option value="A+">A+</option><option value="A">A</option><option value="B">B</option><option value="C">C</option><option value="D">D</option><option value="E">E</option><option value="F">F</option><option value="G">G</option>
                     </select>
                   </div>
                   <div>
@@ -53523,6 +53534,10 @@ function ContactModal({
       }
       if (!String((formData as any).requestZone || '').trim()) {
         alert('Inserisci la zona richiesta')
+        return
+      }
+      if (!Number.isFinite(Number((formData as any).requestBedrooms)) || Number((formData as any).requestBedrooms) <= 0) {
+        alert('Per il cliente le camere richieste sono obbligatorie')
         return
       }
       const budgetMin = Number((formData as any).budgetMin)
