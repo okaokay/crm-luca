@@ -659,6 +659,41 @@ export function AgentZoneTasksPage({ agents, onRefreshGlobalData }: AgentZoneTas
     contactType: '',
     photoDataUrl: ''
   })
+  const [zoneMegaDetailModal, setZoneMegaDetailModal] = useState<{
+    open: boolean
+    rowId: string
+    entryType: string
+    kind: string
+    streetName: string
+    title: string
+    content: string
+    fullName: string
+    phone: string
+    email: string
+    address: string
+    contactType: string
+    photoDataUrl: string
+    createdAt: string
+    author: string
+    saving: boolean
+  }>({
+    open: false,
+    rowId: '',
+    entryType: 'NOTE',
+    kind: '',
+    streetName: '',
+    title: '',
+    content: '',
+    fullName: '',
+    phone: '',
+    email: '',
+    address: '',
+    contactType: '',
+    photoDataUrl: '',
+    createdAt: '',
+    author: '',
+    saving: false
+  })
 
   const authFetch = async (input: RequestInfo | URL, init: RequestInit = {}) => {
     const h = token ? { ...(init.headers as Record<string, string>), Authorization: `Bearer ${token}` } : init.headers
@@ -1240,6 +1275,87 @@ export function AgentZoneTasksPage({ agents, onRefreshGlobalData }: AgentZoneTas
         contactType: '',
     photoDataUrl: ''
       })
+    }
+  }
+
+  const onZoneMegaDetailPhotoSelected = async (file: File | null) => {
+    if (!file) return
+    const dataUrl = await fileToOptimizedDataUrl(file)
+    setZoneMegaDetailModal((prev) => ({ ...prev, photoDataUrl: dataUrl }))
+  }
+
+  const openZoneMegaDetailModal = (row: any) => {
+    setZoneMegaDetailModal({
+      open: true,
+      rowId: String(row.id || ''),
+      entryType: String(row.entryType || 'NOTE'),
+      kind: String(row.kind || ''),
+      streetName: String(row.streetName || ''),
+      title: String(row.title === '-' ? '' : (row.title || '')),
+      content: String(row.content === '-' ? '' : (row.content || '')),
+      fullName: String(row.contactName === '-' ? '' : (row.contactName || '')),
+      phone: String(row.phone === '-' ? '' : (row.phone || '')),
+      email: String(row.email === '-' ? '' : (row.email || '')),
+      address: String(row.address === '-' ? '' : (row.address || '')),
+      contactType: String(row.contactType === '-' ? '' : (row.contactType || '')),
+      photoDataUrl: String(row.photoDataUrl || ''),
+      createdAt: String(row.createdAt || ''),
+      author: String(row.author || ''),
+      saving: false
+    })
+  }
+
+  const saveZoneMegaDetailModal = async () => {
+    if (!dynamicWorkspace || !zoneMegaDetailModal.rowId) return
+    const content = String(zoneMegaDetailModal.content || '').trim()
+    if (!content) {
+      setMsg('Inserisci il contenuto principale')
+      return
+    }
+    setZoneMegaDetailModal((prev) => ({ ...prev, saving: true }))
+    try {
+      const metadata: Record<string, any> = {
+        kind: zoneMegaDetailModal.kind,
+        streetName: zoneMegaDetailModal.streetName
+      }
+      if (currentDynamicStreet?.id) metadata.streetId = currentDynamicStreet.id
+      if (zoneMegaDetailModal.title.trim()) metadata.title = zoneMegaDetailModal.title.trim()
+      if (zoneMegaDetailModal.fullName.trim()) metadata.fullName = zoneMegaDetailModal.fullName.trim()
+      if (zoneMegaDetailModal.phone.trim()) metadata.phone = zoneMegaDetailModal.phone.trim()
+      if (zoneMegaDetailModal.email.trim()) metadata.email = zoneMegaDetailModal.email.trim()
+      if (zoneMegaDetailModal.address.trim()) metadata.address = zoneMegaDetailModal.address.trim()
+      if (zoneMegaDetailModal.contactType.trim()) metadata.contactType = zoneMegaDetailModal.contactType.trim()
+      if (zoneMegaDetailModal.photoDataUrl.trim()) {
+        Object.assign(metadata, buildZoneImageMetadata(zoneMegaDetailModal.photoDataUrl))
+      } else {
+        metadata.photoDataUrl = null
+        metadata.attachments = []
+      }
+
+      const response = await authFetch(
+        `/api/agent-zones/dynamic-groups/${encodeURIComponent(dynamicWorkspace.groupId)}/logs/${encodeURIComponent(zoneMegaDetailModal.rowId)}`,
+        {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            entryType: zoneMegaDetailModal.entryType || 'NOTE',
+            title: zoneMegaDetailModal.title.trim() || null,
+            content,
+            metadata
+          })
+        }
+      )
+      const parsed = await parseJsonSafe(response)
+      if (!parsed.ok || !parsed.data?.success) {
+        setMsg(parsed.ok ? (parsed.data?.message || 'Errore salvataggio modifica informazione') : 'Errore salvataggio modifica informazione')
+        return
+      }
+      await openDynamicGroupWorkspace(dynamicWorkspace.groupId)
+      setZoneMegaDetailModal((prev) => ({ ...prev, open: false, saving: false }))
+      setMsg('Informazione zona aggiornata')
+    } catch {
+      setMsg('Errore salvataggio modifica informazione')
+      setZoneMegaDetailModal((prev) => ({ ...prev, saving: false }))
     }
   }
   // Desktop + tablet: 3 colonne affiancate. Solo mobile stretto va in colonna.
@@ -4338,6 +4454,7 @@ export function AgentZoneTasksPage({ agents, onRefreshGlobalData }: AgentZoneTas
     })
     .map((entry) => ({
       id: String(entry.id),
+      entryType: String(entry.entryType || 'NOTE'),
       createdAt: entry.createdAt,
       kind: String(entry?.metadata?.kind || ''),
       streetName: String(entry?.metadata?.streetName || currentDynamicStreet?.name || '-'),
@@ -4349,7 +4466,8 @@ export function AgentZoneTasksPage({ agents, onRefreshGlobalData }: AgentZoneTas
       phone: String(entry?.metadata?.phone || '-'),
       email: String(entry?.metadata?.email || '-'),
       address: String(entry?.metadata?.address || '-'),
-      hasPhoto: Boolean(getZonePrimaryPhoto(entry?.metadata))
+      hasPhoto: Boolean(getZonePrimaryPhoto(entry?.metadata)),
+      photoDataUrl: String(getZonePrimaryPhoto(entry?.metadata) || '')
     }))
   const megaTypeOptions = useMemo(() => Array.from(new Set(megaRowsBase.map((row) => row.kind))).sort((a, b) => a.localeCompare(b, 'it')), [megaRowsBase])
   const megaAuthorOptions = useMemo(() => Array.from(new Set(megaRowsBase.map((row) => row.author))).sort((a, b) => a.localeCompare(b, 'it')), [megaRowsBase])
@@ -4810,7 +4928,7 @@ export function AgentZoneTasksPage({ agents, onRefreshGlobalData }: AgentZoneTas
                           {megaRows.length === 0 ? (
                             <tr><td colSpan={10} style={{ padding: '10px', color: '#64748b' }}>Nessuna informazione trovata per questa via.</td></tr>
                           ) : megaRows.map((row) => (
-                            <tr key={row.id}>
+                            <tr key={row.id} style={{ cursor: 'pointer' }} onClick={() => openZoneMegaDetailModal(row)}>
                               <td style={{ borderBottom: '1px solid #f1f5f9', padding: '7px' }}>{fmt(row.createdAt)}</td>
                               <td style={{ borderBottom: '1px solid #f1f5f9', padding: '7px' }}>{zoneKindLabel(row.kind)}</td>
                               <td style={{ borderBottom: '1px solid #f1f5f9', padding: '7px' }}>{row.streetName}</td>
@@ -4924,6 +5042,109 @@ export function AgentZoneTasksPage({ agents, onRefreshGlobalData }: AgentZoneTas
               </button>
               <button type="button" style={btnPrimary} onClick={submitZoneQuickModal}>
                 Salva
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      {zoneMegaDetailModal.open && (
+        <div style={modalBackdropStyle}>
+          <div style={modalCardStyle}>
+            <h3 style={{ margin: 0 }}>Dettaglio informazione di zona</h3>
+            <div style={{ color: '#64748b', fontSize: '0.9rem' }}>
+              {zoneKindLabel(zoneMegaDetailModal.kind)} | {zoneMegaDetailModal.streetName || '-'} | {fmt(zoneMegaDetailModal.createdAt)} | {zoneMegaDetailModal.author}
+            </div>
+
+            <label style={{ fontWeight: 700 }}>Titolo</label>
+            <input
+              value={zoneMegaDetailModal.title}
+              onChange={(e) => setZoneMegaDetailModal((prev) => ({ ...prev, title: e.target.value }))}
+              style={inputStyle}
+              placeholder="Titolo"
+            />
+
+            <label style={{ fontWeight: 700 }}>Nominativo</label>
+            <input
+              value={zoneMegaDetailModal.fullName}
+              onChange={(e) => setZoneMegaDetailModal((prev) => ({ ...prev, fullName: e.target.value }))}
+              style={inputStyle}
+              placeholder="Nome e cognome"
+            />
+
+            <div style={{ display: 'grid', gap: '8px', gridTemplateColumns: isMobileLayout ? '1fr' : '1fr 1fr' }}>
+              <div>
+                <label style={{ fontWeight: 700 }}>Telefono</label>
+                <input
+                  value={zoneMegaDetailModal.phone}
+                  onChange={(e) => setZoneMegaDetailModal((prev) => ({ ...prev, phone: e.target.value }))}
+                  style={inputStyle}
+                  placeholder="Telefono"
+                />
+              </div>
+              <div>
+                <label style={{ fontWeight: 700 }}>Email</label>
+                <input
+                  value={zoneMegaDetailModal.email}
+                  onChange={(e) => setZoneMegaDetailModal((prev) => ({ ...prev, email: e.target.value }))}
+                  style={inputStyle}
+                  placeholder="Email"
+                />
+              </div>
+            </div>
+
+            <label style={{ fontWeight: 700 }}>Indirizzo</label>
+            <input
+              value={zoneMegaDetailModal.address}
+              onChange={(e) => setZoneMegaDetailModal((prev) => ({ ...prev, address: e.target.value }))}
+              style={inputStyle}
+              placeholder="Indirizzo"
+            />
+
+            <label style={{ fontWeight: 700 }}>Contenuto *</label>
+            <textarea
+              value={zoneMegaDetailModal.content}
+              onChange={(e) => setZoneMegaDetailModal((prev) => ({ ...prev, content: e.target.value }))}
+              style={{ ...inputStyle, minHeight: '130px', resize: 'vertical' }}
+              placeholder="Contenuto completo"
+            />
+
+            <label style={{ fontWeight: 700 }}>Foto</label>
+            <input
+              type="file"
+              accept="image/*"
+              style={inputStyle}
+              onChange={(e) => onZoneMegaDetailPhotoSelected(e.target.files?.[0] || null)}
+            />
+            {zoneMegaDetailModal.photoDataUrl ? (
+              <div style={{ display: 'grid', gap: '8px' }}>
+                <img src={zoneMegaDetailModal.photoDataUrl} alt="Foto informazione" style={{ width: '260px', maxWidth: '100%', borderRadius: '8px', border: '1px solid #e5e7eb' }} />
+                <button
+                  type="button"
+                  style={{ ...btnPrimary, background: '#dc2626', width: 'fit-content', padding: '8px 10px' }}
+                  onClick={() => setZoneMegaDetailModal((prev) => ({ ...prev, photoDataUrl: '' }))}
+                >
+                  Rimuovi foto
+                </button>
+              </div>
+            ) : (
+              <div style={{ color: '#64748b', fontSize: '0.85rem' }}>Nessuna foto associata</div>
+            )}
+
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px' }}>
+              <button
+                type="button"
+                style={{ ...btnPrimary, background: '#64748b' }}
+                onClick={() => setZoneMegaDetailModal((prev) => ({ ...prev, open: false }))}
+              >
+                Chiudi
+              </button>
+              <button
+                type="button"
+                style={btnPrimary}
+                onClick={saveZoneMegaDetailModal}
+                disabled={zoneMegaDetailModal.saving}
+              >
+                {zoneMegaDetailModal.saving ? 'Salvataggio...' : 'Salva modifiche'}
               </button>
             </div>
           </div>

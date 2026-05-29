@@ -8230,6 +8230,75 @@ app.post('/api/agent-zones/dynamic-groups/:groupId/logs', async (req, res) => {
   }
 });
 
+app.put('/api/agent-zones/dynamic-groups/:groupId/logs/:logId', async (req, res) => {
+  try {
+    const auth = getAuth(req);
+    if (!auth) return res.status(401).json({ success: false, message: 'Unauthorized' });
+    const prismaAny = prisma as any;
+    const groupId = String(req.params.groupId || '').trim();
+    const logId = String(req.params.logId || '').trim();
+    if (!groupId || !logId) return res.status(400).json({ success: false, message: 'groupId e logId obbligatori' });
+
+    const group = await prismaAny.zoneStreetGroup.findUnique({
+      where: { id: groupId },
+      include: { zone: { select: { id: true, agencyId: true, notes: true } } }
+    });
+    if (!group || !group.zone) return res.status(404).json({ success: false, message: 'Gruppo non trovato' });
+    if (String(group.zone.notes || '') !== DYNAMIC_ZONE_GROUP_MARKER) {
+      return res.status(400).json({ success: false, message: 'Gruppo non dinamico' });
+    }
+    if (auth.agencyId && auth.role !== 'SUPER_ADMIN' && String(group.zone.agencyId) !== String(auth.agencyId)) {
+      return res.status(403).json({ success: false, message: 'Forbidden' });
+    }
+
+    let canWrite = isAdminRole(auth.role);
+    if (!canWrite) {
+      const activeAssignment = await prismaAny.zoneAssignment.findFirst({
+        where: {
+          zoneId: group.zone.id,
+          groupId: group.id,
+          assignmentType: 'GROUP',
+          agentId: auth.id,
+          isActive: true
+        },
+        select: { id: true }
+      });
+      canWrite = Boolean(activeAssignment);
+    }
+    if (!canWrite) return res.status(403).json({ success: false, message: 'Forbidden' });
+
+    const existing = await prismaAny.zoneGroupWorkLog.findFirst({
+      where: {
+        id: logId,
+        groupId: String(group.id),
+        zoneId: String(group.zone.id)
+      }
+    });
+    if (!existing) return res.status(404).json({ success: false, message: 'Informazione non trovata' });
+
+    const entryTypeRaw = String(req.body?.entryType || existing.entryType || 'NOTE').trim().toUpperCase();
+    const validTypes = ['NOTE', 'STATUS', 'STATISTICS', 'HANDOVER'];
+    const entryType = validTypes.includes(entryTypeRaw) ? entryTypeRaw : 'NOTE';
+    const title = req.body?.title != null ? String(req.body.title).trim() : String(existing.title || '').trim();
+    const content = String(req.body?.content || '').trim();
+    if (!content) return res.status(400).json({ success: false, message: 'Contenuto obbligatorio' });
+
+    const updated = await prismaAny.zoneGroupWorkLog.update({
+      where: { id: existing.id },
+      data: {
+        entryType,
+        title: title || null,
+        content,
+        metadata: req.body?.metadata && typeof req.body.metadata === 'object' ? req.body.metadata : (existing.metadata || null)
+      }
+    });
+
+    res.json({ success: true, data: updated });
+  } catch (error) {
+    res.status(500).json({ success: false, message: 'Error updating dynamic group log' });
+  }
+});
+
 app.post('/api/agent-zones/dynamic-groups/streets/:streetId/move', async (req, res) => {
   try {
     const auth = getAuth(req);
