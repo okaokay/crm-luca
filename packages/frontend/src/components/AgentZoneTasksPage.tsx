@@ -646,6 +646,7 @@ export function AgentZoneTasksPage({ agents, onRefreshGlobalData }: AgentZoneTas
     email: string
     address: string
     contactType: string
+    photoDataUrl: string
   }>({
     open: false,
     kind: null,
@@ -655,7 +656,8 @@ export function AgentZoneTasksPage({ agents, onRefreshGlobalData }: AgentZoneTas
     phone: '',
     email: '',
     address: '',
-    contactType: ''
+    contactType: '',
+    photoDataUrl: ''
   })
 
   const authFetch = async (input: RequestInfo | URL, init: RequestInit = {}) => {
@@ -1180,8 +1182,15 @@ export function AgentZoneTasksPage({ agents, onRefreshGlobalData }: AgentZoneTas
       phone: '',
       email: '',
       address: '',
-      contactType: kind === 'ZONE_CLIENT' ? 'LEAD' : ''
+      contactType: kind === 'ZONE_CLIENT' ? 'LEAD' : '',
+      photoDataUrl: ''
     })
+  }
+
+  const onZoneQuickPhotoSelected = async (file: File | null) => {
+    if (!file) return
+    const dataUrl = await fileToOptimizedDataUrl(file)
+    setZoneQuickModal((prev) => ({ ...prev, photoDataUrl: dataUrl }))
   }
 
   const submitZoneQuickModal = async () => {
@@ -1207,6 +1216,9 @@ export function AgentZoneTasksPage({ agents, onRefreshGlobalData }: AgentZoneTas
     if (zoneQuickModal.email.trim()) metadata.email = zoneQuickModal.email.trim()
     if (zoneQuickModal.address.trim()) metadata.address = zoneQuickModal.address.trim()
     if (zoneQuickModal.contactType.trim()) metadata.contactType = zoneQuickModal.contactType.trim()
+    if (zoneQuickModal.photoDataUrl.trim()) {
+      Object.assign(metadata, buildZoneImageMetadata(zoneQuickModal.photoDataUrl))
+    }
 
     const entryType = zoneQuickModal.kind === 'ZONE_NOTE' ? 'NOTE' : 'STATUS'
     const ok = await saveDynamicZoneLog({
@@ -1225,7 +1237,8 @@ export function AgentZoneTasksPage({ agents, onRefreshGlobalData }: AgentZoneTas
         phone: '',
         email: '',
         address: '',
-        contactType: ''
+        contactType: '',
+    photoDataUrl: ''
       })
     }
   }
@@ -4788,24 +4801,22 @@ export function AgentZoneTasksPage({ agents, onRefreshGlobalData }: AgentZoneTas
                       <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: '960px' }}>
                         <thead>
                           <tr>
-                            {['Data/Ora', 'Tipo', 'Via', 'Autore', 'Titolo', 'Contenuto', 'Contatto', 'Tipo contatto', 'Telefono', 'Email', 'Indirizzo', 'Foto'].map((header) => (
+                            {['Data/Ora', 'Tipo', 'Via', 'Titolo', 'Contenuto', 'Nominativo', 'Telefono', 'Email', 'Indirizzo', 'Foto'].map((header) => (
                               <th key={header} style={{ textAlign: 'left', borderBottom: '1px solid #e5e7eb', padding: '7px', fontSize: '0.84rem' }}>{header}</th>
                             ))}
                           </tr>
                         </thead>
                         <tbody>
                           {megaRows.length === 0 ? (
-                            <tr><td colSpan={12} style={{ padding: '10px', color: '#64748b' }}>Nessuna informazione trovata per questa via.</td></tr>
+                            <tr><td colSpan={10} style={{ padding: '10px', color: '#64748b' }}>Nessuna informazione trovata per questa via.</td></tr>
                           ) : megaRows.map((row) => (
                             <tr key={row.id}>
                               <td style={{ borderBottom: '1px solid #f1f5f9', padding: '7px' }}>{fmt(row.createdAt)}</td>
                               <td style={{ borderBottom: '1px solid #f1f5f9', padding: '7px' }}>{zoneKindLabel(row.kind)}</td>
                               <td style={{ borderBottom: '1px solid #f1f5f9', padding: '7px' }}>{row.streetName}</td>
-                              <td style={{ borderBottom: '1px solid #f1f5f9', padding: '7px' }}>{row.author}</td>
                               <td style={{ borderBottom: '1px solid #f1f5f9', padding: '7px' }}>{row.title}</td>
                               <td style={{ borderBottom: '1px solid #f1f5f9', padding: '7px' }}>{row.content}</td>
                               <td style={{ borderBottom: '1px solid #f1f5f9', padding: '7px' }}>{row.contactName}</td>
-                              <td style={{ borderBottom: '1px solid #f1f5f9', padding: '7px' }}>{row.contactType}</td>
                               <td style={{ borderBottom: '1px solid #f1f5f9', padding: '7px' }}>{row.phone}</td>
                               <td style={{ borderBottom: '1px solid #f1f5f9', padding: '7px' }}>{row.email}</td>
                               <td style={{ borderBottom: '1px solid #f1f5f9', padding: '7px' }}>{row.address}</td>
@@ -4842,12 +4853,19 @@ export function AgentZoneTasksPage({ agents, onRefreshGlobalData }: AgentZoneTas
               placeholder="Titolo informazione"
             />
 
+            <label style={{ fontWeight: 700 }}>Telefono</label>
+            <input
+              value={zoneQuickModal.phone}
+              onChange={(e) => setZoneQuickModal((prev) => ({ ...prev, phone: e.target.value }))}
+              style={inputStyle}
+              placeholder="Telefono"
+            />
+
             {zoneQuickModal.kind === 'ZONE_CLIENT' && (
               <>
                 <label style={{ fontWeight: 700 }}>Nome e Cognome *</label>
                 <input value={zoneQuickModal.fullName} onChange={(e) => setZoneQuickModal((prev) => ({ ...prev, fullName: e.target.value }))} style={inputStyle} placeholder="Es. Mario Rossi" />
                 <div style={{ display: 'grid', gap: '8px', gridTemplateColumns: isMobileLayout ? '1fr' : '1fr 1fr' }}>
-                  <input value={zoneQuickModal.phone} onChange={(e) => setZoneQuickModal((prev) => ({ ...prev, phone: e.target.value }))} style={inputStyle} placeholder="Telefono" />
                   <input value={zoneQuickModal.email} onChange={(e) => setZoneQuickModal((prev) => ({ ...prev, email: e.target.value }))} style={inputStyle} placeholder="Email" />
                 </div>
                 <input value={zoneQuickModal.address} onChange={(e) => setZoneQuickModal((prev) => ({ ...prev, address: e.target.value }))} style={inputStyle} placeholder="Indirizzo" />
@@ -4864,7 +4882,6 @@ export function AgentZoneTasksPage({ agents, onRefreshGlobalData }: AgentZoneTas
                 <label style={{ fontWeight: 700 }}>Proprietario</label>
                 <input value={zoneQuickModal.fullName} onChange={(e) => setZoneQuickModal((prev) => ({ ...prev, fullName: e.target.value }))} style={inputStyle} placeholder="Nome proprietario" />
                 <div style={{ display: 'grid', gap: '8px', gridTemplateColumns: isMobileLayout ? '1fr' : '1fr 1fr' }}>
-                  <input value={zoneQuickModal.phone} onChange={(e) => setZoneQuickModal((prev) => ({ ...prev, phone: e.target.value }))} style={inputStyle} placeholder="Telefono" />
                   <input value={zoneQuickModal.address} onChange={(e) => setZoneQuickModal((prev) => ({ ...prev, address: e.target.value }))} style={inputStyle} placeholder="Indirizzo" />
                 </div>
               </>
@@ -4885,11 +4902,23 @@ export function AgentZoneTasksPage({ agents, onRefreshGlobalData }: AgentZoneTas
               placeholder="Inserisci dettaglio informazione"
             />
 
+            <label style={{ fontWeight: 700 }}>Foto</label>
+            <input
+              type="file"
+              accept="image/*"
+              style={inputStyle}
+              onChange={(e) => onZoneQuickPhotoSelected(e.target.files?.[0] || null)}
+            />
+            {zoneQuickModal.photoDataUrl ? (
+              <img src={zoneQuickModal.photoDataUrl} alt="Anteprima foto" style={{ width: '220px', maxWidth: '100%', borderRadius: '8px', border: '1px solid #e5e7eb' }} />
+            ) : null}
+
             <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px' }}>
               <button
                 type="button"
                 style={{ ...btnPrimary, background: '#64748b' }}
-                onClick={() => setZoneQuickModal({ open: false, kind: null, title: '', content: '', fullName: '', phone: '', email: '', address: '', contactType: '' })}
+                onClick={() => setZoneQuickModal({ open: false, kind: null, title: '', content: '', fullName: '', phone: '', email: '', address: '', contactType: '',
+    photoDataUrl: '' })}
               >
                 Annulla
               </button>
@@ -5233,6 +5262,7 @@ export function AgentZoneTasksPage({ agents, onRefreshGlobalData }: AgentZoneTas
     </div>
   )
 }
+
 
 
 
