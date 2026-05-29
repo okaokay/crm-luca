@@ -53603,8 +53603,17 @@ function ContactModal({
       ? Math.max(rawBudgetMin, rawBudgetMax)
       : (Number.isFinite(rawBudgetMax) ? rawBudgetMax : undefined)
 
+    const normalizedRequestGoal = String((formData as any).requestGoal || '').trim().toUpperCase()
+    const normalizedType = category === 'CLIENT'
+      ? (normalizedRequestGoal === 'RENT'
+        ? 'TENANT'
+        : (normalizedRequestGoal === 'SALE' ? 'BUYER' : formData.type))
+      : formData.type
+
     onSave({
       ...(formData as any),
+      type: normalizedType as any,
+      requestGoal: normalizedRequestGoal || (formData as any).requestGoal,
       budgetMin: normalizedBudgetMin,
       budgetMax: normalizedBudgetMax,
       budget: normalizedBudgetMax ?? normalizedBudgetMin ?? (formData as any).budget,
