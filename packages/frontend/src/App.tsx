@@ -7826,21 +7826,32 @@ function App() {
         normalizedUserRole === 'OWNER' ||
         normalizedUserRole === 'OPS_ADMIN'
 
+      const isAppointmentsHeavyPage =
+        currentPage === 'appuntamenti' ||
+        currentPage === 'dashboard'
+
+      const isActivitiesHeavyPage =
+        currentPage === 'attivita' ||
+        currentPage === 'dashboard'
+
+      const appointmentsLimit = isAppointmentsHeavyPage ? 1000 : 250
+      const activitiesLimit = isActivitiesHeavyPage ? 250 : 100
+
       const appointmentsUrl =
 
         !isAdminUser && user?.id
 
-          ? `/api/appointments?assignedToId=${encodeURIComponent(user.id)}&limit=5000`
+          ? `/api/appointments?assignedToId=${encodeURIComponent(user.id)}&limit=${appointmentsLimit}`
 
-          : '/api/appointments?limit=5000'
+          : `/api/appointments?limit=${appointmentsLimit}`
 
       const activitiesUrl =
 
         userRole === 'AGENT' && user?.id
 
-          ? `/api/activities?assignedToId=${encodeURIComponent(user.id)}&limit=100`
+          ? `/api/activities?assignedToId=${encodeURIComponent(user.id)}&limit=${activitiesLimit}`
 
-          : '/api/activities?limit=100'
+          : `/api/activities?limit=${activitiesLimit}`
 
 
 
@@ -7884,11 +7895,16 @@ function App() {
 
 
 
-        if ((!properties || properties.length === 0) && statsData?.success && statsData.data?.totalProperties > 0) {
+        if (
+          (!properties || properties.length === 0) &&
+          statsData?.success &&
+          statsData.data?.totalProperties > 0 &&
+          (currentPage === 'immobili' || currentPage === 'dashboard' || currentPage === 'incrocio')
+        ) {
 
           const retryRes = await fetch(
 
-            `/api/properties?limit=${Math.max(statsData.data.totalProperties, 100)}`,
+            `/api/properties?limit=${Math.min(Math.max(statsData.data.totalProperties, 100), 300)}`,
 
             { headers: authHeaders }
 
@@ -8007,35 +8023,37 @@ function App() {
 
 
 
-      try {
+      if (currentPage === 'contratti' || currentPage === 'dashboard') {
+        try {
 
-        const templatesRes = await fetch('/api/contract-templates', { headers: authHeaders })
+          const templatesRes = await fetch('/api/contract-templates', { headers: authHeaders })
 
-        const templatesData = await templatesRes.json()
+          const templatesData = await templatesRes.json()
 
-        if (templatesData?.success) {
+          if (templatesData?.success) {
 
-          setContractTemplates(templatesData.data || [])
+            setContractTemplates(templatesData.data || [])
 
-        }
+          }
 
-      } catch {}
+        } catch {}
 
 
 
-      try {
+        try {
 
-        const contractsRes = await fetch('/api/contracts', { headers: authHeaders })
+          const contractsRes = await fetch('/api/contracts', { headers: authHeaders })
 
-        const contractsData = await contractsRes.json()
+          const contractsData = await contractsRes.json()
 
-        if (contractsData?.success) {
+          if (contractsData?.success) {
 
-          setContracts(contractsData.data || [])
+            setContracts(contractsData.data || [])
 
-        }
+          }
 
-      } catch {}
+        } catch {}
+      }
 
 
 
@@ -8806,6 +8824,7 @@ function App() {
     const loadNotifications = async () => {
 
       try {
+        if (typeof document !== 'undefined' && document.hidden) return
 
         const isAdminUser = userRole === 'SUPER_ADMIN' || userRole === 'AGENCY_ADMIN'
 
@@ -8893,7 +8912,7 @@ function App() {
 
     const initialLoadTimeout = window.setTimeout(loadNotifications, 1500)
 
-    const intervalId = window.setInterval(loadNotifications, 10000)
+    const intervalId = window.setInterval(loadNotifications, 30000)
 
 
 
