@@ -28708,7 +28708,8 @@ function ClientDetailPage({
 
   const reqContract = String(request?.contractType || (contact as any)?.requestGoal || '').toUpperCase()
   const reqType = String(request?.type || (contact as any)?.requestPropertyType || contact.requestApartmentType || '').toUpperCase()
-  const reqMaxPrice = Number(request?.maxPrice || contact.budget || 0) || 0
+  const reqMinPrice = Number(request?.minPrice ?? (contact as any).budgetMin ?? 0) || 0
+  const reqMaxPrice = Number(request?.maxPrice ?? (contact as any).budgetMax ?? contact.budget ?? 0) || 0
   const reqMinRooms = Number(request?.minRooms ?? contact.requestBedrooms ?? 0) || 0
   const reqMinBathrooms = Number(request?.minBathrooms ?? contact.requestBathrooms ?? 0) || 0
   const reqCity = String(request?.cities?.[0] || contact.city || '').trim().toLowerCase()
@@ -28719,10 +28720,14 @@ function ClientDetailPage({
       if (reqContract && String(property.contractType || '').toUpperCase() === reqContract) score += 35
       if (reqContract && String(property.contractType || '').toUpperCase() !== reqContract) return { property, score: 0 }
       if (reqType && String(property.type || '').toUpperCase().includes(reqType)) score += 25
-      if (reqMaxPrice > 0) {
+      if (reqMaxPrice > 0 || reqMinPrice > 0) {
         const p = Number(property.price || 0)
-        if (p > 0 && p <= reqMaxPrice) score += 20
-        else if (p > 0 && p <= reqMaxPrice * 1.1) score += 10
+        if (p > 0) {
+          const withinMin = reqMinPrice > 0 ? p >= reqMinPrice : true
+          const withinMax = reqMaxPrice > 0 ? p <= reqMaxPrice : true
+          if (withinMin && withinMax) score += 20
+          else if (withinMax && reqMaxPrice > 0 && p <= reqMaxPrice * 1.1) score += 10
+        }
       } else {
         score += 10
       }
@@ -28747,6 +28752,14 @@ function ClientDetailPage({
     .slice(0, 50)
 
   const fullName = `${contact.firstName || ''} ${contact.lastName || ''}`.trim() || 'Cliente'
+  const budgetDisplay = (() => {
+    const hasMin = Number.isFinite(reqMinPrice) && reqMinPrice > 0
+    const hasMax = Number.isFinite(reqMaxPrice) && reqMaxPrice > 0
+    if (hasMin && hasMax) return `€${reqMinPrice.toLocaleString('it-IT')} - €${reqMaxPrice.toLocaleString('it-IT')}`
+    if (hasMax) return `€${reqMaxPrice.toLocaleString('it-IT')}`
+    if (hasMin) return `€${reqMinPrice.toLocaleString('it-IT')}`
+    return 'N/D'
+  })()
   return (
     <div style={{ display: 'grid', gap: '1rem' }}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
@@ -28824,9 +28837,7 @@ function ClientDetailPage({
           </div>
           <div>
             <div style={{ fontSize: '0.8rem', color: '#6b7280' }}>Budget</div>
-            <div style={{ fontWeight: 600 }}>
-              {request?.maxPrice || contact.budget ? `€${Number(request?.maxPrice || contact.budget || 0).toLocaleString('it-IT')}` : 'N/D'}
-            </div>
+            <div style={{ fontWeight: 600 }}>{budgetDisplay}</div>
           </div>
           <div>
             <div style={{ fontSize: '0.8rem', color: '#6b7280' }}>Camere</div>
