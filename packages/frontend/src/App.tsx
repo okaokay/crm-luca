@@ -44697,6 +44697,42 @@ function CrossClientProfileModal({
   }
   const requestTypeLabel = mapPropertyTypeLabel(request.type || (contact as any).requestPropertyType || contact.requestApartmentType)
   const requestContractLabel = mapContractTypeLabel(request.contractType || (contact as any).requestGoal)
+  const normalizedGoal = String(request.contractType || (contact as any).requestGoal || '').trim().toUpperCase()
+  const inferredGoal =
+    normalizedGoal ||
+    (String(contact.type || '').toUpperCase() === 'TENANT' ? 'RENT' : (String(contact.type || '').toUpperCase() === 'BUYER' ? 'SALE' : ''))
+  const requestGoalLabel = mapContractTypeLabel(inferredGoal)
+  const detailsText = String(
+    request.noteText ||
+    request.description ||
+    request.notes ||
+    (contact as any).preferences ||
+    contact.notes ||
+    ''
+  )
+  const pickDetailNumber = (label: string): string | null => {
+    const rx = new RegExp(`${label}\\s*:\\s*(\\d+)`, 'i')
+    const m = detailsText.match(rx)
+    return m?.[1] || null
+  }
+  const requestedRooms =
+    request.minRooms ??
+    request.maxRooms ??
+    (contact as any).requestBedrooms ??
+    pickDetailNumber('Camere') ??
+    null
+  const requestedBathrooms =
+    request.minBathrooms ??
+    request.maxBathrooms ??
+    (contact as any).requestBathrooms ??
+    pickDetailNumber('Bagni') ??
+    null
+  const requestedFloor =
+    request.minFloor ??
+    request.maxFloor ??
+    (contact as any).requestFloor ??
+    pickDetailNumber('Piano') ??
+    null
   const budgetLabel =
     request.minPrice != null || request.maxPrice != null || (contact as any).budgetMin != null || (contact as any).budgetMax != null
       ? `${(request.minPrice ?? (contact as any).budgetMin) != null ? `€${Number(request.minPrice ?? (contact as any).budgetMin).toLocaleString('it-IT')}` : 'min N/D'} - ${(request.maxPrice ?? (contact as any).budgetMax ?? contact.budget) != null ? `€${Number(request.maxPrice ?? (contact as any).budgetMax ?? contact.budget).toLocaleString('it-IT')}` : 'max N/D'}`
@@ -44789,6 +44825,23 @@ function CrossClientProfileModal({
         </div>
 
         <div style={{ display: 'grid', gap: '0.75rem' }}>
+          <div style={{ display: 'flex', gap: '0.6rem', flexWrap: 'wrap' }}>
+            <span style={{ fontSize: '0.8rem', color: '#475569', fontWeight: 700 }}>Finalità richiesta:</span>
+            <span
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                borderRadius: '999px',
+                padding: '0.2rem 0.55rem',
+                fontSize: '0.78rem',
+                fontWeight: 700,
+                background: inferredGoal === 'RENT' ? '#fef3c7' : '#dbeafe',
+                color: inferredGoal === 'RENT' ? '#92400e' : '#1d4ed8'
+              }}
+            >
+              {requestGoalLabel}
+            </span>
+          </div>
           <div style={{ border: '1px solid #d8e0eb', borderRadius: '12px', padding: '0.9rem', background: '#f8fbff' }}>
             <div style={{ fontWeight: 700, marginBottom: '0.45rem' }}>Contatti cliente</div>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0,1fr))', gap: '0.5rem 0.9rem' }}>
@@ -44808,9 +44861,9 @@ function CrossClientProfileModal({
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0,1fr))', gap: '0.45rem 0.8rem' }}>
               <div><strong>Tipologia richiesta:</strong> {requestTypeLabel}</div>
               <div><strong>Contratto:</strong> {requestContractLabel}</div>
-              <div><strong>Camere richieste:</strong> {request.minRooms ?? request.maxRooms ?? contact.requestBedrooms ?? 'N/D'}</div>
-              <div><strong>Bagni richiesti:</strong> {request.minBathrooms ?? request.maxBathrooms ?? contact.requestBathrooms ?? 'N/D'}</div>
-              <div><strong>Piano richiesto:</strong> {request.minFloor ?? request.maxFloor ?? contact.requestFloor ?? 'N/D'}</div>
+              <div><strong>Camere richieste:</strong> {requestedRooms ?? 'N/D'}</div>
+              <div><strong>Bagni richiesti:</strong> {requestedBathrooms ?? 'N/D'}</div>
+              <div><strong>Piano richiesto:</strong> {requestedFloor ?? 'N/D'}</div>
               <div><strong>Budget (EUR):</strong> {budgetLabel}</div>
               <div style={{ gridColumn: '1 / -1' }}><strong>Preferenze/Richieste:</strong> {request.notePreset || contact.preferences || '-'}</div>
               <div style={{ gridColumn: '1 / -1' }}><strong>Note:</strong> {noteRichiesta}</div>
