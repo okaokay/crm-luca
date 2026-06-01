@@ -28662,6 +28662,38 @@ function ClientDetailPage({
   onBack: () => void
 }) {
   const [activeTab, setActiveTab] = useState<'anagrafica' | 'richiesta' | 'proposte'>('anagrafica')
+  const mapContractTypeLabel = (value: unknown) => {
+    const key = String(value || '').trim().toUpperCase()
+    if (key === 'RENT' || key === 'AFFITTO' || key === 'LOCAZIONE') return 'Affitto'
+    if (key === 'SALE' || key === 'VENDITA') return 'Vendita'
+    return key ? String(value) : 'N/D'
+  }
+  const mapClientTypeLabel = (value: unknown) => {
+    const key = String(value || '').trim().toUpperCase()
+    if (key === 'BUYER') return 'Acquirente'
+    if (key === 'TENANT') return 'Inquilino'
+    if (key === 'SELLER') return 'Venditore'
+    if (key === 'LANDLORD') return 'Proprietario'
+    if (key === 'LEAD') return 'Lead'
+    return key ? String(value) : 'N/D'
+  }
+  const mapRequestTypeLabel = (requestType: unknown, apartmentSubtype: unknown) => {
+    const subtype = String(apartmentSubtype || '').trim()
+    if (subtype) return subtype
+    const key = String(requestType || '').trim().toUpperCase()
+    const labels: Record<string, string> = {
+      APARTMENT: 'Appartamento',
+      HOUSE: 'Casa',
+      VILLA: 'Villa',
+      OFFICE: 'Ufficio',
+      SHOP: 'Negozio',
+      WAREHOUSE: 'Magazzino',
+      LAND: 'Terreno',
+      GARAGE: 'Garage',
+      OTHER: 'Altro'
+    }
+    return labels[key] || (key ? String(requestType) : 'N/D')
+  }
 
   if (!contact) {
     return (
@@ -28674,8 +28706,8 @@ function ClientDetailPage({
     )
   }
 
-  const reqContract = String(request?.contractType || '').toUpperCase()
-  const reqType = String(request?.type || contact.requestApartmentType || '').toUpperCase()
+  const reqContract = String(request?.contractType || (contact as any)?.requestGoal || '').toUpperCase()
+  const reqType = String(request?.type || (contact as any)?.requestPropertyType || contact.requestApartmentType || '').toUpperCase()
   const reqMaxPrice = Number(request?.maxPrice || contact.budget || 0) || 0
   const reqMinRooms = Number(request?.minRooms ?? contact.requestBedrooms ?? 0) || 0
   const reqMinBathrooms = Number(request?.minBathrooms ?? contact.requestBathrooms ?? 0) || 0
@@ -28766,7 +28798,7 @@ function ClientDetailPage({
           </div>
           <div>
             <div style={{ fontSize: '0.8rem', color: '#6b7280' }}>Tipologia cliente</div>
-            <div style={{ fontWeight: 600 }}>{contact.type || 'N/D'}</div>
+            <div style={{ fontWeight: 600 }}>{mapClientTypeLabel(contact.type)}</div>
           </div>
           <div>
             <div style={{ fontSize: '0.8rem', color: '#6b7280' }}>Città / Provincia</div>
@@ -28782,11 +28814,13 @@ function ClientDetailPage({
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '0.8rem' }}>
           <div>
             <div style={{ fontSize: '0.8rem', color: '#6b7280' }}>Tipologia richiesta</div>
-            <div style={{ fontWeight: 600 }}>{request?.type || contact.requestApartmentType || 'N/D'}</div>
+            <div style={{ fontWeight: 600 }}>
+              {mapRequestTypeLabel(request?.type || (contact as any)?.requestPropertyType, contact.requestApartmentType)}
+            </div>
           </div>
           <div>
             <div style={{ fontSize: '0.8rem', color: '#6b7280' }}>Contratto</div>
-            <div style={{ fontWeight: 600 }}>{request?.contractType || 'N/D'}</div>
+            <div style={{ fontWeight: 600 }}>{mapContractTypeLabel(request?.contractType || (contact as any)?.requestGoal)}</div>
           </div>
           <div>
             <div style={{ fontSize: '0.8rem', color: '#6b7280' }}>Budget</div>
@@ -38634,8 +38668,6 @@ function PropertyDetailPage({
 
           { id: 'documents', label: 'Documenti', icon: <FileText size={16} /> },
 
-          { id: 'full_data', label: 'Dati completi', icon: <FileText size={16} /> },
-
           { id: 'cross_calls', label: 'Incroci', icon: <Target size={16} /> },
 
           { id: 'portals', label: 'Portali', icon: <Target size={16} /> },
@@ -38791,175 +38823,6 @@ function PropertyDetailPage({
               isEditing={isEditing}
               onUpdate={handleUpdateProperty}
             />
-          )}
-
-          {activeTab === 'full_data' && (
-            <div style={{ display: 'grid', gap: '1rem' }}>
-              {(() => {
-                const full = (property || {}) as any
-                const oneClick = (full?.oneClickData || {}) as Record<string, any>
-                const keyMeta: Record<string, { label: string; help?: string }> = {
-                  title: { label: 'Titolo', help: 'Nome commerciale dellimmobile.' },
-                  reference: { label: 'Riferimento', help: 'Codice univoco interno dellannuncio.' },
-                  description: { label: 'Descrizione', help: 'Testo descrittivo completo dellimmobile.' },
-                  type: { label: 'Tipologia immobile', help: 'Categoria dellimmobile (appartamento, villa, ufficio, ecc.).' },
-                  contractType: { label: 'Tipo contratto', help: 'Indica se limmobile  in vendita o in affitto.' },
-                  status: { label: 'Stato', help: 'Stato commerciale corrente (disponibile, venduto, riservato, ecc.).' },
-                  address: { label: 'Indirizzo', help: 'Via e numero civico dellimmobile.' },
-                  city: { label: 'Citt', help: 'Comune in cui si trova limmobile.' },
-                  province: { label: 'Provincia', help: 'Sigla della provincia del comune.' },
-                  zipCode: { label: 'CAP', help: 'Codice di avviamento postale.' },
-                  giComuneIstat: { label: 'Codice ISTAT comune', help: 'Codice ISTAT ufficiale del comune.' },
-                  latitude: { label: 'Latitudine', help: 'Coordinata geografica nord/sud della posizione.' },
-                  longitude: { label: 'Longitudine', help: 'Coordinata geografica est/ovest della posizione.' },
-                  salePrice: { label: 'Prezzo vendita', help: 'Prezzo richiesto per la vendita (in euro).' },
-                  rentPrice: { label: 'Canone affitto', help: 'Importo mensile richiesto per laffitto (in euro).' },
-                  expenses: { label: 'Spese', help: 'Spese accessorie/condominiali in euro.' },
-                  surface: { label: 'Superficie (mq)', help: 'Metri quadrati dellimmobile: indica la dimensione complessiva.' },
-                  rooms: { label: 'Locali', help: 'Numero totale dei locali principali.' },
-                  bedrooms: { label: 'Camere da letto', help: 'Numero delle camere da letto.' },
-                  bathrooms: { label: 'Bagni', help: 'Numero dei servizi igienici.' },
-                  floor: { label: 'Piano', help: 'Piano in cui si trova lunit immobiliare.' },
-                  totalFloors: { label: 'Piani edificio', help: 'Numero totale di piani del fabbricato.' },
-                  elevator: { label: 'Ascensore', help: 'Presenza o assenza dellascensore.' },
-                  furnished: { label: 'Arredato', help: 'Indica se limmobile  arredato.' },
-                  energyClass: { label: 'Classe energetica', help: 'Classe di efficienza energetica (A4, A3...G).' },
-                  ownerFirstName: { label: 'Nome proprietario' },
-                  ownerLastName: { label: 'Cognome proprietario' },
-                  ownerEmail: { label: 'Email proprietario' },
-                  ownerPhone: { label: 'Telefono proprietario' },
-                  ownerFiscalCode: { label: 'Codice fiscale proprietario' },
-                  images: { label: 'Immagini', help: 'Elenco immagini associate allimmobile.' },
-                  portalTargets: { label: 'Canali portali', help: 'Canali di pubblicazione associati allannuncio.' },
-                  notes: { label: 'Note interne', help: 'Note operative ad uso interno.' },
-                  isPublished: { label: 'Pubblicato', help: 'Indica se limmobile  pubblicato.' },
-                  createdAt: { label: 'Creato il' },
-                  updatedAt: { label: 'Aggiornato il' },
-                  prezzo: { label: 'Prezzo', help: 'Prezzo dellannuncio nel tracciato 1click.' },
-                  mq: { label: 'Metri quadrati (1click)', help: 'Superficie in mq usata per esportazione verso i portali.' },
-                  nr_locali: { label: 'Numero locali (1click)' },
-                  nr_camere: { label: 'Numero camere (1click)' },
-                  nr_servizi: { label: 'Numero bagni (1click)' },
-                  comune_istat: { label: 'Comune ISTAT (1click)' },
-                  descrizione: { label: 'Descrizione annuncio (1click)' },
-                  idtipologiaimmobile: { label: 'ID tipologia immobile (1click)' },
-                  idtipologiaannuncio: { label: 'ID tipologia annuncio (1click)' },
-                  data_inserimento: { label: 'Data inserimento (1click)' },
-                  data_aggiornamento: { label: 'Data aggiornamento (1click)' },
-                  selectedPortalCodes: { label: 'Portali selezionati', help: 'Codici portale su cui pubblicare lannuncio.' }
-                }
-                const fallbackLabel = (key: string) =>
-                  key
-                    .replace(/_/g, ' ')
-                    .replace(/([a-z])([A-Z])/g, '$1 $2')
-                    .replace(/\s+/g, ' ')
-                    .trim()
-                    .replace(/^./, (m) => m.toUpperCase())
-                const labelize = (key: string) => keyMeta[key]?.label || fallbackLabel(key)
-                const helpFor = (key: string) => keyMeta[key]?.help || ''
-                const formatValueByKey = (key: string, value: any) => {
-                  if (value === null || value === undefined || value === '') return '-'
-                  if (key === 'contractType') {
-                    const map: Record<string, string> = { SALE: 'Vendita', RENT: 'Affitto', BOTH: 'Vendita + Affitto' }
-                    return map[String(value).toUpperCase()] || String(value)
-                  }
-                  if (key === 'status') {
-                    const map: Record<string, string> = {
-                      AVAILABLE: 'Disponibile',
-                      RESERVED: 'Riservato',
-                      SOLD: 'Venduto',
-                      RENTED: 'Affittato',
-                      WITHDRAWN: 'Ritirato'
-                    }
-                    return map[String(value).toUpperCase()] || String(value)
-                  }
-                  if (typeof value === 'boolean') return value ? 'Si' : 'No'
-                  if (Array.isArray(value)) return value.length === 0 ? '[]' : JSON.stringify(value)
-                  if (typeof value === 'object') return JSON.stringify(value)
-                  return String(value)
-                }
-                const toDisplay = (value: any): string => {
-                  if (value === null || value === undefined || value === '') return '-'
-                  if (typeof value === 'boolean') return value ? 'Si' : 'No'
-                  if (Array.isArray(value)) return value.length === 0 ? '[]' : JSON.stringify(value)
-                  if (typeof value === 'object') return JSON.stringify(value)
-                  return String(value)
-                }
-                const coreKeys = [
-                  'title', 'reference', 'description', 'type', 'contractType', 'status',
-                  'address', 'city', 'province', 'zipCode', 'giComuneIstat', 'latitude', 'longitude',
-                  'salePrice', 'rentPrice', 'expenses', 'surface', 'rooms', 'bedrooms', 'bathrooms',
-                  'floor', 'totalFloors', 'elevator', 'furnished', 'energyClass',
-                  'ownerFirstName', 'ownerLastName', 'ownerEmail', 'ownerPhone', 'ownerFiscalCode',
-                  'buildingConstructionYear', 'buildingRenovationYear', 'buildingFloorsTotal',
-                  'buildingElevator', 'buildingConcierge', 'buildingGardenShared', 'buildingHeatingType', 'buildingCondition',
-                  'images', 'portalTargets', 'notes', 'isPublished', 'createdAt', 'updatedAt'
-                ]
-                const coreEntries = coreKeys
-                  .filter((k) => k in full)
-                  .map((k) => [k, full[k]] as const)
-                const oneClickEntries = Object.entries(oneClick).sort(([a], [b]) => a.localeCompare(b, 'it'))
-
-                const sectionStyle: React.CSSProperties = {
-                  border: '1px solid #d5deea',
-                  borderRadius: '0.85rem',
-                  background: '#eef5ff',
-                  padding: isCompactLayout ? '0.75rem' : '1rem'
-                }
-                const gridStyle: React.CSSProperties = {
-                  display: 'grid',
-                  gridTemplateColumns: isCompactLayout ? '1fr' : 'repeat(2, minmax(0, 1fr))',
-                  gap: '0.55rem 1rem'
-                }
-                const rowStyle: React.CSSProperties = {
-                  borderBottom: '1px dashed #d5deea',
-                  paddingBottom: '0.35rem'
-                }
-
-                return (
-                  <>
-                    <div style={sectionStyle}>
-                      <h3 style={{ margin: 0, marginBottom: '0.8rem', fontSize: '1.05rem', color: '#1e3a8a', fontWeight: 700 }}>
-                        Dati Core Immobile
-                      </h3>
-                      <div style={gridStyle}>
-                        {coreEntries.map(([k, v]) => (
-                          <div key={`core-${k}`} style={rowStyle}>
-                            <div style={{ color: '#1e3a8a', fontSize: '0.78rem', fontWeight: 700 }}>{labelize(k)}</div>
-                            {helpFor(k) ? <div style={{ color: '#64748b', fontSize: '0.72rem', marginBottom: '0.18rem' }}>{helpFor(k)}</div> : null}
-                            <div style={{ color: '#0f172a', fontWeight: 600, whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>{formatValueByKey(k, v)}</div>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-
-                    <div style={sectionStyle}>
-                      <h3 style={{ margin: 0, marginBottom: '0.8rem', fontSize: '1.05rem', color: '#1e3a8a', fontWeight: 700 }}>
-                        Dati 1clickannunci (Tutte le voci)
-                      </h3>
-                      <div style={gridStyle}>
-                        {oneClickEntries.map(([k, v]) => (
-                          <div key={`oc-${k}`} style={rowStyle}>
-                            <div style={{ color: '#1e3a8a', fontSize: '0.78rem', fontWeight: 700 }}>{labelize(k)}</div>
-                            {helpFor(k) ? <div style={{ color: '#64748b', fontSize: '0.72rem', marginBottom: '0.18rem' }}>{helpFor(k)}</div> : null}
-                            <div style={{ color: '#0f172a', fontWeight: 600, whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>{formatValueByKey(k, v)}</div>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-
-                    <div style={sectionStyle}>
-                      <h3 style={{ margin: 0, marginBottom: '0.8rem', fontSize: '1.05rem', color: '#1e3a8a', fontWeight: 700 }}>
-                        JSON Completo Salvataggio
-                      </h3>
-                      <pre style={{ margin: 0, background: '#0f172a', color: '#e2e8f0', borderRadius: 8, padding: '0.8rem', fontSize: '0.78rem', overflowX: 'auto' }}>
-                        {JSON.stringify(full, null, 2)}
-                      </pre>
-                    </div>
-                  </>
-                )
-              })()}
-            </div>
           )}
 
           {activeTab === 'cross_calls' && (
@@ -39490,7 +39353,6 @@ function PropertyOverviewTab({
       : (property.advertisingSalePrice || undefined)
   const internalAcquisitionPrice = Number(oneClick?.prezzo_acquisizione || 0) || undefined
   const publicPrice = advertisingPrice
-  const overviewDescription = String(property.description || oneClick?.descrizione || '').trim()
 
 
 
@@ -40025,12 +39887,6 @@ function PropertyOverviewTab({
         ) : (
 
           <div style={{ display: 'grid', gap: '1rem' }}>
-            <div style={{ border: '1px solid #e5e7eb', borderRadius: '0.55rem', padding: '0.9rem', background: '#f8fafc' }}>
-              <h5 style={{ fontWeight: '700', marginBottom: '0.45rem', color: '#0f172a' }}>Descrizione</h5>
-              <div style={{ color: '#334155', lineHeight: 1.55 }}>
-                {overviewDescription || <span style={{ color: '#9ca3af', fontStyle: 'italic' }}>Descrizione non disponibile</span>}
-              </div>
-            </div>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: '1rem' }}>
 
             <div style={{ border: '1px solid #e5e7eb', borderRadius: '0.55rem', padding: '0.9rem', background: '#ffffff' }}>
@@ -44809,9 +44665,41 @@ function CrossClientProfileModal({
 }) {
   const request = row?.request || {}
   const contact = row?.contact || {}
+  const mapContractTypeLabel = (value: unknown) => {
+    const key = String(value || '').trim().toUpperCase()
+    if (key === 'RENT' || key === 'AFFITTO' || key === 'LOCAZIONE') return 'Affitto'
+    if (key === 'SALE' || key === 'VENDITA') return 'Vendita'
+    return key ? String(value) : 'N/D'
+  }
+  const mapClientTypeLabel = (value: unknown) => {
+    const key = String(value || '').trim().toUpperCase()
+    if (key === 'BUYER') return 'Acquirente'
+    if (key === 'TENANT') return 'Inquilino'
+    if (key === 'SELLER') return 'Venditore'
+    if (key === 'LANDLORD') return 'Proprietario'
+    if (key === 'LEAD') return 'Lead'
+    return key ? String(value) : 'N/D'
+  }
+  const mapPropertyTypeLabel = (value: unknown) => {
+    const key = String(value || '').trim().toUpperCase()
+    const labels: Record<string, string> = {
+      APARTMENT: 'Appartamento',
+      HOUSE: 'Casa',
+      VILLA: 'Villa',
+      OFFICE: 'Ufficio',
+      SHOP: 'Negozio',
+      WAREHOUSE: 'Magazzino',
+      LAND: 'Terreno',
+      GARAGE: 'Garage',
+      OTHER: 'Altro'
+    }
+    return labels[key] || (key ? String(value) : 'N/D')
+  }
+  const requestTypeLabel = mapPropertyTypeLabel(request.type || (contact as any).requestPropertyType || contact.requestApartmentType)
+  const requestContractLabel = mapContractTypeLabel(request.contractType || (contact as any).requestGoal)
   const budgetLabel =
-    request.minPrice != null || request.maxPrice != null
-      ? `${request.minPrice != null ? `EUR ${request.minPrice}` : 'min n/d'} - ${request.maxPrice != null ? `EUR ${request.maxPrice}` : 'max n/d'}`
+    request.minPrice != null || request.maxPrice != null || (contact as any).budgetMin != null || (contact as any).budgetMax != null
+      ? `${(request.minPrice ?? (contact as any).budgetMin) != null ? `€${Number(request.minPrice ?? (contact as any).budgetMin).toLocaleString('it-IT')}` : 'min N/D'} - ${(request.maxPrice ?? (contact as any).budgetMax ?? contact.budget) != null ? `€${Number(request.maxPrice ?? (contact as any).budgetMax ?? contact.budget).toLocaleString('it-IT')}` : 'max N/D'}`
       : 'Non impostato'
 
   const noteRichiesta =
@@ -44845,46 +44733,86 @@ function CrossClientProfileModal({
           maxHeight: 'calc(100vh - 24px)',
           overflowY: 'auto',
           background: '#ffffff',
-          border: '2px solid #000000',
+          border: '1px solid #d5deea',
           borderRadius: '14px',
+          boxShadow: '0 20px 45px rgba(15,23,42,0.25)',
           padding: '1rem'
         }}
         onClick={(event) => event.stopPropagation()}
       >
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid #000000', paddingBottom: '0.5rem', marginBottom: '0.8rem' }}>
-          <h2 style={{ margin: 0, color: '#000000' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid #d8e0eb', paddingBottom: '0.6rem', marginBottom: '0.8rem' }}>
+          <h2 style={{ margin: 0, color: '#0f172a', fontSize: '1.2rem' }}>
             Profilo cliente: {contact.name || `${contact.firstName || ''} ${contact.lastName || ''}`.trim() || 'N/D'}
           </h2>
-          <button type="button" onClick={onClose} style={{ border: '1px solid #000000', background: '#ffffff', color: '#000000', borderRadius: '8px', padding: '0.35rem 0.6rem', cursor: 'pointer' }}>
+          <button type="button" onClick={onClose} style={{ border: '1px solid #cbd5e1', background: '#ffffff', color: '#0f172a', borderRadius: '10px', padding: '0.45rem 0.75rem', cursor: 'pointer', fontWeight: 600 }}>
             Chiudi
           </button>
         </div>
 
+        <div style={{ display: 'flex', gap: '0.6rem', flexWrap: 'wrap', marginBottom: '0.8rem' }}>
+          <a
+            href={contact.phone ? `tel:${contact.phone}` : '#'}
+            onClick={(e) => { if (!contact.phone) e.preventDefault() }}
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '0.45rem',
+              borderRadius: '10px',
+              padding: '0.5rem 0.8rem',
+              border: '1px solid #bfdbfe',
+              background: '#eff6ff',
+              color: contact.phone ? '#1d4ed8' : '#94a3b8',
+              textDecoration: 'none',
+              fontWeight: 700
+            }}
+          >
+            <Phone size={16} /> Chiama cliente
+          </a>
+          <a
+            href={contact.email ? `mailto:${contact.email}` : '#'}
+            onClick={(e) => { if (!contact.email) e.preventDefault() }}
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '0.45rem',
+              borderRadius: '10px',
+              padding: '0.5rem 0.8rem',
+              border: '1px solid #bbf7d0',
+              background: '#f0fdf4',
+              color: contact.email ? '#15803d' : '#94a3b8',
+              textDecoration: 'none',
+              fontWeight: 700
+            }}
+          >
+            <Mail size={16} /> Invia email
+          </a>
+        </div>
+
         <div style={{ display: 'grid', gap: '0.75rem' }}>
-          <div style={{ border: '1px solid #000000', borderRadius: '10px', padding: '0.75rem' }}>
+          <div style={{ border: '1px solid #d8e0eb', borderRadius: '12px', padding: '0.9rem', background: '#f8fbff' }}>
             <div style={{ fontWeight: 700, marginBottom: '0.45rem' }}>Contatti cliente</div>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0,1fr))', gap: '0.45rem 0.8rem' }}>
-              <div><strong>Email:</strong> {contact.email ? <a href={`mailto:${contact.email}`} style={{ color: '#000000', textDecoration: 'underline' }}>{contact.email}</a> : 'N/D'}</div>
-              <div><strong>Telefono:</strong> {contact.phone ? <a href={`tel:${contact.phone}`} style={{ color: '#000000', textDecoration: 'underline' }}>{contact.phone}</a> : 'N/D'}</div>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0,1fr))', gap: '0.5rem 0.9rem' }}>
+              <div><strong>Email:</strong> {contact.email ? <a href={`mailto:${contact.email}`} style={{ color: '#1d4ed8', textDecoration: 'underline' }}>{contact.email}</a> : 'N/D'}</div>
+              <div><strong>Telefono:</strong> {contact.phone ? <a href={`tel:${contact.phone}`} style={{ color: '#1d4ed8', textDecoration: 'underline' }}>{contact.phone}</a> : 'N/D'}</div>
               <div><strong>Citt:</strong> {contact.city || (Array.isArray(request.cities) && request.cities[0]) || 'N/D'}</div>
               <div><strong>Provincia:</strong> {contact.province || (Array.isArray(request.provinces) && request.provinces[0]) || 'N/D'}</div>
               <div><strong>Nazione:</strong> Italia</div>
               <div><strong>Luogo di nascita:</strong> {contact.birthPlace || 'N/D'}</div>
-              <div><strong>Cliente attivo:</strong> {contact.isActive === false ? 'No' : 'Si'}</div>
-              <div><strong>Tipologia cliente:</strong> {contact.type || 'N/D'}</div>
+              <div><strong>Cliente attivo:</strong> {contact.isActive === false ? 'No' : 'Sì'}</div>
+              <div><strong>Tipologia cliente:</strong> {mapClientTypeLabel(contact.type)}</div>
             </div>
           </div>
 
-          <div style={{ border: '1px solid #000000', borderRadius: '10px', padding: '0.75rem' }}>
+          <div style={{ border: '1px solid #d8e0eb', borderRadius: '12px', padding: '0.9rem', background: '#ffffff' }}>
             <div style={{ fontWeight: 700, marginBottom: '0.45rem' }}>Richiesta immobiliare</div>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0,1fr))', gap: '0.45rem 0.8rem' }}>
-              <div><strong>Tipologia appartamento richiesta:</strong> {request.apartmentSubtype || request.type || 'N/D'}</div>
-              <div><strong>Contratto:</strong> {request.contractType || 'N/D'}</div>
-              <div><strong>Camere richieste:</strong> {request.minRooms ?? request.maxRooms ?? 'N/D'}</div>
-              <div><strong>Bagni richiesti:</strong> {request.minBathrooms ?? request.maxBathrooms ?? 'N/D'}</div>
-              <div><strong>Piano richiesto:</strong> {request.minFloor ?? request.maxFloor ?? 'N/D'}</div>
+              <div><strong>Tipologia richiesta:</strong> {requestTypeLabel}</div>
+              <div><strong>Contratto:</strong> {requestContractLabel}</div>
+              <div><strong>Camere richieste:</strong> {request.minRooms ?? request.maxRooms ?? contact.requestBedrooms ?? 'N/D'}</div>
+              <div><strong>Bagni richiesti:</strong> {request.minBathrooms ?? request.maxBathrooms ?? contact.requestBathrooms ?? 'N/D'}</div>
+              <div><strong>Piano richiesto:</strong> {request.minFloor ?? request.maxFloor ?? contact.requestFloor ?? 'N/D'}</div>
               <div><strong>Budget (EUR):</strong> {budgetLabel}</div>
-              <div style={{ gridColumn: '1 / -1' }}><strong>Preferenze/Richieste:</strong> {request.notePreset || '-'}</div>
+              <div style={{ gridColumn: '1 / -1' }}><strong>Preferenze/Richieste:</strong> {request.notePreset || contact.preferences || '-'}</div>
               <div style={{ gridColumn: '1 / -1' }}><strong>Note:</strong> {noteRichiesta}</div>
             </div>
           </div>
@@ -60457,6 +60385,7 @@ export default App
 // Force HMR update
 
  
+
 
 
 
