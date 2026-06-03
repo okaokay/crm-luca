@@ -45330,7 +45330,7 @@ function PropertyModal({
   })
   const [istatManualOverride, setIstatManualOverride] = useState(false)
 
-  const { token } = useAuthStore()
+  const { token, user } = useAuthStore()
   const isAdminUser = currentUserRole === 'SUPER_ADMIN' || currentUserRole === 'AGENCY_ADMIN'
 
 
@@ -45446,6 +45446,58 @@ function PropertyModal({
     }
     fetchOneClickDictionaries()
   }, [token])
+
+  const resolveAgentDisplayName = (agent: any) =>
+    String(agent?.name || [agent?.firstName, agent?.lastName].filter(Boolean).join(' ') || '').trim()
+
+  const createAgentFallbackOption = (): Agent | null => {
+    const fallbackId = String(property?.agentId || (property as any)?.ownerId || (!isAdminUser ? user?.id || '' : '')).trim()
+    if (!fallbackId) return null
+    const fallbackName = String(
+      property?.agentName ||
+      [user?.firstName, user?.lastName].filter(Boolean).join(' ') ||
+      user?.name ||
+      ''
+    ).trim()
+    return {
+      id: fallbackId,
+      name: fallbackName || 'Agente assegnato',
+      email: String(property?.agentEmail || user?.email || '').trim(),
+      phone: String(property?.agentPhone || '').trim(),
+      role: !isAdminUser && user?.role === 'AGENT' ? 'AGENT' : 'COLLABORATOR',
+      isActive: true,
+      commission: 0,
+      specialization: '',
+      notes: '',
+      createdAt: ''
+    }
+  }
+
+  const effectiveAvailableAgents = React.useMemo(() => {
+    const baseAgents = Array.isArray(availableAgents) ? [...availableAgents] : []
+    const fallbackAgent = createAgentFallbackOption()
+    if (!fallbackAgent) return baseAgents
+    if (baseAgents.some((agent) => String(agent.id || '').trim() === fallbackAgent.id)) return baseAgents
+    return [...baseAgents, fallbackAgent]
+  }, [availableAgents, isAdminUser, property, user])
+
+  const resolveInitialAssignedAgent = () => {
+    const propertyAgentId = String(property?.agentId || (property as any)?.ownerId || '').trim()
+    if (propertyAgentId) {
+      const fromProperty = effectiveAvailableAgents.find((agent: any) => String(agent.id || '').trim() === propertyAgentId)
+      if (fromProperty) return fromProperty
+    }
+    if (!isAdminUser) {
+      const currentUserId = String(user?.id || '').trim()
+      const currentUserEmail = String(user?.email || '').trim().toLowerCase()
+      const ownAgent = effectiveAvailableAgents.find((agent: any) =>
+        String(agent.id || '').trim() === currentUserId ||
+        String(agent.email || '').trim().toLowerCase() === currentUserEmail
+      )
+      if (ownAgent) return ownAgent
+    }
+    return null
+  }
 
   const INTERNAL_PRICE_TAG = '[INCARICO_PRICE:'
   const extractInternalAgencyPrice = (notesValue?: string | null): string => {
@@ -45686,13 +45738,13 @@ function PropertyModal({
 
     // Agente
 
-    agentId: property?.agentId || '',
+    agentId: property?.agentId || (property as any)?.ownerId || '',
 
-    agentName: property?.agentName || 'Mario Rossi',
+    agentName: property?.agentName || '',
 
-    agentPhone: property?.agentPhone || '02 1234567',
+    agentPhone: property?.agentPhone || '',
 
-    agentEmail: property?.agentEmail || 'info@crmimmobiliare.it',
+    agentEmail: property?.agentEmail || '',
 
 
 
@@ -45804,6 +45856,36 @@ function PropertyModal({
   }
 
   const [internalAgencyPrice, setInternalAgencyPrice] = useState<string>(() => extractInternalAgencyPrice(property?.notes))
+
+  useEffect(() => {
+    if (!effectiveAvailableAgents.length) return
+    const initialAgent = resolveInitialAssignedAgent()
+    if (!initialAgent) return
+    setFormData((prev) => {
+      const nextId = String(initialAgent.id || '')
+      const nextName = resolveAgentDisplayName(initialAgent)
+      const nextPhone = String((initialAgent as any).phone || '')
+      const nextEmail = String((initialAgent as any).email || '')
+      if (
+        String(prev.agentId || '') === nextId &&
+        String(prev.agentName || '') === nextName &&
+        String(prev.agentPhone || '') === nextPhone &&
+        String(prev.agentEmail || '') === nextEmail
+      ) {
+        return prev
+      }
+      if (!isAdminUser || !String(prev.agentId || '').trim() || String(property?.agentId || (property as any)?.ownerId || '').trim()) {
+        return {
+          ...prev,
+          agentId: nextId,
+          agentName: nextName,
+          agentPhone: nextPhone,
+          agentEmail: nextEmail
+        }
+      }
+      return prev
+    })
+  }, [effectiveAvailableAgents, isAdminUser, property, user?.email, user?.id])
 
   const normalizeForCompare = (value: string) =>
     value
@@ -45992,7 +46074,7 @@ function PropertyModal({
 
   const handleAgentSelection = (agentId: string) => {
 
-    const selectedAgent = availableAgents.find(agent => agent.id === agentId)
+    const selectedAgent = effectiveAvailableAgents.find(agent => agent.id === agentId)
 
     if (selectedAgent) {
 
@@ -46002,7 +46084,7 @@ function PropertyModal({
 
         agentId: selectedAgent.id,
 
-        agentName: selectedAgent.name,
+        agentName: resolveAgentDisplayName(selectedAgent),
 
         agentPhone: selectedAgent.phone,
 
@@ -46031,6 +46113,14 @@ function PropertyModal({
     }
 
   }
+
+  const assignableAgents = isAdminUser
+    ? effectiveAvailableAgents
+    : effectiveAvailableAgents.filter((agent: any) => {
+        const currentUserId = String(user?.id || '').trim()
+        const currentUserEmail = String(user?.email || '').trim().toLowerCase()
+        return String(agent.id || '').trim() === currentUserId || String(agent.email || '').trim().toLowerCase() === currentUserEmail
+      })
 
 
 
@@ -46266,13 +46356,13 @@ function PropertyModal({
       ...randomData,
       portalTargets: ['ONECLICKANNUNCI'],
 
-      agentId: availableAgents.length > 0 ? availableAgents[0].id : prev.agentId,
+      agentId: (resolveInitialAssignedAgent()?.id || assignableAgents[0]?.id || prev.agentId) as any,
 
-      agentName: availableAgents.length > 0 ? availableAgents[0].name : prev.agentName,
+      agentName: resolveAgentDisplayName(resolveInitialAssignedAgent() || assignableAgents[0]) || prev.agentName,
 
-      agentPhone: availableAgents.length > 0 ? availableAgents[0].phone : prev.agentPhone,
+      agentPhone: String(((resolveInitialAssignedAgent() || assignableAgents[0]) as any)?.phone || prev.agentPhone || ''),
 
-      agentEmail: availableAgents.length > 0 ? availableAgents[0].email : prev.agentEmail,
+      agentEmail: String(((resolveInitialAssignedAgent() || assignableAgents[0]) as any)?.email || prev.agentEmail || ''),
 
     }))
 
@@ -49751,16 +49841,17 @@ function PropertyModal({
                     }}
 
                     required
+                    disabled={!isAdminUser}
 
                   >
 
-                    <option value="">-- Seleziona un agente --</option>
+                    <option value="">{isAdminUser ? '-- Seleziona un agente --' : '-- Agente assegnato automaticamente --'}</option>
 
-                    {availableAgents.map(agent => (
+                    {assignableAgents.map(agent => (
 
                       <option key={agent.id} value={agent.id}>
 
-                        {agent.name} {agent.specialization ? `- ${agent.specialization}` : ''} (
+                        {resolveAgentDisplayName(agent)} {agent.specialization ? `- ${agent.specialization}` : ''} (
 
                           {agent.role === 'SUPER_ADMIN'
 
