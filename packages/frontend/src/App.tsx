@@ -53547,10 +53547,6 @@ function ContactModal({
         alert('Inserisci la zona richiesta')
         return
       }
-      if (!Number.isFinite(Number((formData as any).requestBedrooms)) || Number((formData as any).requestBedrooms) <= 0) {
-        alert('Per il cliente le camere richieste sono obbligatorie')
-        return
-      }
       const budgetMin = Number((formData as any).budgetMin)
       const budgetMax = Number((formData as any).budgetMax)
       if (!Number.isFinite(budgetMin) || budgetMin <= 0 || !Number.isFinite(budgetMax) || budgetMax <= 0) {
