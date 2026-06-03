@@ -24989,7 +24989,7 @@ function PropertiesPage({
 
           <div>
 
-            <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.875rem', fontWeight: '500' }}>Classe energetica</label>
+            <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.875rem', fontWeight: '500' }}>Classe energetica *</label>
 
             <select value={filterEnergyClass} onChange={(e) => setFilterEnergyClass(e.target.value)} style={{ width: '100%', padding: '0.75rem', border: '1px solid #d1d5db', borderRadius: '0.375rem' }}>
 
