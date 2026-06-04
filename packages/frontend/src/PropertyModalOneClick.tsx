@@ -236,7 +236,9 @@ async function loadProvinces(): Promise<Province[]> {
 
 export function PropertyModalOneClick({ property, onSave, onCancel, currentUserRole, approvalMode = false, approvalSubmitLabel = 'Approva immobile', deferImageUpload = false }: Props) {
   const { token, user } = useAuthStore()
-  const isAdminUser = currentUserRole === 'SUPER_ADMIN' || currentUserRole === 'AGENCY_ADMIN'
+  const resolvedUserRole = String(currentUserRole || user?.role || '').trim().toUpperCase()
+  const isAdminUser = resolvedUserRole === 'SUPER_ADMIN' || resolvedUserRole === 'AGENCY_ADMIN'
+  const isAgentUser = resolvedUserRole === 'AGENT'
 
   const [step, setStep] = useState(1)
   const [isSubmitting, setIsSubmitting] = useState(false)
@@ -295,9 +297,9 @@ export function PropertyModalOneClick({ property, onSave, onCancel, currentUserR
     ownerEmail: property?.ownerEmail || '',
     ownerPhone: property?.ownerPhone || '',
     ownerFiscalCode: property?.ownerFiscalCode || '',
-    agentId: property?.agentId || (currentUserRole === 'AGENT' ? String(user?.id || '').trim() : ''),
-    agentName: property?.agentName || (currentUserRole === 'AGENT' ? [String(user?.firstName || '').trim(), String(user?.lastName || '').trim()].filter(Boolean).join(' ') : ''),
-    agentEmail: property?.agentEmail || (currentUserRole === 'AGENT' ? String(user?.email || '').trim() : ''),
+    agentId: property?.agentId || (isAgentUser ? String(user?.id || '').trim() : ''),
+    agentName: property?.agentName || (isAgentUser ? [String(user?.firstName || '').trim(), String(user?.lastName || '').trim()].filter(Boolean).join(' ') : ''),
+    agentEmail: property?.agentEmail || (isAgentUser ? String(user?.email || '').trim() : ''),
     agentPhone: property?.agentPhone || '',
     notes: property?.notes || '',
     publishNow: property?.isPublished ?? isAdminUser,
@@ -386,7 +388,7 @@ export function PropertyModalOneClick({ property, onSave, onCancel, currentUserR
   }, [token])
 
   useEffect(() => {
-    if (property || currentUserRole !== 'AGENT') return
+    if (property || !isAgentUser) return
     const creatorAgentId = String(user?.id || '').trim()
     if (!creatorAgentId) return
     setForm((prev: any) => {
@@ -402,7 +404,26 @@ export function PropertyModalOneClick({ property, onSave, onCancel, currentUserR
         agentPhone: String(matchedAgent?.phone || '').trim()
       }
     })
-  }, [property, currentUserRole, user?.id, user?.firstName, user?.lastName, user?.email, agents])
+  }, [property, isAgentUser, user?.id, user?.firstName, user?.lastName, user?.email, agents])
+
+  const assignableAgents = useMemo(() => {
+    if (isAdminUser) return Array.isArray(agents) ? agents : []
+    const currentUserId = String(user?.id || '').trim()
+    const currentUserEmail = String(user?.email || '').trim().toLowerCase()
+    const ownAgents = (Array.isArray(agents) ? agents : []).filter((agent: any) =>
+      String(agent?.id || '').trim() === currentUserId ||
+      String(agent?.email || '').trim().toLowerCase() === currentUserEmail
+    )
+    if (ownAgents.length > 0) return ownAgents
+    if (!currentUserId) return []
+    return [{
+      id: currentUserId,
+      name: [String(user?.firstName || '').trim(), String(user?.lastName || '').trim()].filter(Boolean).join(' ') || 'Agente assegnato',
+      email: String(user?.email || '').trim(),
+      phone: '',
+      role: 'AGENT'
+    }]
+  }, [agents, isAdminUser, user?.id, user?.email, user?.firstName, user?.lastName])
 
   useEffect(() => {
     const composed = composeAddress(form.street, form.streetNumber)
@@ -1327,7 +1348,7 @@ export function PropertyModalOneClick({ property, onSave, onCancel, currentUserR
     }
 
     if (step === 16) {
-      return <div style={{ display: 'grid', gap: 10 }}><div style={cardStyle}><div style={{ marginBottom: 8, fontWeight: 700, fontSize: 13 }}>Dati proprietario / assegnazione agente</div><div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,minmax(0,1fr))', gap: 10 }}><div><label style={labelStyle}>Nome proprietario *</label><input style={inputStyle} value={form.ownerFirstName || ''} onChange={(e) => setForm((p: any) => ({ ...p, ownerFirstName: e.target.value }))} /></div><div><label style={labelStyle}>Cognome proprietario *</label><input style={inputStyle} value={form.ownerLastName || ''} onChange={(e) => setForm((p: any) => ({ ...p, ownerLastName: e.target.value }))} /></div><div><label style={labelStyle}>Codice fiscale</label><input style={inputStyle} value={form.ownerFiscalCode || ''} onChange={(e) => setForm((p: any) => ({ ...p, ownerFiscalCode: e.target.value }))} /></div><div><label style={labelStyle}>Email proprietario *</label><input style={inputStyle} value={form.ownerEmail || ''} onChange={(e) => setForm((p: any) => ({ ...p, ownerEmail: e.target.value }))} /></div><div><label style={labelStyle}>Telefono proprietario *</label><input style={inputStyle} value={form.ownerPhone || ''} onChange={(e) => setForm((p: any) => ({ ...p, ownerPhone: e.target.value }))} /></div><div><label style={labelStyle}>Assegna agente *</label><select style={inputStyle} value={form.agentId || ''} onChange={(e) => { const a = agents.find((x) => x.id === e.target.value); setForm((p: any) => ({ ...p, agentId: e.target.value, agentName: a?.name || '', agentEmail: a?.email || '', agentPhone: a?.phone || '' })) }}><option value="">Seleziona agente...</option>{agents.map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}</select></div></div><div style={{ marginTop: 10 }}><label style={labelStyle}>Note interne</label><textarea rows={3} style={inputStyle} value={form.notes || ''} onChange={(e) => setForm((p: any) => ({ ...p, notes: e.target.value }))} /></div></div></div>
+      return <div style={{ display: 'grid', gap: 10 }}><div style={cardStyle}><div style={{ marginBottom: 8, fontWeight: 700, fontSize: 13 }}>Dati proprietario / assegnazione agente</div><div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,minmax(0,1fr))', gap: 10 }}><div><label style={labelStyle}>Nome proprietario *</label><input style={inputStyle} value={form.ownerFirstName || ''} onChange={(e) => setForm((p: any) => ({ ...p, ownerFirstName: e.target.value }))} /></div><div><label style={labelStyle}>Cognome proprietario *</label><input style={inputStyle} value={form.ownerLastName || ''} onChange={(e) => setForm((p: any) => ({ ...p, ownerLastName: e.target.value }))} /></div><div><label style={labelStyle}>Codice fiscale</label><input style={inputStyle} value={form.ownerFiscalCode || ''} onChange={(e) => setForm((p: any) => ({ ...p, ownerFiscalCode: e.target.value }))} /></div><div><label style={labelStyle}>Email proprietario *</label><input style={inputStyle} value={form.ownerEmail || ''} onChange={(e) => setForm((p: any) => ({ ...p, ownerEmail: e.target.value }))} /></div><div><label style={labelStyle}>Telefono proprietario *</label><input style={inputStyle} value={form.ownerPhone || ''} onChange={(e) => setForm((p: any) => ({ ...p, ownerPhone: e.target.value }))} /></div><div><label style={labelStyle}>Assegna agente *</label><select style={inputStyle} value={form.agentId || ''} disabled={!isAdminUser} onChange={(e) => { const a = assignableAgents.find((x) => x.id === e.target.value); setForm((p: any) => ({ ...p, agentId: e.target.value, agentName: a?.name || '', agentEmail: a?.email || '', agentPhone: a?.phone || '' })) }}><option value="">{isAdminUser ? 'Seleziona agente...' : 'Agente assegnato automaticamente'}</option>{assignableAgents.map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}</select></div></div><div style={{ marginTop: 10 }}><label style={labelStyle}>Note interne</label><textarea rows={3} style={inputStyle} value={form.notes || ''} onChange={(e) => setForm((p: any) => ({ ...p, notes: e.target.value }))} /></div></div></div>
     }
 
     return <div style={cardStyle}>Step non disponibile.</div>
