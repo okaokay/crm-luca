@@ -1,11 +1,10 @@
 #!/usr/bin/env node
 require('dotenv/config');
-require('ts-node/register/transpile-only');
 
 const fs = require('fs');
 const path = require('path');
 const { PrismaClient } = require('@prisma/client');
-const { importImmobiliareCsvBuffer } = require('../src/immobiliareCsvImport');
+const { importImmobiliareCsvBuffer } = require('../dist/src/immobiliareCsvImport');
 
 const prisma = new PrismaClient();
 

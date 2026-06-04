@@ -48,6 +48,9 @@ services:
       MINIO_SECRET_KEY: minioadmin123
       PUBLIC_BASE_URL: https://gestifacile.cloud
       FRONTEND_URL: https://gestifacile.cloud
+      IMPORT_IMMOBILIARE_CSV_ON_BOOT: "true"
+      IMPORT_IMMOBILIARE_CSV_PATH: /app/data/imports/annunci-2026-06-04uuuuuuuu.csv
+      IMPORT_ADMIN_EMAIL: admin@agenziademo.it
       WEB_PUSH_VAPID_PUBLIC_KEY: BHzF1qWeT7DUuwXM1gs-kZ8DJoN-HdZm3F5-WL0c8kxcjfPrvWZ7lqAtrJYWpwHfha6PsrGHd8tYmxPcvRZLb_w
       WEB_PUSH_VAPID_PRIVATE_KEY: juWCbyRtnlFH5igWAZvIV5xJoUluY2eIL3L5vFal7JE
       WEB_PUSH_VAPID_SUBJECT: mailto:admin@gestifacile.cloud
@@ -59,6 +62,11 @@ services:
       sh -lc "
       npx prisma generate &&
       npx prisma migrate deploy &&
+      if [ \"$IMPORT_IMMOBILIARE_CSV_ON_BOOT\" = \"true\" ] && [ -f \"$IMPORT_IMMOBILIARE_CSV_PATH\" ]; then
+        node scripts/import-immobiliare-properties.js \"$IMPORT_IMMOBILIARE_CSV_PATH\" \"$IMPORT_ADMIN_EMAIL\";
+      else
+        echo 'Import immobiliare CSV skipped';
+      fi &&
       if [ \"$SEED_ON_BOOT\" = \"true\" ]; then npm run seed; else echo 'Seed skipped (SEED_ON_BOOT=false)'; fi &&
       node dist/main.js
       "
