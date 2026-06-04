@@ -9542,7 +9542,7 @@ function App() {
 
           'TASK_COMPLETED',
 
-          '? Task Completato',
+          'Task Completato',
 
           `${activityTitle} ÃƒÂ¨ stato completato`,
 
@@ -24021,6 +24021,8 @@ function PropertiesPage({
   const [postCreateUploadProperty, setPostCreateUploadProperty] = useState<Property | null>(null)
   const [postCreateUploadFiles, setPostCreateUploadFiles] = useState<FileList | null>(null)
   const [postCreateUploadLoading, setPostCreateUploadLoading] = useState(false)
+  const [importingPropertiesCsv, setImportingPropertiesCsv] = useState(false)
+  const [importPropertiesCsvProgress, setImportPropertiesCsvProgress] = useState(0)
   const [nonCompliantRows, setNonCompliantRows] = useState<Array<{
     id: string
     reference: string | null
@@ -24340,6 +24342,83 @@ function PropertiesPage({
 
   }
 
+  const handleImportPropertiesCsvFile = async (file: File) => {
+    if (!isAdminUser || importingPropertiesCsv) return
+    setImportingPropertiesCsv(true)
+    setImportPropertiesCsvProgress(10)
+    try {
+      const form = new FormData()
+      form.append('file', file)
+      const authHeaders: HeadersInit = token ? { Authorization: `Bearer ${token}` } : {}
+      const response = await fetch('/api/properties/import-immobiliare-csv', {
+        method: 'POST',
+        headers: authHeaders,
+        body: form
+      })
+      const data = await response.json().catch(() => null)
+      if (!response.ok || !data?.success) {
+        throw new Error(data?.message || `HTTP ${response.status}`)
+      }
+      setImportPropertiesCsvProgress(100)
+      alert(
+        `Import immobili completato. Totale righe: ${data.data?.totalRows ?? 0}, Creati: ${data.data?.created ?? 0}, Aggiornati: ${data.data?.updated ?? 0}, Scartati: ${data.data?.skipped ?? 0}`
+      )
+      onRefreshData()
+    } catch (error) {
+      alert(`Errore import immobili CSV: ${error instanceof Error ? error.message : 'errore sconosciuto'}`)
+    } finally {
+      window.setTimeout(() => {
+        setImportingPropertiesCsv(false)
+        setImportPropertiesCsvProgress(0)
+      }, 250)
+    }
+  }
+
+  const handleImportPropertiesCsvClick = async () => {
+    if (!isAdminUser || importingPropertiesCsv) return
+    try {
+      const picker = (window as any).showOpenFilePicker
+      if (typeof picker === 'function') {
+        const handles = await picker({
+          multiple: false,
+          excludeAcceptAllOption: false,
+          types: [
+            {
+              description: 'CSV Immobili',
+              accept: {
+                'text/csv': ['.csv'],
+                'application/vnd.ms-excel': ['.csv']
+              }
+            }
+          ]
+        })
+        const handle = handles?.[0]
+        if (!handle) return
+        const file = await handle.getFile()
+        if (file) {
+          await handleImportPropertiesCsvFile(file)
+        }
+        return
+      }
+    } catch {
+      // Fallback to classic input picker below.
+    }
+
+    const input = document.createElement('input')
+    input.type = 'file'
+    input.accept = '.csv,text/csv'
+    input.style.position = 'fixed'
+    input.style.left = '-9999px'
+    input.style.top = '-9999px'
+    document.body.appendChild(input)
+    input.onchange = () => {
+      const file = input.files?.[0]
+      input.remove()
+      if (file) void handleImportPropertiesCsvFile(file)
+    }
+    input.click()
+  }
+
   const isPendingApproval = (property: Partial<Property>) =>
     typeof property.notes === 'string' && property.notes.includes('[PENDING_APPROVAL]')
   const isApprovedByAdmin = (property: Partial<Property>) =>
@@ -24611,18 +24690,17 @@ function PropertiesPage({
   }
 
 
-
   return (
 
     <div>
 
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem', gap: '1rem', flexWrap: 'wrap' }}>
 
         <div>
 
           <h1 style={{ fontSize: '2rem', fontWeight: 'bold', marginBottom: '0.5rem' }}>
 
-            Ã°Å¸ÂÂ  Immobili ({properties.length})
+            ???????????????? Immobili ({properties.length})
 
           </h1>
 
@@ -24634,40 +24712,67 @@ function PropertiesPage({
 
         </div>
 
-        <button
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+          {isAdminUser && (
+            <button
+              type="button"
+              onClick={handleImportPropertiesCsvClick}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                backgroundColor: importingPropertiesCsv ? '#9ca3af' : '#0ea5e9',
+                color: 'white',
+                padding: '0.75rem 1rem',
+                borderRadius: '0.375rem',
+                border: 'none',
+                cursor: importingPropertiesCsv ? 'not-allowed' : 'pointer',
+                userSelect: 'none'
+              }}
+              disabled={importingPropertiesCsv}
+            >
+              {importingPropertiesCsv ? 'Import immobili...' : 'Import immobili CSV'}
+            </button>
+          )}
 
-          onClick={() => setShowCreateModal(true)}
-
-          style={{
-
-            display: 'flex',
-
-            alignItems: 'center',
-
-            backgroundColor: '#2563eb',
-
-            color: 'white',
-
-            padding: '0.75rem 1.5rem',
-
-            borderRadius: '0.375rem',
-
-            border: 'none',
-
-            cursor: 'pointer'
-
-          }}
-
-        >
-
-          <Plus size={20} style={{ marginRight: '0.5rem' }} />
-
-          Nuovo Immobile
-
-        </button>
+          <button
+            onClick={() => setShowCreateModal(true)}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              backgroundColor: '#2563eb',
+              color: 'white',
+              padding: '0.75rem 1.5rem',
+              borderRadius: '0.375rem',
+              border: 'none',
+              cursor: 'pointer'
+            }}
+          >
+            <Plus size={20} style={{ marginRight: '0.5rem' }} />
+            Nuovo Immobile
+          </button>
+        </div>
 
       </div>
 
+      {importingPropertiesCsv && (
+        <div style={{ marginBottom: '1rem' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.4rem' }}>
+            <span style={{ fontSize: '0.9rem', fontWeight: 600, color: '#0f172a' }}>Importazione immobili in corso...</span>
+            <span style={{ fontSize: '0.85rem', color: '#475569' }}>{Math.max(0, Math.min(100, Math.round(importPropertiesCsvProgress)))}%</span>
+          </div>
+          <div style={{ width: '100%', height: '10px', borderRadius: '9999px', background: '#dbeafe', overflow: 'hidden' }}>
+            <div
+              style={{
+                width: `${Math.max(6, importPropertiesCsvProgress)}%`,
+                height: '100%',
+                borderRadius: '9999px',
+                background: 'linear-gradient(90deg, #2563eb 0%, #38bdf8 100%)',
+                transition: 'width 220ms ease'
+              }}
+            />
+          </div>
+        </div>
+      )}
 
 
       {false && isAdminUser && (
@@ -27393,7 +27498,8 @@ function ClientViewModal({
 
                     <p style={{ fontSize: '0.875rem', color: '#6b7280', marginBottom: '0.25rem' }}>
 
-                      ï¸ Luogo di nascita
+                      
+ï¸ Luogo di nascita
 
                     </p>
 
@@ -37467,7 +37573,8 @@ function ReportPage({ stats, properties, contacts: _contacts, agents, userRole }
 
               <p>ðŸ  Totali: {stats.totalProperties}</p>
 
-              <p>? Disponibili: {stats.availableProperties}</p>
+              <p>
+? Disponibili: {stats.availableProperties}</p>
 
               <p>â³ Prenotati: {stats.reservedProperties}</p>
 
@@ -37503,13 +37610,15 @@ function ReportPage({ stats, properties, contacts: _contacts, agents, userRole }
 
             <div style={{ fontSize: '0.875rem', color: '#6b7280' }}>
 
-              <p>Sï¸ Appuntamenti: {stats.totalAppointments}</p>
+              <p>
+Sï¸ Appuntamenti: {stats.totalAppointments}</p>
 
               <p>S Programmati: {stats.scheduledAppointments}</p>
 
               <p>  AttivitÒ  totali: {stats.totalActivities}</p>
 
-              <p>?ï¸ Completate: {stats.completedActivities}</p>
+              <p>
+?ï¸ Completate: {stats.completedActivities}</p>
 
               <p>â³ Pendenti: {stats.pendingActivities}</p>
 
@@ -41740,7 +41849,7 @@ function PublicCheckoutPage() {
 
     const iconBackground = effectiveStatus === 'ERROR' ? '#fee2e2' : '#dcfce7'
 
-    const iconSymbol = effectiveStatus === 'ERROR' ? '!' : 'S'
+    const iconSymbol = effectiveStatus === 'ERROR' ? '!' : 'S'
 
 
 
