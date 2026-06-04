@@ -45,6 +45,7 @@ import {
   getMatchStatusFromScore,
   MATCHING_WEIGHTS
 } from './matchingEngine';
+import { importImmobiliareCsvBuffer } from './immobiliareCsvImport';
 import { saveSecret, getSecret } from './secretManagerClient';
 import { buildLegacyCapZoneLabel, extractLegacyCapFromZoneLabel } from './zoneIdentity';
 import { resolveZoneScope } from './zoneScopeResolver';
@@ -19724,6 +19725,50 @@ const importContactsCsvHandler = async (req: express.Request, res: express.Respo
 
 app.post('/api/contacts/import.csv', upload.single('file'), importContactsCsvHandler);
 app.post('/api/contacts/import', upload.single('file'), importContactsCsvHandler);
+
+app.post('/api/properties/import-immobiliare-csv', upload.single('file'), async (req, res) => {
+  try {
+    const auth = getAuth(req);
+    if (!auth) return res.status(401).json({ success: false, message: 'Unauthorized' });
+    if (!isAdminRole(auth.role)) return res.status(403).json({ success: false, message: 'Forbidden' });
+    if (!req.file) return res.status(400).json({ success: false, message: 'Missing CSV file' });
+
+    let agencyId = auth.agencyId;
+    let ownerId = auth.id;
+
+    if (!agencyId) {
+      const owner = await prisma.user.findUnique({
+        where: { id: auth.id },
+        select: { agencyId: true }
+      });
+      agencyId = owner?.agencyId || null;
+    }
+
+    if (!agencyId) {
+      return res.status(400).json({ success: false, message: 'Missing agencyId for admin importer' });
+    }
+
+    const report = await importImmobiliareCsvBuffer({
+      prisma,
+      csvBuffer: req.file.buffer,
+      agencyId,
+      ownerId
+    });
+
+    res.json({
+      success: true,
+      data: report,
+      message: 'Import immobili da CSV immobiliare.it completato'
+    });
+  } catch (error) {
+    console.error('Error importing immobiliare.it property CSV:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error importing immobiliare.it property CSV',
+      error: String(error)
+    });
+  }
+});
 
 app.delete('/api/contacts/bulk-delete', async (req, res) => {
   try {

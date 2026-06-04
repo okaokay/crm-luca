@@ -19,7 +19,8 @@
     "prisma:migrate:deploy": "prisma migrate deploy",
     "prisma:studio": "prisma studio",
     "seed": "node node_modules/ts-node/dist/bin.js prisma/seed.ts",
-    "import:legacy:requests": "node scripts/import-legacy-customers-requests.js"
+    "import:legacy:requests": "node scripts/import-legacy-customers-requests.js",
+    "import:immobiliare:properties": "node scripts/import-immobiliare-properties.js"
   },
   "dependencies": {
     "@prisma/client": "^6.19.1",
