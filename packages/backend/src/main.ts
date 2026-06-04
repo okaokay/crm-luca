@@ -18596,6 +18596,8 @@ const normalizeRequestFlatResponse = (contact: any) => {
   const requestMeta = readRequestMetaFromNotes(request.notes);
   return {
     ...rest,
+    requestTitle: request.title ?? undefined,
+    requestStatus: request.status ?? undefined,
     budgetMin: request.minPrice ?? undefined,
     budgetMax: request.maxPrice ?? undefined,
     budget: request.maxPrice ?? undefined,
@@ -19075,6 +19077,96 @@ const normalizeContractType = (value?: string): 'SALE' | 'RENT' => {
   return 'SALE';
 };
 
+const pickCsvValue = (row: CsvRow, keys: string[]): string => {
+  for (const key of keys) {
+    const value = row[key];
+    if (typeof value === 'string' && value.trim()) return value.trim();
+  }
+  return '';
+};
+
+const isLegacyContactsCsvRow = (row: CsvRow): boolean => {
+  return Boolean(
+    row &&
+    (
+      'CUSTOMER_TYPE' in row ||
+      'NOME' in row ||
+      'COGNOME' in row ||
+      'CELL1' in row ||
+      'TEL1' in row
+    )
+  );
+};
+
+const buildLegacyPhone = (row: CsvRow): string | undefined => {
+  const candidates = [
+    [pickCsvValue(row, ['PREFCELL1']), pickCsvValue(row, ['CELL1'])].filter(Boolean).join(' '),
+    [pickCsvValue(row, ['PREFTEL1']), pickCsvValue(row, ['TEL1'])].filter(Boolean).join(' '),
+    [pickCsvValue(row, ['PREFCELL2']), pickCsvValue(row, ['CELL2'])].filter(Boolean).join(' '),
+    [pickCsvValue(row, ['PREFTEL2']), pickCsvValue(row, ['TEL2'])].filter(Boolean).join(' ')
+  ].map((value) => value.trim()).filter(Boolean);
+  return candidates[0] || undefined;
+};
+
+const normalizeLegacyNotes = (row: CsvRow): string | undefined => {
+  const noteParts = [
+    pickCsvValue(row, ['NOTE']),
+    pickCsvValue(row, ['RECAPITI_NOTE'])
+      .replace(/\|+/g, ' ')
+      .replace(/\s{2,}/g, ' ')
+      .trim()
+  ].filter(Boolean);
+  const merged = noteParts.join('\n').trim();
+  return merged || undefined;
+};
+
+const inferLegacyContractType = (text: string): 'SALE' | 'RENT' => {
+  const normalized = text.toLowerCase();
+  if (/(affitt|locaz|canone|inquilin)/.test(normalized)) return 'RENT';
+  return 'SALE';
+};
+
+const inferLegacyPropertyType = (text: string): Prisma.PropertyType => {
+  const normalized = text.toLowerCase();
+  if (/(ufficio|studio)/.test(normalized)) return 'OFFICE';
+  if (/(negozio|locale commerciale|attivit)/.test(normalized)) return 'SHOP';
+  if (/(magazzino|capannone|deposito)/.test(normalized)) return 'WAREHOUSE';
+  if (/(garage|box auto|posto auto)/.test(normalized)) return 'GARAGE';
+  if (/(terreno|lotto|edificabile)/.test(normalized)) return 'LAND';
+  if (/(villa|villetta)/.test(normalized)) return 'VILLA';
+  if (/(casa|abitazione|indipendente)/.test(normalized)) return 'HOUSE';
+  return 'APARTMENT';
+};
+
+const inferLegacyMinRooms = (text: string): number | undefined => {
+  const normalized = text.toLowerCase();
+  if (/monolocal/.test(normalized)) return 1;
+  if (/bilocal/.test(normalized)) return 2;
+  if (/trilocal/.test(normalized)) return 3;
+  if (/quadrilocal/.test(normalized)) return 4;
+  if (/pentalocal|plurilocal/.test(normalized)) return 5;
+  const explicit = normalized.match(/(\d+)\s*(?:camere|locali|vani)/);
+  if (!explicit) return undefined;
+  const value = Number(explicit[1]);
+  return Number.isFinite(value) && value > 0 ? value : undefined;
+};
+
+const inferLegacyMinBathrooms = (text: string): number | undefined => {
+  const normalized = text.toLowerCase();
+  const explicit = normalized.match(/(\d+)\s*bagni?/);
+  if (!explicit) return undefined;
+  const value = Number(explicit[1]);
+  return Number.isFinite(value) && value > 0 ? value : undefined;
+};
+
+const inferLegacyContactType = (row: CsvRow, noteText: string): 'BUYER' | 'SELLER' | 'TENANT' | 'LANDLORD' | 'LEAD' => {
+  const customerType = pickCsvValue(row, ['CUSTOMER_TYPE']);
+  const contractType = inferLegacyContractType(noteText);
+  if (customerType === '1') return contractType === 'RENT' ? 'TENANT' : 'BUYER';
+  if (customerType === '0') return contractType === 'RENT' ? 'LANDLORD' : 'SELLER';
+  return 'LEAD';
+};
+
 const exportContactsCsvHandler = async (req: express.Request, res: express.Response) => {
   try {
     const auth = getAuth(req);
@@ -19337,36 +19429,50 @@ const importContactsCsvHandler = async (req: express.Request, res: express.Respo
     for (let i = 0; i < rows.length; i += 1) {
       const row = rows[i];
       try {
-        const firstName = (row.firstName || '').trim();
-        const lastName = (row.lastName || '').trim();
+        const isLegacyRow = isLegacyContactsCsvRow(row);
+        const legacyNotes = normalizeLegacyNotes(row) || '';
+        const firstName = isLegacyRow ? pickCsvValue(row, ['NOME']) : (row.firstName || '').trim();
+        const lastName = isLegacyRow ? pickCsvValue(row, ['COGNOME']) : (row.lastName || '').trim();
         if (!firstName && !lastName) {
           skipped += 1;
           continue;
         }
 
-        const lookupId = (row.id || '').trim();
-        const legacyCustomerId = (row.legacyCustomerId || '').trim() || undefined;
-        const normalizedType = normalizeContactType(row.type);
-        const assignedToIdRaw = (row.assignedToId || '').trim();
+        const lookupId = isLegacyRow ? '' : (row.id || '').trim();
+        const legacyCustomerId = isLegacyRow
+          ? pickCsvValue(row, ['ID']) || undefined
+          : (row.legacyCustomerId || '').trim() || undefined;
+        const normalizedType = isLegacyRow
+          ? inferLegacyContactType(row, legacyNotes)
+          : normalizeContactType(row.type);
+        const assignedToIdRaw = isLegacyRow ? '' : (row.assignedToId || '').trim();
         const assignedToId = assignedToIdRaw ? assignedToIdRaw : null;
+        const legacyPhone = buildLegacyPhone(row);
+        const legacyEmail = pickCsvValue(row, ['EMAIL', 'EMAIL2', 'PEC']) || null;
+        const legacyAddress = pickCsvValue(row, ['INDIRIZZO']) || null;
+        const legacyZipCode = pickCsvValue(row, ['CAP']) || null;
+        const legacyBirthDate = parseDateLike(pickCsvValue(row, ['DATANASCITA'])) || null;
+        const legacyFiscalCode = pickCsvValue(row, ['CF']) || null;
 
         const contactPayload: any = {
           firstName: firstName || 'Cliente',
           lastName: lastName || 'Senza cognome',
-          email: (row.email || '').trim() || null,
-          phone: (row.phone || '').trim() || null,
+          email: isLegacyRow ? legacyEmail : (row.email || '').trim() || null,
+          phone: isLegacyRow ? legacyPhone || null : (row.phone || '').trim() || null,
           type: normalizedType,
-          address: (row.address || '').trim() || null,
-          city: (row.city || '').trim() || null,
-          province: (row.province || '').trim() || null,
-          zipCode: (row.zipCode || '').trim() || null,
-          birthDate: parseDateLike(row.birthDate) || null,
-          birthPlace: (row.birthPlace || '').trim() || null,
-          fiscalCode: (row.fiscalCode || '').trim() || null,
-          notes: (row.notes || '').trim() || null,
-          tags: (row.tags || '').split('|').map((x) => x.trim()).filter(Boolean),
-          source: (row.source || '').trim() || null,
-          isActive: parseBooleanLike(row.isActive, true),
+          address: isLegacyRow ? legacyAddress : (row.address || '').trim() || null,
+          city: isLegacyRow ? null : (row.city || '').trim() || null,
+          province: isLegacyRow ? null : (row.province || '').trim() || null,
+          zipCode: isLegacyRow ? legacyZipCode : (row.zipCode || '').trim() || null,
+          birthDate: isLegacyRow ? legacyBirthDate : parseDateLike(row.birthDate) || null,
+          birthPlace: isLegacyRow ? null : (row.birthPlace || '').trim() || null,
+          fiscalCode: isLegacyRow ? legacyFiscalCode : (row.fiscalCode || '').trim() || null,
+          notes: isLegacyRow ? (legacyNotes || null) : (row.notes || '').trim() || null,
+          tags: isLegacyRow
+            ? [pickCsvValue(row, ['CUSTOMER_TYPE']) === '1' ? 'legacy_cliente' : 'legacy_proprietario']
+            : (row.tags || '').split('|').map((x) => x.trim()).filter(Boolean),
+          source: isLegacyRow ? 'import_csv_legacy' : (row.source || '').trim() || null,
+          isActive: isLegacyRow ? String(pickCsvValue(row, ['DATA_DELETED']) || '0').trim() !== '1' : parseBooleanLike(row.isActive, true),
           legacyCustomerId,
           assignedToId,
           agencyId
@@ -19397,10 +19503,15 @@ const importContactsCsvHandler = async (req: express.Request, res: express.Respo
           created += 1;
         }
 
-        const requestTitle = (row.requestTitle || '').trim();
+        const requestTitle = isLegacyRow ? '' : (row.requestTitle || '').trim();
+        const legacyRequestContract = inferLegacyContractType(legacyNotes);
+        const legacyRequestType = inferLegacyPropertyType(legacyNotes);
+        const legacyMinRooms = inferLegacyMinRooms(legacyNotes);
+        const legacyMinBathrooms = inferLegacyMinBathrooms(legacyNotes);
         const hasRequestData =
+          (isLegacyRow && ['BUYER', 'TENANT'].includes(normalizedType)) ||
           !!requestTitle ||
-          !!(row.requestDescription || '').trim() ||
+          !!((isLegacyRow ? legacyNotes : (row.requestDescription || '').trim())) ||
           !!(row.requestMinPrice || '').trim() ||
           !!(row.requestMaxPrice || '').trim() ||
           !!(row.requestMinRooms || '').trim() ||
@@ -19414,24 +19525,26 @@ const importContactsCsvHandler = async (req: express.Request, res: express.Respo
 
           const requestPayload: any = {
             title: requestTitle || `Richiesta per ${contact.firstName} ${contact.lastName}`,
-            description: (row.requestDescription || '').trim() || null,
-            contractType: normalizeContractType(row.requestContractType),
+            description: isLegacyRow ? (legacyNotes || null) : (row.requestDescription || '').trim() || null,
+            contractType: isLegacyRow ? legacyRequestContract : normalizeContractType(row.requestContractType),
             status: (row.requestStatus || 'ACTIVE').trim() || 'ACTIVE',
-            type: (row.requestType || 'APARTMENT').trim() || 'APARTMENT',
-            apartmentSubtype: (row.requestApartmentSubtype || '').trim() || null,
+            type: isLegacyRow ? legacyRequestType : (row.requestType || 'APARTMENT').trim() || 'APARTMENT',
+            apartmentSubtype: isLegacyRow
+              ? (legacyRequestType === 'APARTMENT' ? 'APPARTAMENTO' : null)
+              : (row.requestApartmentSubtype || '').trim() || null,
             minPrice: parseNumberLike(row.requestMinPrice) ?? null,
             maxPrice: parseNumberLike(row.requestMaxPrice) ?? null,
             minSurface: parseNumberLike(row.requestMinSurface) ?? null,
             maxSurface: parseNumberLike(row.requestMaxSurface) ?? null,
-            minRooms: parseIntLike(row.requestMinRooms) ?? null,
+            minRooms: isLegacyRow ? (legacyMinRooms ?? null) : parseIntLike(row.requestMinRooms) ?? null,
             maxRooms: parseIntLike(row.requestMaxRooms) ?? null,
-            minBathrooms: parseIntLike(row.requestMinBathrooms) ?? null,
+            minBathrooms: isLegacyRow ? (legacyMinBathrooms ?? null) : parseIntLike(row.requestMinBathrooms) ?? null,
             maxBathrooms: parseIntLike(row.requestMaxBathrooms) ?? null,
             minFloor: parseIntLike(row.requestMinFloor) ?? null,
             maxFloor: parseIntLike(row.requestMaxFloor) ?? null,
             cities: (row.requestCities || '').split('|').map((x) => x.trim()).filter(Boolean),
             provinces: (row.requestProvinces || '').split('|').map((x) => x.trim()).filter(Boolean),
-            notes: (row.requestNotes || '').trim() || null,
+            notes: isLegacyRow ? (legacyNotes || null) : (row.requestNotes || '').trim() || null,
             agencyId,
             contactId: contact.id
           };
@@ -19469,6 +19582,53 @@ const importContactsCsvHandler = async (req: express.Request, res: express.Respo
 
 app.post('/api/contacts/import.csv', upload.single('file'), importContactsCsvHandler);
 app.post('/api/contacts/import', upload.single('file'), importContactsCsvHandler);
+
+app.delete('/api/contacts/bulk-delete', async (req, res) => {
+  try {
+    const auth = getAuth(req);
+    if (!auth) return res.status(401).json({ success: false, message: 'Unauthorized' });
+    if (!isAdminRole(auth.role)) return res.status(403).json({ success: false, message: 'Forbidden' });
+    if (!auth.agencyId) return res.status(400).json({ success: false, message: 'Missing agencyId' });
+
+    const category = String(req.query.category || 'CLIENT').trim().toUpperCase();
+    const clientTypes = ['BUYER', 'TENANT', 'LEAD'];
+    const proprietorTypes = ['SELLER', 'LANDLORD'];
+    const targetTypes = category === 'PROPRIETOR' ? proprietorTypes : clientTypes;
+
+    const targetContacts = await prisma.contact.findMany({
+      where: { agencyId: auth.agencyId, type: { in: targetTypes as any } },
+      select: { id: true }
+    });
+
+    const contactIds = targetContacts.map((contact) => contact.id);
+    if (contactIds.length === 0) {
+      return res.json({ success: true, data: { deletedContacts: 0 }, message: 'Nessun contatto da eliminare' });
+    }
+
+    await prisma.$transaction(async (tx) => {
+      await tx.appointment.updateMany({
+        where: { agencyId: auth.agencyId, contactId: { in: contactIds } },
+        data: { contactId: null }
+      });
+      await tx.activity.updateMany({
+        where: { agencyId: auth.agencyId, contactId: { in: contactIds } },
+        data: { contactId: null }
+      });
+      await tx.contact.deleteMany({
+        where: { agencyId: auth.agencyId, id: { in: contactIds } }
+      });
+    });
+
+    res.json({
+      success: true,
+      data: { deletedContacts: contactIds.length },
+      message: category === 'PROPRIETOR' ? 'Tutti i proprietari sono stati eliminati' : 'Tutti i clienti sono stati eliminati'
+    });
+  } catch (error) {
+    console.error('Error bulk deleting contacts:', error);
+    res.status(500).json({ success: false, message: 'Errore durante eliminazione massiva contatti' });
+  }
+});
 
 app.get('/api/properties/:id/linked-requests', async (req, res) => {
   try {

@@ -6547,6 +6547,7 @@ function App() {
 
   const [currentPropertyId, setCurrentPropertyId] = useState<string | null>(null)
   const [currentContactId, setCurrentContactId] = useState<string | null>(null)
+  const [currentContactData, setCurrentContactData] = useState<Contact | null>(null)
   const [currentContactRequest, setCurrentContactRequest] = useState<any | null>(null)
   const [clientDetailBackPage, setClientDetailBackPage] = useState<'contatti' | 'incrocio'>('contatti')
   const [incrocioFocus, setIncrocioFocus] = useState<{ requestId: string; contactId: string } | null>(null)
@@ -14594,6 +14595,7 @@ function App() {
 
               onOpenContactPage={(contact) => {
                 setCurrentContactId(contact.id)
+                setCurrentContactData(contact)
                 setCurrentContactRequest(null)
                 setClientDetailBackPage('contatti')
                 setCurrentPage('cliente-detail')
@@ -14642,6 +14644,7 @@ function App() {
               onFocusConsumed={() => setIncrocioFocus(null)}
               onNavigateToContactRequest={(contact, request) => {
                 setCurrentContactId(contact.id)
+                setCurrentContactData(contact)
                 setCurrentContactRequest(request || null)
                 setClientDetailBackPage('incrocio')
                 setCurrentPage('cliente-detail')
@@ -14653,7 +14656,7 @@ function App() {
 
           {currentPage === 'cliente-detail' && currentContactId && (
             <ClientDetailPage
-              contact={contacts.find((c) => c.id === currentContactId) || null}
+              contact={contacts.find((c) => c.id === currentContactId) || currentContactData}
               request={currentContactRequest}
               properties={properties}
               onOpenProperty={(propertyId) => {
@@ -28974,6 +28977,8 @@ function ClientsPage({
   const [debouncedFilterCity, setDebouncedFilterCity] = useState('')
   const [reloadTick, setReloadTick] = useState(0)
   const [importingCsv, setImportingCsv] = useState(false)
+  const [importCsvProgress, setImportCsvProgress] = useState(0)
+  const [deletingAllClients, setDeletingAllClients] = useState(false)
   const authHeaders = authToken ? { Authorization: `Bearer ${authToken}` } : undefined
 
 
@@ -29074,6 +29079,21 @@ function ClientsPage({
       cancelled = true
     }
   }, [authToken, reloadTick])
+
+  useEffect(() => {
+    if (!importingCsv) {
+      setImportCsvProgress(0)
+      return
+    }
+    setImportCsvProgress((prev) => (prev > 0 ? prev : 8))
+    const timer = window.setInterval(() => {
+      setImportCsvProgress((prev) => {
+        if (prev >= 92) return prev
+        return Math.min(92, prev + Math.max(4, Math.round((100 - prev) / 8)))
+      })
+    }, 350)
+    return () => window.clearInterval(timer)
+  }, [importingCsv])
 
 
 
@@ -29371,6 +29391,7 @@ function ClientsPage({
 
   const handleImportCsvFile = async (file: File) => {
     setImportingCsv(true)
+    setImportCsvProgress(10)
     try {
       const form = new FormData()
       form.append('file', file)
@@ -29383,12 +29404,39 @@ function ClientsPage({
       if (!response.ok || !data?.success) {
         throw new Error(data?.message || `HTTP ${response.status}`)
       }
+      setImportCsvProgress(100)
       alert(`Import completato. Creati: ${data.data?.created ?? 0}, Aggiornati: ${data.data?.updated ?? 0}, Richieste: ${data.data?.requestsUpserted ?? 0}, Scartati: ${data.data?.skipped ?? 0}`)
       setReloadTick(prev => prev + 1)
     } catch (error) {
       alert(`Errore import CSV: ${error instanceof Error ? error.message : 'errore sconosciuto'}`)
     } finally {
-      setImportingCsv(false)
+      window.setTimeout(() => {
+        setImportingCsv(false)
+        setImportCsvProgress(0)
+      }, 250)
+    }
+  }
+
+  const handleDeleteAllClients = async () => {
+    if (deletingAllClients) return
+    const confirmed = window.confirm('Confermi l\'eliminazione di tutti i clienti caricati? Questa azione non è reversibile.')
+    if (!confirmed) return
+    setDeletingAllClients(true)
+    try {
+      const response = await fetch('/api/contacts/bulk-delete?category=CLIENT', {
+        method: 'DELETE',
+        headers: authHeaders
+      })
+      const data = await response.json()
+      if (!response.ok || !data?.success) {
+        throw new Error(data?.message || `HTTP ${response.status}`)
+      }
+      alert(`Eliminazione completata. Clienti eliminati: ${data.data?.deletedContacts ?? 0}`)
+      setReloadTick((prev) => prev + 1)
+    } catch (error) {
+      alert(`Errore eliminazione clienti: ${error instanceof Error ? error.message : 'errore sconosciuto'}`)
+    } finally {
+      setDeletingAllClients(false)
     }
   }
 
@@ -29491,6 +29539,26 @@ function ClientsPage({
           >
             Template CSV
           </button>
+          {activeTab === 'CLIENT' && (
+            <button
+              type="button"
+              onClick={handleDeleteAllClients}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                backgroundColor: deletingAllClients ? '#fca5a5' : '#dc2626',
+                color: 'white',
+                padding: '0.75rem 1rem',
+                borderRadius: '0.375rem',
+                border: 'none',
+                cursor: deletingAllClients ? 'not-allowed' : 'pointer',
+                userSelect: 'none'
+              }}
+              disabled={deletingAllClients}
+            >
+              {deletingAllClients ? 'Eliminazione...' : 'Elimina tutti i clienti'}
+            </button>
+          )}
           <button
             type="button"
             onClick={handleImportCsvClick}
@@ -29531,6 +29599,26 @@ function ClientsPage({
         </div>
 
       </div>
+
+      {importingCsv && (
+        <div style={{ marginBottom: '1rem' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.4rem' }}>
+            <span style={{ fontSize: '0.9rem', fontWeight: 600, color: '#0f172a' }}>Importazione clienti in corso...</span>
+            <span style={{ fontSize: '0.85rem', color: '#475569' }}>{Math.max(0, Math.min(100, Math.round(importCsvProgress)))}%</span>
+          </div>
+          <div style={{ width: '100%', height: '10px', borderRadius: '9999px', background: '#dbeafe', overflow: 'hidden' }}>
+            <div
+              style={{
+                width: `${Math.max(6, importCsvProgress)}%`,
+                height: '100%',
+                borderRadius: '9999px',
+                background: 'linear-gradient(90deg, #2563eb 0%, #38bdf8 100%)',
+                transition: 'width 220ms ease'
+              }}
+            />
+          </div>
+        </div>
+      )}
 
 
 
