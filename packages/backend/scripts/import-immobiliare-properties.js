@@ -4,7 +4,27 @@ require('dotenv/config');
 const fs = require('fs');
 const path = require('path');
 const { PrismaClient } = require('@prisma/client');
-const { importImmobiliareCsvBuffer } = require('../dist/src/immobiliareCsvImport');
+
+function loadImporter() {
+  const candidates = [
+    '../dist/src/immobiliareCsvImport',
+    '../dist/immobiliareCsvImport',
+    '../src/immobiliareCsvImport'
+  ];
+
+  let lastError = null;
+  for (const candidate of candidates) {
+    try {
+      return require(candidate);
+    } catch (error) {
+      lastError = error;
+    }
+  }
+
+  throw lastError || new Error('Unable to load immobiliare CSV importer module');
+}
+
+const { importImmobiliareCsvBuffer } = loadImporter();
 
 const prisma = new PrismaClient();
 
