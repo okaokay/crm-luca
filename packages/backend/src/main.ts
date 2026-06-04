@@ -19079,7 +19079,8 @@ const normalizeContractType = (value?: string): 'SALE' | 'RENT' => {
 
 const pickCsvValue = (row: CsvRow, keys: string[]): string => {
   for (const key of keys) {
-    const value = row[key];
+    const normalizedKey = normalizeCsvHeader(key);
+    const value = row[key] ?? row[normalizedKey];
     if (typeof value === 'string' && value.trim()) return value.trim();
   }
   return '';
@@ -19090,9 +19091,13 @@ const isLegacyContactsCsvRow = (row: CsvRow): boolean => {
     row &&
     (
       'CUSTOMER_TYPE' in row ||
+      'customertype' in row ||
       'NOME' in row ||
+      'firstName' in row ||
       'COGNOME' in row ||
+      'lastName' in row ||
       'CELL1' in row ||
+      'cell1' in row ||
       'TEL1' in row
     )
   );
@@ -19103,9 +19108,13 @@ const isLegacyRequestsCsvRow = (row: CsvRow): boolean => {
     row &&
     (
       'IDCUSTOMER' in row ||
+      'idcustomer' in row ||
       'PREZZO1' in row ||
+      'prezzo1' in row ||
       'PREZZO2' in row ||
+      'prezzo2' in row ||
       'CAMERA1' in row ||
+      'camera1' in row ||
       'BAGNO1' in row
     )
   );
@@ -19113,18 +19122,18 @@ const isLegacyRequestsCsvRow = (row: CsvRow): boolean => {
 
 const buildLegacyPhone = (row: CsvRow): string | undefined => {
   const candidates = [
-    [pickCsvValue(row, ['PREFCELL1']), pickCsvValue(row, ['CELL1'])].filter(Boolean).join(' '),
-    [pickCsvValue(row, ['PREFTEL1']), pickCsvValue(row, ['TEL1'])].filter(Boolean).join(' '),
-    [pickCsvValue(row, ['PREFCELL2']), pickCsvValue(row, ['CELL2'])].filter(Boolean).join(' '),
-    [pickCsvValue(row, ['PREFTEL2']), pickCsvValue(row, ['TEL2'])].filter(Boolean).join(' ')
+    [pickCsvValue(row, ['PREFCELL1', 'prefcell1']), pickCsvValue(row, ['CELL1', 'cell1', 'phone'])].filter(Boolean).join(' '),
+    [pickCsvValue(row, ['PREFTEL1', 'preftel1']), pickCsvValue(row, ['TEL1', 'tel1', 'phone'])].filter(Boolean).join(' '),
+    [pickCsvValue(row, ['PREFCELL2', 'prefcell2']), pickCsvValue(row, ['CELL2', 'cell2'])].filter(Boolean).join(' '),
+    [pickCsvValue(row, ['PREFTEL2', 'preftel2']), pickCsvValue(row, ['TEL2', 'tel2'])].filter(Boolean).join(' ')
   ].map((value) => value.trim()).filter(Boolean);
   return candidates[0] || undefined;
 };
 
 const normalizeLegacyNotes = (row: CsvRow): string | undefined => {
   const noteParts = [
-    pickCsvValue(row, ['NOTE']),
-    pickCsvValue(row, ['RECAPITI_NOTE'])
+    pickCsvValue(row, ['NOTE', 'notes']),
+    pickCsvValue(row, ['RECAPITI_NOTE', 'recapiti_note'])
       .replace(/\|+/g, ' ')
       .replace(/\s{2,}/g, ' ')
       .trim()
@@ -19481,8 +19490,8 @@ const importContactsCsvHandler = async (req: express.Request, res: express.Respo
         const legacyRequestNotes = pickCsvValue(row, ['NOTE']) || '';
 
         if (isLegacyRequestRow) {
-          const legacyCustomerId = pickCsvValue(row, ['IDCUSTOMER']);
-          const legacyRequestId = pickCsvValue(row, ['ID']) || undefined;
+          const legacyCustomerId = pickCsvValue(row, ['IDCUSTOMER', 'idcustomer', 'legacyCustomerId']);
+          const legacyRequestId = pickCsvValue(row, ['ID', 'id']) || undefined;
           if (!legacyCustomerId) {
             skipped += 1;
             errors.push(`Riga ${i + 2}: IDCUSTOMER mancante nel CSV richieste`);
@@ -19502,15 +19511,15 @@ const importContactsCsvHandler = async (req: express.Request, res: express.Respo
           const contractType = inferLegacyRequestContractType(row, legacyRequestNotes);
           const requestType = inferLegacyRequestPropertyType(row, legacyRequestNotes);
           const inferredContactType = inferLegacyRequestContactType(contact.type as string | undefined, contractType);
-          const minPrice = parseNumberLike(pickCsvValue(row, ['PREZZO1']));
-          const maxPrice = parseNumberLike(pickCsvValue(row, ['PREZZO2']));
-          const minSurface = parseNumberLike(pickCsvValue(row, ['MQ']));
-          const maxSurface = parseNumberLike(pickCsvValue(row, ['MQ2']));
-          const minBathrooms = parseIntLike(pickCsvValue(row, ['BAGNO1']));
-          const maxBathrooms = parseIntLike(pickCsvValue(row, ['BAGNO2']));
-          const minRooms = parseIntLike(pickCsvValue(row, ['CAMERA1']));
-          const maxRooms = parseIntLike(pickCsvValue(row, ['CAMERA2']));
-          const minFloor = parseIntLike(pickCsvValue(row, ['PIANO']));
+          const minPrice = parseNumberLike(pickCsvValue(row, ['PREZZO1', 'prezzo1', 'requestMinPrice']));
+          const maxPrice = parseNumberLike(pickCsvValue(row, ['PREZZO2', 'prezzo2', 'requestMaxPrice']));
+          const minSurface = parseNumberLike(pickCsvValue(row, ['MQ', 'mq', 'requestMinSurface']));
+          const maxSurface = parseNumberLike(pickCsvValue(row, ['MQ2', 'mq2', 'requestMaxSurface']));
+          const minBathrooms = parseIntLike(pickCsvValue(row, ['BAGNO1', 'bagno1', 'requestMinBathrooms']));
+          const maxBathrooms = parseIntLike(pickCsvValue(row, ['BAGNO2', 'bagno2', 'requestMaxBathrooms']));
+          const minRooms = parseIntLike(pickCsvValue(row, ['CAMERA1', 'camera1', 'requestMinRooms']));
+          const maxRooms = parseIntLike(pickCsvValue(row, ['CAMERA2', 'camera2', 'requestMaxRooms']));
+          const minFloor = parseIntLike(pickCsvValue(row, ['PIANO', 'piano', 'requestMinFloor']));
 
           if (contact.type !== inferredContactType) {
             await prisma.contact.update({
@@ -19564,8 +19573,8 @@ const importContactsCsvHandler = async (req: express.Request, res: express.Respo
           continue;
         }
 
-        const firstName = isLegacyRow ? pickCsvValue(row, ['NOME']) : (row.firstName || '').trim();
-        const lastName = isLegacyRow ? pickCsvValue(row, ['COGNOME']) : (row.lastName || '').trim();
+        const firstName = isLegacyRow ? pickCsvValue(row, ['NOME', 'firstName']) : (row.firstName || '').trim();
+        const lastName = isLegacyRow ? pickCsvValue(row, ['COGNOME', 'lastName']) : (row.lastName || '').trim();
         if (!firstName && !lastName) {
           skipped += 1;
           continue;
@@ -19573,7 +19582,7 @@ const importContactsCsvHandler = async (req: express.Request, res: express.Respo
 
         const lookupId = isLegacyRow ? '' : (row.id || '').trim();
         const legacyCustomerId = isLegacyRow
-          ? pickCsvValue(row, ['ID']) || undefined
+          ? pickCsvValue(row, ['ID', 'id']) || undefined
           : (row.legacyCustomerId || '').trim() || undefined;
         const normalizedType = isLegacyRow
           ? inferLegacyContactType(row, legacyNotes)
@@ -19581,11 +19590,11 @@ const importContactsCsvHandler = async (req: express.Request, res: express.Respo
         const assignedToIdRaw = isLegacyRow ? '' : (row.assignedToId || '').trim();
         const assignedToId = assignedToIdRaw ? assignedToIdRaw : null;
         const legacyPhone = buildLegacyPhone(row);
-        const legacyEmail = pickCsvValue(row, ['EMAIL', 'EMAIL2', 'PEC']) || null;
-        const legacyAddress = pickCsvValue(row, ['INDIRIZZO']) || null;
-        const legacyZipCode = pickCsvValue(row, ['CAP']) || null;
-        const legacyBirthDate = parseDateLike(pickCsvValue(row, ['DATANASCITA'])) || null;
-        const legacyFiscalCode = pickCsvValue(row, ['CF']) || null;
+        const legacyEmail = pickCsvValue(row, ['EMAIL', 'EMAIL2', 'PEC', 'email']) || null;
+        const legacyAddress = pickCsvValue(row, ['INDIRIZZO', 'address']) || null;
+        const legacyZipCode = pickCsvValue(row, ['CAP', 'zipCode']) || null;
+        const legacyBirthDate = parseDateLike(pickCsvValue(row, ['DATANASCITA', 'birthDate'])) || null;
+        const legacyFiscalCode = pickCsvValue(row, ['CF', 'fiscalCode']) || null;
 
         const contactPayload: any = {
           firstName: firstName || 'Cliente',
