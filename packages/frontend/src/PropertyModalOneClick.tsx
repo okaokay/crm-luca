@@ -126,6 +126,171 @@ const localInputToOneClickDate = (value: string) => {
   return toOneClickDate(dt)
 }
 
+const toFiniteNumber = (value: any) => {
+  const n = Number(value)
+  return Number.isFinite(n) ? n : undefined
+}
+
+const toFiniteInteger = (value: any) => {
+  const n = Number.parseInt(String(value ?? '').trim(), 10)
+  return Number.isFinite(n) ? n : undefined
+}
+
+const toYesNoFromBooleanLike = (value: any, fallback = 'N') => {
+  if (value === true) return 'S'
+  if (value === false) return 'N'
+  const raw = String(value ?? '').trim().toUpperCase()
+  if (raw === 'S' || raw === 'N') return raw
+  return fallback
+}
+
+const toYesNoFromQuantity = (value: any, fallback = 'N') => {
+  const n = Number(value)
+  if (Number.isFinite(n)) return n > 0 ? 'S' : 'N'
+  return fallback
+}
+
+const ONECLICK_TYPE_BY_PROPERTY_TYPE: Record<string, number> = {
+  APARTMENT: 5,
+  HOUSE: 36,
+  VILLA: 7,
+  OFFICE: 15,
+  SHOP: 18,
+  COMMERCIAL: 18,
+  WAREHOUSE: 29,
+  LAND: 19,
+  GARAGE: 9,
+  OTHER: 5
+}
+
+const ONECLICK_ANNOUNCE_BY_CONTRACT: Record<string, number> = {
+  SALE: 1,
+  RENT: 2
+}
+
+const getPreferredPropertyPrice = (property: any) => {
+  const contractType = String(property?.contractType || '').trim().toUpperCase()
+  if (contractType === 'RENT') {
+    return (
+      toFiniteNumber(property?.oneClickData?.prezzo) ??
+      toFiniteNumber(property?.advertisingRentPrice) ??
+      toFiniteNumber(property?.rentPrice) ??
+      toFiniteNumber(property?.advertisingSalePrice) ??
+      toFiniteNumber(property?.salePrice)
+    )
+  }
+  return (
+    toFiniteNumber(property?.oneClickData?.prezzo) ??
+    toFiniteNumber(property?.advertisingSalePrice) ??
+    toFiniteNumber(property?.salePrice) ??
+    toFiniteNumber(property?.advertisingRentPrice) ??
+    toFiniteNumber(property?.rentPrice)
+  )
+}
+
+const buildInitialFormState = (
+  property: any,
+  currentUserRole: Props['currentUserRole'],
+  user: any,
+  isAdminUser: boolean
+) => {
+  const parsed = parseAddress(property?.address || '')
+  const source = property?.oneClickData && typeof property.oneClickData === 'object' ? property.oneClickData : {}
+  const propertyType = String(property?.type || '').trim().toUpperCase()
+  const contractType = String(property?.contractType || 'SALE').trim().toUpperCase() === 'RENT' ? 'RENT' : 'SALE'
+  const preferredPrice = getPreferredPropertyPrice(property)
+  const agentId = String(property?.agentId || '').trim() || (currentUserRole === 'AGENT' ? String(user?.id || '').trim() : '')
+  const agentName = String(property?.agentName || '').trim() || (currentUserRole === 'AGENT' ? [String(user?.firstName || '').trim(), String(user?.lastName || '').trim()].filter(Boolean).join(' ') : '')
+  const agentEmail = String(property?.agentEmail || '').trim() || (currentUserRole === 'AGENT' ? String(user?.email || '').trim() : '')
+
+  return {
+    title: property?.title || '',
+    reference: property?.reference || '',
+    description: property?.description || '',
+    contractType,
+    status: property?.status || 'AVAILABLE',
+    street: parsed.street,
+    streetNumber: parsed.streetNumber,
+    address: property?.address || '',
+    city: property?.city || '',
+    province: property?.province || '',
+    zipCode: property?.zipCode || '',
+    latitude: property?.latitude || undefined,
+    longitude: property?.longitude || undefined,
+    giComuneIstat: property?.giComuneIstat || '',
+    ownerFirstName: property?.ownerFirstName || '',
+    ownerLastName: property?.ownerLastName || '',
+    ownerEmail: property?.ownerEmail || '',
+    ownerPhone: property?.ownerPhone || '',
+    ownerFiscalCode: property?.ownerFiscalCode || '',
+    agentId,
+    agentName,
+    agentEmail,
+    agentPhone: property?.agentPhone || '',
+    notes: property?.notes || '',
+    publishNow: property?.isPublished ?? isAdminUser,
+    oneClickData: {
+      ...source,
+      idtipologiaimmobile: toFiniteInteger(source.idtipologiaimmobile) ?? ONECLICK_TYPE_BY_PROPERTY_TYPE[propertyType] ?? 5,
+      idtipologiaannuncio: toFiniteInteger(source.idtipologiaannuncio) ?? ONECLICK_ANNOUNCE_BY_CONTRACT[contractType] ?? 1,
+      riferimento: String(source.riferimento || property?.reference || '').trim(),
+      comune_istat: String(source.comune_istat || property?.giComuneIstat || '').trim(),
+      descrizione: String(source.descrizione || property?.description || '').trim(),
+      titolo_annuncio: String(source.titolo_annuncio || property?.title || '').trim(),
+      indirizzo: String(source.indirizzo || property?.address || '').trim(),
+      data_inserimento: source.data_inserimento || nowOneClickDateTime(),
+      data_aggiornamento: source.data_aggiornamento || nowOneClickDateTime(),
+      data_scadenza_asta: source.data_scadenza_asta || nowOneClickDate(),
+      tipo_classe_energetica: source.tipo_classe_energetica || 'V',
+      nazione: source.nazione || 'IT',
+      categoria_annuncio: source.categoria_annuncio || 'residenziale',
+      indirizzo_visibile: source.indirizzo_visibile || 'S',
+      mappa: source.mappa || 'S',
+      doc_planimetria: source.doc_planimetria || 'N',
+      doc_visura: source.doc_visura || 'N',
+      prezzo: toFiniteNumber(source.prezzo) ?? preferredPrice,
+      prezzo_acquisizione: toFiniteNumber(source.prezzo_acquisizione) ?? preferredPrice,
+      mq: toFiniteNumber(source.mq) ?? toFiniteNumber(property?.surface),
+      nr_locali: toFiniteInteger(source.nr_locali) ?? toFiniteInteger(property?.rooms),
+      nr_camere: toFiniteInteger(source.nr_camere) ?? toFiniteInteger(property?.bedrooms),
+      nr_servizi: toFiniteInteger(source.nr_servizi) ?? toFiniteInteger(property?.bathrooms),
+      cap: String(source.cap || property?.zipCode || '').trim(),
+      latitudine: toFiniteNumber(source.latitudine) ?? toFiniteNumber(property?.latitude),
+      longitudine: toFiniteNumber(source.longitudine) ?? toFiniteNumber(property?.longitude),
+      piano: String(source.piano || property?.floor || '').trim(),
+      totale_piani: toFiniteInteger(source.totale_piani) ?? toFiniteInteger(property?.totalFloors),
+      spese_cond_mensili: toFiniteNumber(source.spese_cond_mensili) ?? toFiniteNumber(property?.expenses),
+      condizioni: String(source.condizioni || property?.buildingCondition || '').trim(),
+      classe_energetica: String(source.classe_energetica || property?.energyClass || '').trim(),
+      ascensore: source.ascensore || toYesNoFromBooleanLike(property?.elevator, 'N'),
+      arredato: source.arredato || toYesNoFromBooleanLike(property?.furnished, 'N'),
+      balcone: source.balcone || toYesNoFromQuantity(property?.balcony, 'N'),
+      terrazzo: source.terrazzo || toYesNoFromQuantity(property?.terrace, 'N'),
+      giardino: source.giardino || toYesNoFromQuantity(property?.garden, 'N'),
+      mq_giardino: toFiniteNumber(source.mq_giardino) ?? toFiniteNumber(property?.garden),
+      selectedPortalCodes: Array.isArray(source.selectedPortalCodes) ? source.selectedPortalCodes : [20],
+      videos: Array.isArray(source.videos) ? source.videos : [],
+      publicationReview: {
+        hiddenFields: Array.isArray(source.publicationReview?.hiddenFields)
+          ? source.publicationReview.hiddenFields.filter((v: any) => typeof v === 'string')
+          : [],
+        adminNote:
+          typeof source.publicationReview?.adminNote === 'string'
+            ? source.publicationReview.adminNote
+            : '',
+        reviewedAt:
+          typeof source.publicationReview?.reviewedAt === 'string'
+            ? source.publicationReview.reviewedAt
+            : undefined,
+        reviewedByRole:
+          typeof source.publicationReview?.reviewedByRole === 'string'
+            ? source.publicationReview.reviewedByRole
+            : undefined
+      }
+    }
+  }
+}
+
 const parseAddress = (address: string) => {
   const raw = String(address || '').trim()
   if (!raw) return { street: '', streetNumber: '' }
@@ -236,9 +401,7 @@ async function loadProvinces(): Promise<Province[]> {
 
 export function PropertyModalOneClick({ property, onSave, onCancel, currentUserRole, approvalMode = false, approvalSubmitLabel = 'Approva immobile', deferImageUpload = false }: Props) {
   const { token, user } = useAuthStore()
-  const resolvedUserRole = String(currentUserRole || user?.role || '').trim().toUpperCase()
-  const isAdminUser = resolvedUserRole === 'SUPER_ADMIN' || resolvedUserRole === 'AGENCY_ADMIN'
-  const isAgentUser = resolvedUserRole === 'AGENT'
+  const isAdminUser = currentUserRole === 'SUPER_ADMIN' || currentUserRole === 'AGENCY_ADMIN'
 
   const [step, setStep] = useState(1)
   const [isSubmitting, setIsSubmitting] = useState(false)
@@ -276,74 +439,7 @@ export function PropertyModalOneClick({ property, onSave, onCancel, currentUserR
       reader.readAsDataURL(file)
     })
 
-  const parsed = parseAddress(property?.address || '')
-  const [form, setForm] = useState<any>({
-    title: property?.title || '',
-    reference: property?.reference || '',
-    description: property?.description || '',
-    contractType: property?.contractType || 'SALE',
-    status: property?.status || 'AVAILABLE',
-    street: parsed.street,
-    streetNumber: parsed.streetNumber,
-    address: property?.address || '',
-    city: property?.city || '',
-    province: property?.province || '',
-    zipCode: property?.zipCode || '',
-    latitude: property?.latitude || undefined,
-    longitude: property?.longitude || undefined,
-    giComuneIstat: property?.giComuneIstat || '',
-    ownerFirstName: property?.ownerFirstName || '',
-    ownerLastName: property?.ownerLastName || '',
-    ownerEmail: property?.ownerEmail || '',
-    ownerPhone: property?.ownerPhone || '',
-    ownerFiscalCode: property?.ownerFiscalCode || '',
-    agentId: property?.agentId || (isAgentUser ? String(user?.id || '').trim() : ''),
-    agentName: property?.agentName || (isAgentUser ? [String(user?.firstName || '').trim(), String(user?.lastName || '').trim()].filter(Boolean).join(' ') : ''),
-    agentEmail: property?.agentEmail || (isAgentUser ? String(user?.email || '').trim() : ''),
-    agentPhone: property?.agentPhone || '',
-    notes: property?.notes || '',
-    publishNow: property?.isPublished ?? isAdminUser,
-    oneClickData: {
-      ...(property?.oneClickData || {}),
-      idtipologiaimmobile: property?.oneClickData?.idtipologiaimmobile || 5,
-      idtipologiaannuncio: property?.oneClickData?.idtipologiaannuncio || (property?.contractType === 'RENT' ? 2 : 1),
-      riferimento: property?.oneClickData?.riferimento || property?.reference || '',
-      comune_istat: property?.oneClickData?.comune_istat || property?.giComuneIstat || '',
-      descrizione: property?.oneClickData?.descrizione || property?.description || '',
-      titolo_annuncio: property?.oneClickData?.titolo_annuncio || property?.title || '',
-      indirizzo: property?.oneClickData?.indirizzo || property?.address || '',
-      data_inserimento: property?.oneClickData?.data_inserimento || nowOneClickDateTime(),
-      data_aggiornamento: property?.oneClickData?.data_aggiornamento || nowOneClickDateTime(),
-      data_scadenza_asta: property?.oneClickData?.data_scadenza_asta || nowOneClickDate(),
-      tipo_classe_energetica: property?.oneClickData?.tipo_classe_energetica || 'V',
-      nazione: property?.oneClickData?.nazione || 'IT',
-      categoria_annuncio: property?.oneClickData?.categoria_annuncio || 'residenziale',
-      indirizzo_visibile: property?.oneClickData?.indirizzo_visibile || 'S',
-      mappa: property?.oneClickData?.mappa || 'S',
-      doc_planimetria: property?.oneClickData?.doc_planimetria || 'N',
-      doc_visura: property?.oneClickData?.doc_visura || 'N',
-      prezzo_acquisizione: property?.oneClickData?.prezzo_acquisizione || undefined,
-      selectedPortalCodes: Array.isArray(property?.oneClickData?.selectedPortalCodes) ? property.oneClickData.selectedPortalCodes : [20],
-      videos: Array.isArray(property?.oneClickData?.videos) ? property.oneClickData.videos : [],
-      publicationReview: {
-        hiddenFields: Array.isArray(property?.oneClickData?.publicationReview?.hiddenFields)
-          ? property.oneClickData.publicationReview.hiddenFields.filter((v: any) => typeof v === 'string')
-          : [],
-        adminNote:
-          typeof property?.oneClickData?.publicationReview?.adminNote === 'string'
-            ? property.oneClickData.publicationReview.adminNote
-            : '',
-        reviewedAt:
-          typeof property?.oneClickData?.publicationReview?.reviewedAt === 'string'
-            ? property.oneClickData.publicationReview.reviewedAt
-            : undefined,
-        reviewedByRole:
-          typeof property?.oneClickData?.publicationReview?.reviewedByRole === 'string'
-            ? property.oneClickData.publicationReview.reviewedByRole
-            : undefined
-      }
-    }
-  })
+  const [form, setForm] = useState<any>(() => buildInitialFormState(property, currentUserRole, user, isAdminUser))
 
   const setOne = (key: string, value: any) => setForm((prev: any) => ({ ...prev, oneClickData: { ...(prev.oneClickData || {}), [key]: value } }))
   const setNum = (key: string, value: string) => setOne(key, value ? Number(value) : undefined)
@@ -354,6 +450,12 @@ export function PropertyModalOneClick({ property, onSave, onCancel, currentUserR
     document.body.style.overflow = 'hidden'
     return () => { document.body.style.overflow = prev }
   }, [])
+
+  useEffect(() => {
+    setImages(Array.isArray(property?.images) ? property.images : [])
+    setForm(buildInitialFormState(property, currentUserRole, user, isAdminUser))
+    setStep(1)
+  }, [property, currentUserRole, user, isAdminUser])
 
   useEffect(() => {
     loadCities().then(setCities).catch(() => setCities([]))
@@ -388,7 +490,7 @@ export function PropertyModalOneClick({ property, onSave, onCancel, currentUserR
   }, [token])
 
   useEffect(() => {
-    if (property || !isAgentUser) return
+    if (property || currentUserRole !== 'AGENT') return
     const creatorAgentId = String(user?.id || '').trim()
     if (!creatorAgentId) return
     setForm((prev: any) => {
@@ -404,26 +506,7 @@ export function PropertyModalOneClick({ property, onSave, onCancel, currentUserR
         agentPhone: String(matchedAgent?.phone || '').trim()
       }
     })
-  }, [property, isAgentUser, user?.id, user?.firstName, user?.lastName, user?.email, agents])
-
-  const assignableAgents = useMemo(() => {
-    if (isAdminUser) return Array.isArray(agents) ? agents : []
-    const currentUserId = String(user?.id || '').trim()
-    const currentUserEmail = String(user?.email || '').trim().toLowerCase()
-    const ownAgents = (Array.isArray(agents) ? agents : []).filter((agent: any) =>
-      String(agent?.id || '').trim() === currentUserId ||
-      String(agent?.email || '').trim().toLowerCase() === currentUserEmail
-    )
-    if (ownAgents.length > 0) return ownAgents
-    if (!currentUserId) return []
-    return [{
-      id: currentUserId,
-      name: [String(user?.firstName || '').trim(), String(user?.lastName || '').trim()].filter(Boolean).join(' ') || 'Agente assegnato',
-      email: String(user?.email || '').trim(),
-      phone: '',
-      role: 'AGENT'
-    }]
-  }, [agents, isAdminUser, user?.id, user?.email, user?.firstName, user?.lastName])
+  }, [property, currentUserRole, user?.id, user?.firstName, user?.lastName, user?.email, agents])
 
   useEffect(() => {
     const composed = composeAddress(form.street, form.streetNumber)
@@ -1348,7 +1431,7 @@ export function PropertyModalOneClick({ property, onSave, onCancel, currentUserR
     }
 
     if (step === 16) {
-      return <div style={{ display: 'grid', gap: 10 }}><div style={cardStyle}><div style={{ marginBottom: 8, fontWeight: 700, fontSize: 13 }}>Dati proprietario / assegnazione agente</div><div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,minmax(0,1fr))', gap: 10 }}><div><label style={labelStyle}>Nome proprietario *</label><input style={inputStyle} value={form.ownerFirstName || ''} onChange={(e) => setForm((p: any) => ({ ...p, ownerFirstName: e.target.value }))} /></div><div><label style={labelStyle}>Cognome proprietario *</label><input style={inputStyle} value={form.ownerLastName || ''} onChange={(e) => setForm((p: any) => ({ ...p, ownerLastName: e.target.value }))} /></div><div><label style={labelStyle}>Codice fiscale</label><input style={inputStyle} value={form.ownerFiscalCode || ''} onChange={(e) => setForm((p: any) => ({ ...p, ownerFiscalCode: e.target.value }))} /></div><div><label style={labelStyle}>Email proprietario *</label><input style={inputStyle} value={form.ownerEmail || ''} onChange={(e) => setForm((p: any) => ({ ...p, ownerEmail: e.target.value }))} /></div><div><label style={labelStyle}>Telefono proprietario *</label><input style={inputStyle} value={form.ownerPhone || ''} onChange={(e) => setForm((p: any) => ({ ...p, ownerPhone: e.target.value }))} /></div><div><label style={labelStyle}>Assegna agente *</label><select style={inputStyle} value={form.agentId || ''} disabled={!isAdminUser} onChange={(e) => { const a = assignableAgents.find((x) => x.id === e.target.value); setForm((p: any) => ({ ...p, agentId: e.target.value, agentName: a?.name || '', agentEmail: a?.email || '', agentPhone: a?.phone || '' })) }}><option value="">{isAdminUser ? 'Seleziona agente...' : 'Agente assegnato automaticamente'}</option>{assignableAgents.map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}</select></div></div><div style={{ marginTop: 10 }}><label style={labelStyle}>Note interne</label><textarea rows={3} style={inputStyle} value={form.notes || ''} onChange={(e) => setForm((p: any) => ({ ...p, notes: e.target.value }))} /></div></div></div>
+      return <div style={{ display: 'grid', gap: 10 }}><div style={cardStyle}><div style={{ marginBottom: 8, fontWeight: 700, fontSize: 13 }}>Dati proprietario / assegnazione agente</div><div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,minmax(0,1fr))', gap: 10 }}><div><label style={labelStyle}>Nome proprietario *</label><input style={inputStyle} value={form.ownerFirstName || ''} onChange={(e) => setForm((p: any) => ({ ...p, ownerFirstName: e.target.value }))} /></div><div><label style={labelStyle}>Cognome proprietario *</label><input style={inputStyle} value={form.ownerLastName || ''} onChange={(e) => setForm((p: any) => ({ ...p, ownerLastName: e.target.value }))} /></div><div><label style={labelStyle}>Codice fiscale</label><input style={inputStyle} value={form.ownerFiscalCode || ''} onChange={(e) => setForm((p: any) => ({ ...p, ownerFiscalCode: e.target.value }))} /></div><div><label style={labelStyle}>Email proprietario *</label><input style={inputStyle} value={form.ownerEmail || ''} onChange={(e) => setForm((p: any) => ({ ...p, ownerEmail: e.target.value }))} /></div><div><label style={labelStyle}>Telefono proprietario *</label><input style={inputStyle} value={form.ownerPhone || ''} onChange={(e) => setForm((p: any) => ({ ...p, ownerPhone: e.target.value }))} /></div><div><label style={labelStyle}>Assegna agente *</label><select style={inputStyle} value={form.agentId || ''} onChange={(e) => { const a = agents.find((x) => x.id === e.target.value); setForm((p: any) => ({ ...p, agentId: e.target.value, agentName: a?.name || '', agentEmail: a?.email || '', agentPhone: a?.phone || '' })) }}><option value="">Seleziona agente...</option>{agents.map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}</select></div></div><div style={{ marginTop: 10 }}><label style={labelStyle}>Note interne</label><textarea rows={3} style={inputStyle} value={form.notes || ''} onChange={(e) => setForm((p: any) => ({ ...p, notes: e.target.value }))} /></div></div></div>
     }
 
     return <div style={cardStyle}>Step non disponibile.</div>
