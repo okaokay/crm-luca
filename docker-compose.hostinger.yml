@@ -59,17 +59,7 @@ services:
       - redis
       - minio
     command: >
-      sh -lc "
-      npx prisma generate &&
-      npx prisma migrate deploy &&
-      if [ \"$IMPORT_IMMOBILIARE_CSV_ON_BOOT\" = \"true\" ] && [ -f \"$IMPORT_IMMOBILIARE_CSV_PATH\" ]; then
-        node scripts/import-immobiliare-properties.js \"$IMPORT_IMMOBILIARE_CSV_PATH\" \"$IMPORT_ADMIN_EMAIL\";
-      else
-        echo 'Import immobiliare CSV skipped';
-      fi &&
-      if [ \"$SEED_ON_BOOT\" = \"true\" ]; then npm run seed; else echo 'Seed skipped (SEED_ON_BOOT=false)'; fi &&
-      node dist/main.js
-      "
+      sh /app/scripts/hostinger-start.sh
     networks:
       - crm-network
     restart: unless-stopped
