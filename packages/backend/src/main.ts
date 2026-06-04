@@ -19098,6 +19098,19 @@ const isLegacyContactsCsvRow = (row: CsvRow): boolean => {
   );
 };
 
+const isLegacyRequestsCsvRow = (row: CsvRow): boolean => {
+  return Boolean(
+    row &&
+    (
+      'IDCUSTOMER' in row ||
+      'PREZZO1' in row ||
+      'PREZZO2' in row ||
+      'CAMERA1' in row ||
+      'BAGNO1' in row
+    )
+  );
+};
+
 const buildLegacyPhone = (row: CsvRow): string | undefined => {
   const candidates = [
     [pickCsvValue(row, ['PREFCELL1']), pickCsvValue(row, ['CELL1'])].filter(Boolean).join(' '),
@@ -19165,6 +19178,39 @@ const inferLegacyContactType = (row: CsvRow, noteText: string): 'BUYER' | 'SELLE
   if (customerType === '1') return contractType === 'RENT' ? 'TENANT' : 'BUYER';
   if (customerType === '0') return contractType === 'RENT' ? 'LANDLORD' : 'SELLER';
   return 'LEAD';
+};
+
+const inferLegacyRequestContractType = (row: CsvRow, noteText: string): 'SALE' | 'RENT' => {
+  const inAffitto = pickCsvValue(row, ['INAFFITTO']);
+  if (inAffitto === '1') return 'RENT';
+  const contractId = pickCsvValue(row, ['IDTIPOCONTRATTO']);
+  if (['2', '3', 'AFFITTO', 'RENT'].includes(contractId.toUpperCase())) return 'RENT';
+  return inferLegacyContractType(noteText);
+};
+
+const inferLegacyRequestPropertyType = (row: CsvRow, noteText: string): Prisma.PropertyType => {
+  const tipoId = pickCsvValue(row, ['IDTIPO']).replace(/,/g, '').trim();
+  const categoria = pickCsvValue(row, ['CATEGORIA']).replace(/,/g, '').trim();
+  const mappedById: Record<string, Prisma.PropertyType> = {
+    '1': 'APARTMENT',
+    '2': 'HOUSE',
+    '3': 'HOUSE',
+    '4': 'APARTMENT',
+    '5': 'APARTMENT',
+    '11': 'VILLA',
+    '16': 'VILLA'
+  };
+  if (mappedById[tipoId]) return mappedById[tipoId];
+  if (mappedById[categoria]) return mappedById[categoria];
+  return inferLegacyPropertyType(noteText);
+};
+
+const inferLegacyRequestContactType = (
+  existingType: string | undefined,
+  contractType: 'SALE' | 'RENT'
+): 'BUYER' | 'TENANT' => {
+  if (existingType === 'BUYER' || existingType === 'TENANT') return existingType;
+  return contractType === 'RENT' ? 'TENANT' : 'BUYER';
 };
 
 const exportContactsCsvHandler = async (req: express.Request, res: express.Response) => {
@@ -19430,7 +19476,94 @@ const importContactsCsvHandler = async (req: express.Request, res: express.Respo
       const row = rows[i];
       try {
         const isLegacyRow = isLegacyContactsCsvRow(row);
+        const isLegacyRequestRow = !isLegacyRow && isLegacyRequestsCsvRow(row);
         const legacyNotes = normalizeLegacyNotes(row) || '';
+        const legacyRequestNotes = pickCsvValue(row, ['NOTE']) || '';
+
+        if (isLegacyRequestRow) {
+          const legacyCustomerId = pickCsvValue(row, ['IDCUSTOMER']);
+          const legacyRequestId = pickCsvValue(row, ['ID']) || undefined;
+          if (!legacyCustomerId) {
+            skipped += 1;
+            errors.push(`Riga ${i + 2}: IDCUSTOMER mancante nel CSV richieste`);
+            continue;
+          }
+
+          const contact = await prisma.contact.findFirst({
+            where: { agencyId, legacyCustomerId }
+          });
+
+          if (!contact) {
+            skipped += 1;
+            errors.push(`Riga ${i + 2}: cliente legacy ${legacyCustomerId} non trovato per la richiesta`);
+            continue;
+          }
+
+          const contractType = inferLegacyRequestContractType(row, legacyRequestNotes);
+          const requestType = inferLegacyRequestPropertyType(row, legacyRequestNotes);
+          const inferredContactType = inferLegacyRequestContactType(contact.type as string | undefined, contractType);
+          const minPrice = parseNumberLike(pickCsvValue(row, ['PREZZO1']));
+          const maxPrice = parseNumberLike(pickCsvValue(row, ['PREZZO2']));
+          const minSurface = parseNumberLike(pickCsvValue(row, ['MQ']));
+          const maxSurface = parseNumberLike(pickCsvValue(row, ['MQ2']));
+          const minBathrooms = parseIntLike(pickCsvValue(row, ['BAGNO1']));
+          const maxBathrooms = parseIntLike(pickCsvValue(row, ['BAGNO2']));
+          const minRooms = parseIntLike(pickCsvValue(row, ['CAMERA1']));
+          const maxRooms = parseIntLike(pickCsvValue(row, ['CAMERA2']));
+          const minFloor = parseIntLike(pickCsvValue(row, ['PIANO']));
+
+          if (contact.type !== inferredContactType) {
+            await prisma.contact.update({
+              where: { id: contact.id },
+              data: { type: inferredContactType }
+            });
+            updated += 1;
+          }
+
+          const requestPayload: any = {
+            legacyRequestId,
+            title: `Richiesta per ${contact.firstName} ${contact.lastName}`.trim(),
+            description: legacyRequestNotes || null,
+            contractType,
+            status: 'ACTIVE',
+            type: requestType,
+            apartmentSubtype: requestType === 'APARTMENT' ? 'APPARTAMENTO' : null,
+            minPrice: minPrice ?? null,
+            maxPrice: maxPrice ?? null,
+            minSurface: minSurface ?? null,
+            maxSurface: maxSurface ?? null,
+            minRooms: minRooms ?? null,
+            maxRooms: maxRooms ?? null,
+            minBathrooms: minBathrooms ?? null,
+            maxBathrooms: maxBathrooms ?? null,
+            minFloor: minFloor ?? null,
+            maxFloor: null,
+            cities: [],
+            provinces: [],
+            notes: legacyRequestNotes || null,
+            agencyId,
+            contactId: contact.id
+          };
+
+          const existingReq = legacyRequestId
+            ? await prisma.request.findFirst({
+                where: { agencyId, legacyRequestId }
+              })
+            : await prisma.request.findFirst({
+                where: { agencyId, contactId: contact.id },
+                orderBy: { createdAt: 'desc' }
+              });
+
+          if (existingReq) {
+            await prisma.request.update({ where: { id: existingReq.id }, data: requestPayload });
+          } else {
+            await prisma.request.create({ data: requestPayload });
+          }
+
+          requestsUpserted += 1;
+          continue;
+        }
+
         const firstName = isLegacyRow ? pickCsvValue(row, ['NOME']) : (row.firstName || '').trim();
         const lastName = isLegacyRow ? pickCsvValue(row, ['COGNOME']) : (row.lastName || '').trim();
         if (!firstName && !lastName) {
