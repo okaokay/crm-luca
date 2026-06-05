@@ -29546,6 +29546,33 @@ function ClientsPage({
     }
   }
 
+  const handleDeleteContact = async (contact: Contact) => {
+    const fullName = [String(contact.firstName || '').trim(), String(contact.lastName || '').trim()].filter(Boolean).join(' ').trim() || 'questo cliente'
+    const confirmed = window.confirm(`Confermi l'eliminazione di ${fullName}? Questa azione non è reversibile.`)
+    if (!confirmed) return
+    try {
+      const response = await fetch(`/api/contacts/${contact.id}`, {
+        method: 'DELETE',
+        headers: authHeaders
+      })
+      const data = await response.json().catch(() => null)
+      if (!response.ok || !data?.success) {
+        throw new Error(data?.message || `HTTP ${response.status}`)
+      }
+      if (showViewModal?.id === contact.id) {
+        setShowViewModal(null)
+      }
+      if (editingContact?.id === contact.id) {
+        setEditingContact(null)
+        setShowModal(false)
+      }
+      alert(`Cliente eliminato: ${fullName}`)
+      setReloadTick((prev) => prev + 1)
+    } catch (error) {
+      alert(`Errore eliminazione cliente: ${error instanceof Error ? error.message : 'errore sconosciuto'}`)
+    }
+  }
+
   const handleImportCsvClick = async () => {
     if (importingCsv) return
     try {
@@ -30400,6 +30427,40 @@ function ClientsPage({
                     <Phone size={16} style={{ marginRight: '0.5rem' }} />
 
                     Chiama
+
+                  </button>
+
+                  <button
+
+                    onClick={() => handleDeleteContact(contact)}
+
+                    style={{
+
+                      display: 'flex',
+
+                      alignItems: 'center',
+
+                      padding: '0.5rem 1rem',
+
+                      backgroundColor: '#ef4444',
+
+                      color: 'white',
+
+                      border: 'none',
+
+                      borderRadius: '0.375rem',
+
+                      cursor: 'pointer',
+
+                      fontSize: '0.875rem'
+
+                    }}
+
+                  >
+
+                    <Trash2 size={16} style={{ marginRight: '0.5rem' }} />
+
+                    Elimina
 
                   </button>
 
