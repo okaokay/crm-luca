@@ -9494,6 +9494,7 @@ app.post('/api/visit-bookings', async (req, res) => {
             .filter(Boolean)
             .join('\n'),
           priority: 2,
+          tags: ['public_visit_request'],
           agencyId: property.agencyId,
           assignedToId: activityAssigneeId,
           propertyId: property.id
