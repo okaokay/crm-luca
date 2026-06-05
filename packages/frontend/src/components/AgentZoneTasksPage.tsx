@@ -1140,6 +1140,26 @@ export function AgentZoneTasksPage({ agents, onRefreshGlobalData }: AgentZoneTas
     setDynamicEditRemovedStreetIds([])
   }
 
+  const openDynamicWorkspaceEditModal = () => {
+    if (!dynamicWorkspace) return
+    const matchedGroup = dynamicGroups.find((group) => group.groupId === dynamicWorkspace.groupId)
+    if (matchedGroup) {
+      openDynamicEditModal(matchedGroup)
+      return
+    }
+    openDynamicEditModal({
+      zoneId: dynamicWorkspace.zoneId,
+      groupId: dynamicWorkspace.groupId,
+      city: dynamicWorkspace.city,
+      province: dynamicWorkspace.province,
+      region: dynamicWorkspace.region,
+      zoneName: dynamicWorkspace.zoneName,
+      groupName: dynamicWorkspace.groupName,
+      streets: Array.isArray(dynamicWorkspace.streets) ? dynamicWorkspace.streets : [],
+      activeAssignment: null
+    })
+  }
+
   const saveDynamicGroupEdit = async () => {
     if (!dynamicEditModal.open || !dynamicEditModal.groupId) return
     const cleanedGroupName = String(dynamicEditModal.groupName || '').trim()
@@ -4765,6 +4785,18 @@ export function AgentZoneTasksPage({ agents, onRefreshGlobalData }: AgentZoneTas
                 <h2 style={{ margin: 0 }}>Scheda gruppo: {dynamicWorkspace.zoneName} � {dynamicWorkspace.groupName}</h2>
                 <div style={{ color: '#64748b' }}>
                   {dynamicWorkspace.region} {'>'} {dynamicWorkspace.province} {'>'} {dynamicWorkspace.city}
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '10px', flexWrap: 'wrap' }}>
+                  <div style={{ fontWeight: 700, color: '#0f172a' }}>Vie del gruppo ({dynamicWorkspace.streets.length})</div>
+                  {dynamicWorkspace.canWrite && (
+                    <button
+                      type="button"
+                      style={{ ...btnPrimary, width: 'fit-content', background: '#0f766e' }}
+                      onClick={openDynamicWorkspaceEditModal}
+                    >
+                      + Aggiungi nuove vie
+                    </button>
+                  )}
                 </div>
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
                   {dynamicWorkspace.streets.map((street) => (
