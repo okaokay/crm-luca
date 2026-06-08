@@ -9371,8 +9371,7 @@ app.post('/api/visit-bookings', async (req, res) => {
         city: true,
         address: true,
         agencyId: true,
-        ownerId: true,
-        agentId: true
+        ownerId: true
       }
     });
 
@@ -9383,7 +9382,7 @@ app.post('/api/visit-bookings', async (req, res) => {
       });
     }
 
-    const [admins, assignedAgent, propertyOwner, linkedMatches] = await Promise.all([
+    const [admins, propertyOwner, linkedMatches] = await Promise.all([
       prisma.user.findMany({
         where: {
           agencyId: property.agencyId,
@@ -9392,16 +9391,6 @@ app.post('/api/visit-bookings', async (req, res) => {
         },
         select: { id: true }
       }),
-      property.agentId
-        ? prisma.user.findFirst({
-            where: {
-              id: property.agentId,
-              agencyId: property.agencyId,
-              isActive: true
-            },
-            select: { id: true, role: true }
-          })
-        : Promise.resolve(null),
       prisma.user.findFirst({
         where: {
           id: property.ownerId,
@@ -9426,7 +9415,6 @@ app.post('/api/visit-bookings', async (req, res) => {
 
     const recipientIds = new Set<string>();
     admins.forEach((admin) => recipientIds.add(admin.id));
-    if (assignedAgent) recipientIds.add(assignedAgent.id);
     if (propertyOwner) {
       recipientIds.add(propertyOwner.id);
     }
@@ -9479,7 +9467,6 @@ app.post('/api/visit-bookings', async (req, res) => {
       .map((match) => (match.request?.assignedToId ? String(match.request.assignedToId) : ''))
       .find((id) => Boolean(id));
     const activityAssigneeId =
-      (assignedAgent?.id || null) ||
       firstLinkedAgentId ||
       (propertyOwner && propertyOwner.role === 'AGENT' ? propertyOwner.id : null) ||
       admins[0]?.id ||
