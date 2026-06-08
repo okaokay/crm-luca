@@ -16456,6 +16456,7 @@ export function PortalsPage({
 
       )}
 
+
     </div>
 
   )
@@ -56754,6 +56755,7 @@ function NotificationsPage({
   const [dayFilter, setDayFilter] = useState<string>('all')
 
   const [typeFilter, setTypeFilter] = useState<string>('all')
+  const [selectedNotification, setSelectedNotification] = useState<Notification | null>(null)
 
 
 
@@ -56989,6 +56991,40 @@ function NotificationsPage({
     }
 
   }
+
+  const getNotificationRoute = (notification: Notification) => {
+    const route = typeof notification.data?.route === 'string'
+      ? String(notification.data.route).trim()
+      : ''
+    const url = typeof notification.data?.url === 'string'
+      ? String(notification.data.url).trim()
+      : ''
+    if (route) return route
+    if (url) return url
+    const propertyId = typeof notification.data?.propertyId === 'string'
+      ? String(notification.data.propertyId).trim()
+      : ''
+    return propertyId ? `/immobili/${encodeURIComponent(propertyId)}` : ''
+  }
+
+  const openNotificationDetails = (notification: Notification) => {
+    if (!notification.isRead) onMarkAsRead(notification.id)
+    setSelectedNotification(notification)
+  }
+
+  const notificationDetail = selectedNotification
+    ? {
+        propertyTitle: String(selectedNotification.data?.propertyTitle || '').trim(),
+        propertyReference: String(selectedNotification.data?.propertyReference || '').trim(),
+        contactName: String(selectedNotification.data?.contactName || '').trim(),
+        contactEmail: String(selectedNotification.data?.contactEmail || '').trim(),
+        contactPhone: String(selectedNotification.data?.contactPhone || '').trim(),
+        availability: String(selectedNotification.data?.availability || '').trim(),
+        timeSlot: String(selectedNotification.data?.timeSlot || '').trim(),
+        note: String(selectedNotification.data?.message || '').trim(),
+        route: getNotificationRoute(selectedNotification)
+      }
+    : null
 
 
 
@@ -57493,13 +57529,16 @@ function NotificationsPage({
                       overflow: 'hidden',
 
                       position: 'relative',
-                      cursor: isPendingApprovalActionable ? 'pointer' : 'default'
+                      cursor: 'pointer'
 
                     }}
                     onClick={() => {
-                      if (!isPendingApprovalActionable || !pendingApprovalPropertyId || !onOpenApprovalProperty) return
-                      if (!notification.isRead) onMarkAsRead(notification.id)
-                      onOpenApprovalProperty(pendingApprovalPropertyId)
+                      if (isPendingApprovalActionable && pendingApprovalPropertyId && onOpenApprovalProperty) {
+                        if (!notification.isRead) onMarkAsRead(notification.id)
+                        onOpenApprovalProperty(pendingApprovalPropertyId)
+                        return
+                      }
+                      openNotificationDetails(notification)
                     }}
 
                   >
@@ -57752,6 +57791,269 @@ function NotificationsPage({
 
       )}
 
+      {selectedNotification && notificationDetail && createPortal(
+        <div
+          onClick={() => setSelectedNotification(null)}
+          style={{
+            position: 'fixed',
+            inset: 0,
+            backgroundColor: 'rgba(15, 23, 42, 0.52)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 10000,
+            padding: '1.5rem'
+          }}
+        >
+          <div
+            onClick={(event) => event.stopPropagation()}
+            style={{
+              width: 'min(760px, 100%)',
+              maxHeight: '90vh',
+              overflowY: 'auto',
+              backgroundColor: '#ffffff',
+              borderRadius: '1rem',
+              boxShadow: '0 24px 60px rgba(15, 23, 42, 0.22)',
+              border: '1px solid #dbe4f0'
+            }}
+          >
+            <div style={{
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'flex-start',
+              gap: '1rem',
+              padding: '1.25rem 1.25rem 1rem 1.25rem',
+              borderBottom: '1px solid #e5e7eb'
+            }}>
+              <div>
+                <div style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '0.4rem',
+                  padding: '0.25rem 0.6rem',
+                  borderRadius: '999px',
+                  backgroundColor: '#eff6ff',
+                  color: '#1d4ed8',
+                  fontSize: '0.75rem',
+                  fontWeight: 700,
+                  marginBottom: '0.75rem'
+                }}>
+                  <span>{getNotificationIcon(selectedNotification.type)}</span>
+                  <span>{getNotificationTypeLabel(selectedNotification.type)}</span>
+                </div>
+                <h3 style={{ margin: 0, fontSize: '1.25rem', fontWeight: 800, color: '#0f172a' }}>
+                  {selectedNotification.title}
+                </h3>
+                <p style={{ margin: '0.45rem 0 0 0', color: '#64748b', fontSize: '0.92rem' }}>
+                  {new Date(selectedNotification.createdAt).toLocaleString('it-IT', {
+                    day: '2-digit',
+                    month: 'long',
+                    year: 'numeric',
+                    hour: '2-digit',
+                    minute: '2-digit'
+                  })}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setSelectedNotification(null)}
+                style={{
+                  width: '2.5rem',
+                  height: '2.5rem',
+                  borderRadius: '999px',
+                  border: '1px solid #d1d5db',
+                  backgroundColor: '#fff',
+                  color: '#334155',
+                  cursor: 'pointer',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  justifyContent: 'center'
+                }}
+                title="Chiudi dettaglio notifica"
+              >
+                <X size={16} />
+              </button>
+            </div>
+
+            <div style={{ padding: '1.25rem', display: 'grid', gap: '1rem' }}>
+              <div style={{
+                backgroundColor: '#f8fafc',
+                border: '1px solid #e2e8f0',
+                borderRadius: '0.85rem',
+                padding: '1rem'
+              }}>
+                <div style={{ fontSize: '0.82rem', fontWeight: 700, color: '#64748b', marginBottom: '0.45rem' }}>
+                  Riepilogo
+                </div>
+                <div style={{ color: '#0f172a', lineHeight: 1.6, whiteSpace: 'pre-wrap' }}>
+                  {selectedNotification.message}
+                </div>
+              </div>
+
+              {(notificationDetail.propertyTitle || notificationDetail.propertyReference || notificationDetail.route) && (
+                <div style={{
+                  backgroundColor: '#ffffff',
+                  border: '1px solid #e2e8f0',
+                  borderRadius: '0.85rem',
+                  padding: '1rem'
+                }}>
+                  <div style={{ fontSize: '0.82rem', fontWeight: 700, color: '#64748b', marginBottom: '0.75rem' }}>
+                    Immobile collegato
+                  </div>
+                  {notificationDetail.propertyTitle && (
+                    <div style={{ fontSize: '1rem', fontWeight: 700, color: '#0f172a', marginBottom: '0.35rem' }}>
+                      {notificationDetail.propertyTitle}
+                    </div>
+                  )}
+                  {notificationDetail.propertyReference && (
+                    <div style={{ color: '#475569', marginBottom: '0.75rem' }}>
+                      Riferimento: {notificationDetail.propertyReference}
+                    </div>
+                  )}
+                  {notificationDetail.route && (
+                    <a
+                      href={notificationDetail.route}
+                      style={{
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '0.45rem',
+                        padding: '0.7rem 0.95rem',
+                        borderRadius: '0.6rem',
+                        backgroundColor: '#2563eb',
+                        color: '#ffffff',
+                        textDecoration: 'none',
+                        fontWeight: 700
+                      }}
+                    >
+                      <Eye size={15} />
+                      Apri immobile
+                    </a>
+                  )}
+                </div>
+              )}
+
+              {(notificationDetail.contactName || notificationDetail.contactPhone || notificationDetail.contactEmail) && (
+                <div style={{
+                  backgroundColor: '#ffffff',
+                  border: '1px solid #e2e8f0',
+                  borderRadius: '0.85rem',
+                  padding: '1rem'
+                }}>
+                  <div style={{ fontSize: '0.82rem', fontWeight: 700, color: '#64748b', marginBottom: '0.75rem' }}>
+                    Contatti
+                  </div>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '0.9rem' }}>
+                    <div>
+                      <div style={{ fontSize: '0.78rem', color: '#64748b', marginBottom: '0.2rem' }}>Nominativo</div>
+                      <div style={{ color: '#0f172a', fontWeight: 700 }}>
+                        {notificationDetail.contactName || 'N/D'}
+                      </div>
+                    </div>
+                    <div>
+                      <div style={{ fontSize: '0.78rem', color: '#64748b', marginBottom: '0.2rem' }}>Telefono</div>
+                      <div style={{ color: '#0f172a', fontWeight: 700 }}>
+                        {notificationDetail.contactPhone || 'N/D'}
+                      </div>
+                    </div>
+                    <div>
+                      <div style={{ fontSize: '0.78rem', color: '#64748b', marginBottom: '0.2rem' }}>Email</div>
+                      <div style={{ color: '#0f172a', fontWeight: 700, wordBreak: 'break-word' }}>
+                        {notificationDetail.contactEmail || 'N/D'}
+                      </div>
+                    </div>
+                  </div>
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.75rem', marginTop: '1rem' }}>
+                    {notificationDetail.contactPhone && (
+                      <a
+                        href={`tel:${notificationDetail.contactPhone}`}
+                        style={{
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '0.45rem',
+                          padding: '0.7rem 0.95rem',
+                          borderRadius: '0.6rem',
+                          backgroundColor: '#eff6ff',
+                          color: '#1d4ed8',
+                          textDecoration: 'none',
+                          fontWeight: 700,
+                          border: '1px solid #bfdbfe'
+                        }}
+                      >
+                        <Phone size={15} />
+                        Chiama subito
+                      </a>
+                    )}
+                    {notificationDetail.contactEmail && (
+                      <a
+                        href={`mailto:${notificationDetail.contactEmail}`}
+                        style={{
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '0.45rem',
+                          padding: '0.7rem 0.95rem',
+                          borderRadius: '0.6rem',
+                          backgroundColor: '#f0fdf4',
+                          color: '#15803d',
+                          textDecoration: 'none',
+                          fontWeight: 700,
+                          border: '1px solid #bbf7d0'
+                        }}
+                      >
+                        <Mail size={15} />
+                        Invia email
+                      </a>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {(notificationDetail.availability || notificationDetail.timeSlot || notificationDetail.note) && (
+                <div style={{
+                  backgroundColor: '#ffffff',
+                  border: '1px solid #e2e8f0',
+                  borderRadius: '0.85rem',
+                  padding: '1rem'
+                }}>
+                  <div style={{ fontSize: '0.82rem', fontWeight: 700, color: '#64748b', marginBottom: '0.75rem' }}>
+                    Dettagli richiesta
+                  </div>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '0.9rem' }}>
+                    {notificationDetail.availability && (
+                      <div>
+                        <div style={{ fontSize: '0.78rem', color: '#64748b', marginBottom: '0.2rem' }}>Disponibilità</div>
+                        <div style={{ color: '#0f172a', fontWeight: 700 }}>{notificationDetail.availability}</div>
+                      </div>
+                    )}
+                    {notificationDetail.timeSlot && (
+                      <div>
+                        <div style={{ fontSize: '0.78rem', color: '#64748b', marginBottom: '0.2rem' }}>Fascia oraria</div>
+                        <div style={{ color: '#0f172a', fontWeight: 700 }}>{notificationDetail.timeSlot}</div>
+                      </div>
+                    )}
+                  </div>
+                  {notificationDetail.note && (
+                    <div style={{ marginTop: '0.9rem' }}>
+                      <div style={{ fontSize: '0.78rem', color: '#64748b', marginBottom: '0.35rem' }}>Messaggio</div>
+                      <div style={{
+                        whiteSpace: 'pre-wrap',
+                        color: '#0f172a',
+                        lineHeight: 1.6,
+                        backgroundColor: '#f8fafc',
+                        border: '1px solid #e2e8f0',
+                        borderRadius: '0.65rem',
+                        padding: '0.85rem'
+                      }}>
+                        {notificationDetail.note}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>,
+        document.body
+      )}
     </div>
 
   )

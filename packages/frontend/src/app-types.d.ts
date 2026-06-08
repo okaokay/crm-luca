@@ -344,7 +344,16 @@ interface Notification {
     updatedBy?: string
     deletedBy?: string
     propertyId?: string
+    propertyReference?: string
+    propertyTitle?: string
     clientId?: string
+    contactName?: string
+    contactEmail?: string
+    contactPhone?: string
+    availability?: string
+    timeSlot?: string
+    message?: string
+    source?: string
     url?: string
     route?: string
   }
