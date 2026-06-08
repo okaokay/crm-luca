@@ -16638,6 +16638,268 @@ app.get('/api/properties', async (req, res) => {
   }
 });
 
+const flattenPropertyExportJson = (
+  value: any,
+  prefix: string,
+  target: Record<string, any>
+) => {
+  if (value === null || value === undefined) {
+    target[prefix] = '';
+    return;
+  }
+
+  if (Array.isArray(value)) {
+    const hasNestedObjects = value.some((item) => item && typeof item === 'object');
+    target[prefix] = hasNestedObjects ? JSON.stringify(value) : value.join('|');
+    return;
+  }
+
+  if (typeof value === 'object') {
+    const entries = Object.entries(value);
+    if (entries.length === 0) {
+      target[prefix] = '';
+      return;
+    }
+    for (const [key, nestedValue] of entries) {
+      const nestedPrefix = prefix ? `${prefix}.${key}` : key;
+      flattenPropertyExportJson(nestedValue, nestedPrefix, target);
+    }
+    return;
+  }
+
+  target[prefix] = value;
+};
+
+const exportPropertiesCsvHandler = async (req: express.Request, res: express.Response) => {
+  try {
+    const auth = getAuth(req);
+    if (!auth) return res.status(401).json({ success: false, message: 'Unauthorized' });
+
+    const where: any = {};
+    if (auth.agencyId) {
+      where.agencyId = auth.agencyId;
+    }
+    if (auth.role === 'AGENT') {
+      where.ownerId = auth.id;
+    }
+
+    const properties = await prisma.property.findMany({
+      where,
+      orderBy: { createdAt: 'desc' },
+      include: {
+        owner: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            email: true
+          }
+        }
+      }
+    });
+
+    const baseHeaders = [
+      'id',
+      'giListingId',
+      'immoTypologyId',
+      'immoListingId',
+      'immoSyncStatus',
+      'immoLastSyncAt',
+      'immoLastError',
+      'immoLastRequestId',
+      'apimoPropertyId',
+      'apimoPushStatus',
+      'apimoLastPushAt',
+      'apimoLastPushError',
+      'title',
+      'description',
+      'type',
+      'contractType',
+      'status',
+      'address',
+      'city',
+      'province',
+      'zipCode',
+      'giComuneIstat',
+      'latitude',
+      'longitude',
+      'rooms',
+      'bedrooms',
+      'bathrooms',
+      'surface',
+      'garden',
+      'terrace',
+      'balcony',
+      'parking',
+      'floor',
+      'totalFloors',
+      'elevator',
+      'furnished',
+      'salePrice',
+      'rentPrice',
+      'advertisingSalePrice',
+      'advertisingRentPrice',
+      'expenses',
+      'energyClass',
+      'ownerFirstName',
+      'ownerLastName',
+      'ownerBirthDate',
+      'ownerBirthPlace',
+      'ownerFiscalCode',
+      'ownerAddress',
+      'ownerCity',
+      'ownerZipCode',
+      'ownerEmail',
+      'ownerPhone',
+      'buildingConstructionYear',
+      'buildingRenovationYear',
+      'buildingFloorsTotal',
+      'buildingElevator',
+      'buildingConcierge',
+      'buildingGardenShared',
+      'buildingHeatingType',
+      'buildingCondition',
+      'virtualTour',
+      'floorPlan',
+      'portalTargets',
+      'reference',
+      'notes',
+      'isPublished',
+      'publishedAt',
+      'createdAt',
+      'updatedAt',
+      'agencyId',
+      'ownerId',
+      'assignedAgentId',
+      'assignedAgentName',
+      'assignedAgentEmail',
+      'imageCount',
+      'imageLinks'
+    ];
+
+    const maxImageCount = properties.reduce((max, property) => {
+      const count = Array.isArray(property.images) ? property.images.length : 0;
+      return Math.max(max, count);
+    }, 0);
+    const imageHeaders = Array.from({ length: maxImageCount }, (_, index) => `image_${index + 1}`);
+
+    const oneClickHeadersSet = new Set<string>();
+    const rows = properties.map((property) => {
+      const oneClickFlat: Record<string, any> = {};
+      flattenPropertyExportJson(property.oneClickData, 'oneClickData', oneClickFlat);
+      Object.keys(oneClickFlat).forEach((key) => oneClickHeadersSet.add(key));
+
+      const ownerFullName = [property.owner?.firstName, property.owner?.lastName]
+        .filter(Boolean)
+        .join(' ')
+        .trim();
+      const images = Array.isArray(property.images) ? property.images.filter((image) => typeof image === 'string' && image.trim()) : [];
+      const imageColumns = Object.fromEntries(
+        Array.from({ length: maxImageCount }, (_, index) => [`image_${index + 1}`, images[index] || ''])
+      );
+
+      return {
+        id: property.id,
+        giListingId: property.giListingId,
+        immoTypologyId: property.immoTypologyId,
+        immoListingId: property.immoListingId,
+        immoSyncStatus: property.immoSyncStatus,
+        immoLastSyncAt: property.immoLastSyncAt ? new Date(property.immoLastSyncAt).toISOString() : '',
+        immoLastError: property.immoLastError,
+        immoLastRequestId: property.immoLastRequestId,
+        apimoPropertyId: property.apimoPropertyId,
+        apimoPushStatus: property.apimoPushStatus,
+        apimoLastPushAt: property.apimoLastPushAt ? new Date(property.apimoLastPushAt).toISOString() : '',
+        apimoLastPushError: property.apimoLastPushError,
+        title: property.title,
+        description: property.description,
+        type: property.type,
+        contractType: property.contractType,
+        status: property.status,
+        address: property.address,
+        city: property.city,
+        province: property.province,
+        zipCode: property.zipCode,
+        giComuneIstat: property.giComuneIstat,
+        latitude: property.latitude,
+        longitude: property.longitude,
+        rooms: property.rooms,
+        bedrooms: property.bedrooms,
+        bathrooms: property.bathrooms,
+        surface: property.surface,
+        garden: property.garden,
+        terrace: property.terrace,
+        balcony: property.balcony,
+        parking: property.parking,
+        floor: property.floor,
+        totalFloors: property.totalFloors,
+        elevator: property.elevator,
+        furnished: property.furnished,
+        salePrice: property.salePrice,
+        rentPrice: property.rentPrice,
+        advertisingSalePrice: property.advertisingSalePrice,
+        advertisingRentPrice: property.advertisingRentPrice,
+        expenses: property.expenses,
+        energyClass: property.energyClass,
+        ownerFirstName: property.ownerFirstName,
+        ownerLastName: property.ownerLastName,
+        ownerBirthDate: property.ownerBirthDate,
+        ownerBirthPlace: property.ownerBirthPlace,
+        ownerFiscalCode: property.ownerFiscalCode,
+        ownerAddress: property.ownerAddress,
+        ownerCity: property.ownerCity,
+        ownerZipCode: property.ownerZipCode,
+        ownerEmail: property.ownerEmail,
+        ownerPhone: property.ownerPhone,
+        buildingConstructionYear: property.buildingConstructionYear,
+        buildingRenovationYear: property.buildingRenovationYear,
+        buildingFloorsTotal: property.buildingFloorsTotal,
+        buildingElevator: property.buildingElevator,
+        buildingConcierge: property.buildingConcierge,
+        buildingGardenShared: property.buildingGardenShared,
+        buildingHeatingType: property.buildingHeatingType,
+        buildingCondition: property.buildingCondition,
+        virtualTour: property.virtualTour,
+        floorPlan: property.floorPlan,
+        portalTargets: property.portalTargets,
+        reference: property.reference,
+        notes: property.notes,
+        isPublished: property.isPublished,
+        publishedAt: property.publishedAt ? new Date(property.publishedAt).toISOString() : '',
+        createdAt: property.createdAt ? new Date(property.createdAt).toISOString() : '',
+        updatedAt: property.updatedAt ? new Date(property.updatedAt).toISOString() : '',
+        agencyId: property.agencyId,
+        ownerId: property.ownerId,
+        assignedAgentId: property.owner?.id || property.ownerId,
+        assignedAgentName: ownerFullName || property.owner?.email || '',
+        assignedAgentEmail: property.owner?.email || '',
+        imageCount: images.length,
+        imageLinks: images.join('|'),
+        ...imageColumns,
+        ...oneClickFlat
+      };
+    });
+
+    const oneClickHeaders = Array.from(oneClickHeadersSet).sort((a, b) => a.localeCompare(b, 'it'));
+    const headers = [...baseHeaders, ...imageHeaders, ...oneClickHeaders];
+    const lines = [headers.join(';')];
+
+    rows.forEach((row) => {
+      lines.push(headers.map((header) => escapeCsv(row[header] ?? '')).join(';'));
+    });
+
+    res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+    res.setHeader('Content-Disposition', `attachment; filename="immobili-export-${new Date().toISOString().slice(0, 10)}.csv"`);
+    res.send(`\uFEFF${lines.join('\n')}`);
+  } catch (error) {
+    console.error('Error exporting properties CSV:', error);
+    res.status(500).json({ success: false, message: 'Error exporting properties CSV' });
+  }
+};
+
+app.get('/api/properties/export.csv', exportPropertiesCsvHandler);
+app.get('/api/properties/export', exportPropertiesCsvHandler);
+
 app.get('/api/properties/non-compliant', async (req, res) => {
   try {
     const auth = getAuth(req);

@@ -24022,6 +24022,7 @@ function PropertiesPage({
   const [postCreateUploadProperty, setPostCreateUploadProperty] = useState<Property | null>(null)
   const [postCreateUploadFiles, setPostCreateUploadFiles] = useState<FileList | null>(null)
   const [postCreateUploadLoading, setPostCreateUploadLoading] = useState(false)
+  const [exportingPropertiesCsv, setExportingPropertiesCsv] = useState(false)
   const [importingPropertiesCsv, setImportingPropertiesCsv] = useState(false)
   const [importPropertiesCsvProgress, setImportPropertiesCsvProgress] = useState(0)
   const [nonCompliantRows, setNonCompliantRows] = useState<Array<{
@@ -24420,6 +24421,29 @@ function PropertiesPage({
     input.click()
   }
 
+  const handleExportPropertiesCsv = async () => {
+    if (exportingPropertiesCsv) return
+    try {
+      setExportingPropertiesCsv(true)
+      const authHeaders: HeadersInit = token ? { Authorization: `Bearer ${token}` } : {}
+      const response = await fetch('/api/properties/export', { headers: authHeaders })
+      if (!response.ok) throw new Error(`HTTP ${response.status}`)
+      const blob = await response.blob()
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `immobili-export-${new Date().toISOString().slice(0, 10)}.csv`
+      document.body.appendChild(a)
+      a.click()
+      a.remove()
+      URL.revokeObjectURL(url)
+    } catch (error) {
+      alert(`Errore durante export CSV immobili: ${error instanceof Error ? error.message : 'errore sconosciuto'}`)
+    } finally {
+      setExportingPropertiesCsv(false)
+    }
+  }
+
   const isPendingApproval = (property: Partial<Property>) =>
     typeof property.notes === 'string' && property.notes.includes('[PENDING_APPROVAL]')
   const isApprovedByAdmin = (property: Partial<Property>) =>
@@ -24714,6 +24738,24 @@ function PropertiesPage({
         </div>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+          <button
+            type="button"
+            onClick={handleExportPropertiesCsv}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              backgroundColor: exportingPropertiesCsv ? '#9ca3af' : '#111827',
+              color: 'white',
+              padding: '0.75rem 1rem',
+              borderRadius: '0.375rem',
+              border: 'none',
+              cursor: exportingPropertiesCsv ? 'not-allowed' : 'pointer',
+              userSelect: 'none'
+            }}
+            disabled={exportingPropertiesCsv}
+          >
+            {exportingPropertiesCsv ? 'Export immobili...' : 'Export immobili CSV'}
+          </button>
           {isAdminUser && (
             <button
               type="button"
