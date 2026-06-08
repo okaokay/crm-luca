@@ -19961,16 +19961,33 @@ app.get('/api/properties/:id/history-events', async (req, res) => {
       return res.status(404).json({ success: false, message: 'Property not found' });
     }
 
-    const rows = await prisma.auditLog.findMany({
-      where: {
-        entity: 'Property',
-        entityId: property.id,
-        action: {
-          in: ['PROPERTY_APPROVED_AND_PUBLISHED', 'PROPERTY_APPROVED', 'PROPERTY_PUBLISHED']
+    const [rows, publicLeadNotifications] = await Promise.all([
+      prisma.auditLog.findMany({
+        where: {
+          entity: 'Property',
+          entityId: property.id,
+          action: {
+            in: ['PROPERTY_APPROVED_AND_PUBLISHED', 'PROPERTY_APPROVED', 'PROPERTY_PUBLISHED']
+          }
+        },
+        orderBy: { createdAt: 'asc' }
+      }),
+      prisma.notification.findMany({
+        where: {
+          agencyId: property.agencyId,
+          type: { in: ['PUBLIC_CONTACT_REQUEST', 'VISIT_REQUEST'] }
+        },
+        orderBy: { createdAt: 'asc' },
+        select: {
+          id: true,
+          type: true,
+          title: true,
+          message: true,
+          data: true,
+          createdAt: true
         }
-      },
-      orderBy: { createdAt: 'asc' }
-    });
+      })
+    ]);
 
     const userIds = Array.from(
       new Set(
@@ -19989,7 +20006,7 @@ app.get('/api/properties/:id/history-events', async (req, res) => {
 
     const usersById = new Map(users.map((u) => [u.id, u]));
 
-    const events = rows.map((row) => {
+    const approvalEvents = rows.map((row) => {
       const user = row.userId ? usersById.get(String(row.userId)) : null;
       const fullName = [user?.firstName, user?.lastName].filter(Boolean).join(' ').trim();
       const byName = fullName || user?.email || row.userEmail || (row.userId ? `Utente ${String(row.userId).slice(0, 6)}` : 'Utente sconosciuto');
@@ -20012,6 +20029,56 @@ app.get('/api/properties/:id/history-events', async (req, res) => {
         }
       };
     });
+
+    const publicLeadEventsByKey = new Map<string, any>();
+    for (const row of publicLeadNotifications) {
+      const data = row.data && typeof row.data === 'object' ? (row.data as any) : {};
+      const propertyIdFromData = String(data?.propertyId || '').trim();
+      if (propertyIdFromData !== property.id) continue;
+
+      const contactName = String(data?.contactName || '').trim();
+      const contactEmail = String(data?.contactEmail || '').trim();
+      const contactPhone = String(data?.contactPhone || '').trim();
+      const availability = String(data?.availability || '').trim();
+      const timeSlot = String(data?.timeSlot || '').trim();
+      const note = String(data?.message || '').trim();
+      const dedupeKey = [
+        String(row.type || '').trim().toUpperCase(),
+        propertyIdFromData,
+        contactName,
+        contactEmail,
+        contactPhone,
+        availability,
+        timeSlot,
+        note,
+        new Date(row.createdAt).toISOString().slice(0, 19)
+      ].join('|');
+      if (publicLeadEventsByKey.has(dedupeKey)) continue;
+
+      publicLeadEventsByKey.set(dedupeKey, {
+        id: row.id,
+        type: String(row.type || '').trim().toUpperCase() === 'VISIT_REQUEST' ? 'PUBLIC_VISIT' : 'PUBLIC_CONTACT',
+        action: row.type,
+        at: row.createdAt,
+        by: null,
+        lead: {
+          title: String(row.title || '').trim(),
+          message: String(row.message || '').trim(),
+          propertyTitle: String(data?.propertyTitle || '').trim(),
+          propertyReference: String(data?.propertyReference || '').trim(),
+          contactName,
+          contactEmail,
+          contactPhone,
+          availability,
+          timeSlot,
+          note
+        }
+      });
+    }
+
+    const events = [...approvalEvents, ...Array.from(publicLeadEventsByKey.values())].sort(
+      (a, b) => new Date(a.at).getTime() - new Date(b.at).getTime()
+    );
 
     return res.json({ success: true, data: events });
   } catch (error) {

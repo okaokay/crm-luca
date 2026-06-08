@@ -45286,6 +45286,18 @@ function PropertyHistoryTab({
       email?: string | null
       role?: string | null
     } | null
+    lead?: {
+      title?: string | null
+      message?: string | null
+      propertyTitle?: string | null
+      propertyReference?: string | null
+      contactName?: string | null
+      contactEmail?: string | null
+      contactPhone?: string | null
+      availability?: string | null
+      timeSlot?: string | null
+      note?: string | null
+    } | null
   }>
   onOpenLinkedRequest: (request: {
     id: string
@@ -45420,6 +45432,64 @@ function PropertyHistoryTab({
               </div>
             </div>
           ))}
+
+        {historyEvents
+          .filter((event) => {
+            const type = String(event.type || '').toUpperCase()
+            return type === 'PUBLIC_VISIT' || type === 'PUBLIC_CONTACT'
+          })
+          .map((event) => {
+            const isVisit = String(event.type || '').toUpperCase() === 'PUBLIC_VISIT'
+            const lead = event.lead || null
+            const detailParts = [
+              lead?.contactName ? `Contatto: ${lead.contactName}` : null,
+              lead?.contactPhone ? `Telefono: ${lead.contactPhone}` : null,
+              lead?.contactEmail ? `Email: ${lead.contactEmail}` : null,
+              isVisit && lead?.availability ? `Disponibilità: ${lead.availability}` : null,
+              isVisit && lead?.timeSlot ? `Fascia oraria: ${lead.timeSlot}` : null,
+              lead?.note ? `Messaggio: ${lead.note}` : null
+            ].filter(Boolean)
+            return (
+              <div
+                key={`public-lead-${event.id}`}
+                style={{
+                  display: 'flex',
+                  alignItems: 'flex-start',
+                  gap: '1rem',
+                  padding: '1rem',
+                  backgroundColor: '#f8fafc',
+                  borderRadius: '0.375rem'
+                }}
+              >
+                <div style={{
+                  width: '3rem',
+                  height: '3rem',
+                  backgroundColor: isVisit ? '#7c3aed' : '#2563eb',
+                  borderRadius: '50%',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  color: 'white',
+                  fontWeight: 'bold'
+                }}>
+                  {isVisit ? <Calendar size={18} /> : <Mail size={18} />}
+                </div>
+                <div style={{ minWidth: 0 }}>
+                  <h4 style={{ fontWeight: '600', margin: 0 }}>
+                    {isVisit ? 'Richiesta visita da pagina pubblica' : 'Richiesta informazioni da pagina pubblica'}
+                  </h4>
+                  {detailParts.length > 0 && (
+                    <p style={{ color: '#334155', fontSize: '0.875rem', margin: '0.25rem 0 0 0', lineHeight: 1.5 }}>
+                      {detailParts.join('  ')}
+                    </p>
+                  )}
+                  <p style={{ color: '#6b7280', fontSize: '0.8rem', margin: '0.25rem 0 0 0' }}>
+                    {formatDateTime(event.at)}
+                  </p>
+                </div>
+              </div>
+            )
+          })}
 
         {linkedRequests.map((request) => (
           <div
