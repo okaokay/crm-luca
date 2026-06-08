@@ -9452,18 +9452,27 @@ app.post('/api/visit-bookings', async (req, res) => {
     };
 
     if (recipientIds.size > 0) {
-      await Promise.all(
-        Array.from(recipientIds).map((recipientId) =>
-          createNotificationRecord({
-            agencyId: property.agencyId,
-            recipientId,
-            type: 'VISIT_REQUEST',
-            title: notificationTitle,
-            message: notificationMessage,
-            data: notificationData
-          })
-        )
-      );
+      try {
+        await Promise.all(
+          Array.from(recipientIds).map((recipientId) =>
+            createNotificationRecord({
+              agencyId: property.agencyId,
+              recipientId,
+              type: 'VISIT_REQUEST',
+              title: notificationTitle,
+              message: notificationMessage,
+              data: notificationData
+            })
+          )
+        );
+      } catch (notificationError) {
+        console.error('Visit booking notification failure:', {
+          propertyId: property.id,
+          agencyId: property.agencyId,
+          recipients: Array.from(recipientIds),
+          error: notificationError
+        });
+      }
     }
 
     const firstLinkedAgentId = linkedMatches
@@ -9478,28 +9487,37 @@ app.post('/api/visit-bookings', async (req, res) => {
       null;
 
     if (activityAssigneeId) {
-      await prisma.activity.create({
-        data: {
-          type: 'TASK',
-          title: `Richiesta visita · ${property.reference || property.id}`,
-          description: [
-            `Contatto: ${safeName}`,
-            safePhone ? `Telefono: ${safePhone}` : null,
-            safeEmail ? `Email: ${safeEmail}` : null,
-            safeAvailability ? `Disponibilità: ${safeAvailability}` : null,
-            safeTimeSlot ? `Fascia oraria: ${safeTimeSlot}` : null,
-            safeMessage ? `Messaggio: ${safeMessage}` : null,
-            `Immobile: ${property.title}`
-          ]
-            .filter(Boolean)
-            .join('\n'),
-          priority: 2,
-          tags: ['public_visit_request'],
+      try {
+        await prisma.activity.create({
+          data: {
+            type: 'TASK',
+            title: `Richiesta visita · ${property.reference || property.id}`,
+            description: [
+              `Contatto: ${safeName}`,
+              safePhone ? `Telefono: ${safePhone}` : null,
+              safeEmail ? `Email: ${safeEmail}` : null,
+              safeAvailability ? `Disponibilità: ${safeAvailability}` : null,
+              safeTimeSlot ? `Fascia oraria: ${safeTimeSlot}` : null,
+              safeMessage ? `Messaggio: ${safeMessage}` : null,
+              `Immobile: ${property.title}`
+            ]
+              .filter(Boolean)
+              .join('\n'),
+            priority: 2,
+            tags: ['public_visit_request'],
+            agencyId: property.agencyId,
+            assignedToId: activityAssigneeId,
+            propertyId: property.id
+          }
+        });
+      } catch (activityError) {
+        console.error('Visit booking activity failure:', {
+          propertyId: property.id,
           agencyId: property.agencyId,
           assignedToId: activityAssigneeId,
-          propertyId: property.id
-        }
-      });
+          error: activityError
+        });
+      }
     }
 
     return res.status(201).json({
