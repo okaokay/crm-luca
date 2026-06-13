@@ -17065,10 +17065,11 @@ const parseYesNoFlag = (value: any): boolean | undefined => {
 };
 
 const normalizeContractTypeValue = (rawContractType: any, oneClickAnnouncementType?: any): 'SALE' | 'RENT' | 'BOTH' => {
-  const normalized = String(rawContractType || '').trim().toUpperCase();
-  if (normalized === 'SALE' || normalized === 'RENT' || normalized === 'BOTH') return normalized;
   const oneClickType = Number(oneClickAnnouncementType);
   if (oneClickType === 2) return 'RENT';
+  if (oneClickType === 1) return 'SALE';
+  const normalized = String(rawContractType || '').trim().toUpperCase();
+  if (normalized === 'SALE' || normalized === 'RENT' || normalized === 'BOTH') return normalized;
   return 'SALE';
 };
 
@@ -18271,7 +18272,13 @@ app.put('/api/properties/:id', async (req, res) => {
     // Step 9 - Energetica
     if (!hasValue(oneClickRequired.classe_energetica)) requiredErrors.push('classe_energetica');
 
-    if (String(firstDefinedValue(body?.contractType, existing?.contractType) || '').trim().toUpperCase() === 'RENT' && !String((normalizedOneClickFinal as any)?.contratto_affitto || '').trim()) {
+    const oneClick = (normalizedOneClickFinal || {}) as any;
+    const contractType = normalizeContractTypeValue(
+      firstDefinedValue(body?.contractType, existing?.contractType),
+      oneClick?.idtipologiaannuncio
+    );
+
+    if (contractType === 'RENT' && !String(oneClick?.contratto_affitto || '').trim()) {
       requiredErrors.push('contratto_affitto');
     }
 
@@ -18287,11 +18294,6 @@ app.put('/api/properties/:id', async (req, res) => {
       });
     }
 
-    const oneClick = (normalizedOneClickFinal || {}) as any;
-    const contractType = normalizeContractTypeValue(
-      firstDefinedValue(body?.contractType, existing?.contractType),
-      oneClick?.idtipologiaannuncio
-    );
     const status = normalizePropertyStatusValue(firstDefinedValue(body?.status, existing?.status));
     const inferredPrice = parseNumberOrUndefined(oneClick?.prezzo);
     const explicitAdvertisingSalePrice = parseNumberOrUndefined(body.advertisingSalePrice);
@@ -18340,8 +18342,16 @@ app.put('/api/properties/:id', async (req, res) => {
         contractType === 'RENT' ? inferredPrice : undefined,
         existing?.rentPrice
       )),
-      advertisingSalePrice: parseNumberOrUndefined(firstDefinedValue(explicitAdvertisingSalePrice, existing?.advertisingSalePrice)),
-      advertisingRentPrice: parseNumberOrUndefined(firstDefinedValue(explicitAdvertisingRentPrice, existing?.advertisingRentPrice)),
+      advertisingSalePrice: parseNumberOrUndefined(firstDefinedValue(
+        explicitAdvertisingSalePrice,
+        contractType !== 'RENT' ? inferredPrice : undefined,
+        existing?.advertisingSalePrice
+      )),
+      advertisingRentPrice: parseNumberOrUndefined(firstDefinedValue(
+        explicitAdvertisingRentPrice,
+        contractType === 'RENT' ? inferredPrice : undefined,
+        existing?.advertisingRentPrice
+      )),
       expenses: parseNumberOrUndefined(firstDefinedValue(body.condominium, body.expenses, existing?.expenses)), // Map condominium to expenses
       
       energyClass: firstDefinedValue(body.energyClass, oneClick?.classe_energetica, existing?.energyClass),

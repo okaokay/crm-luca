@@ -442,6 +442,17 @@ export function PropertyModalOneClick({ property, onSave, onCancel, currentUserR
   const [form, setForm] = useState<any>(() => buildInitialFormState(property, currentUserRole, user, isAdminUser))
 
   const setOne = (key: string, value: any) => setForm((prev: any) => ({ ...prev, oneClickData: { ...(prev.oneClickData || {}), [key]: value } }))
+  const setAnnouncementType = (value: number) => {
+    const nextContractType = value === 2 ? 'RENT' : 'SALE'
+    setForm((prev: any) => ({
+      ...prev,
+      contractType: nextContractType,
+      oneClickData: {
+        ...(prev.oneClickData || {}),
+        idtipologiaannuncio: value
+      }
+    }))
+  }
   const setNum = (key: string, value: string) => setOne(key, value ? Number(value) : undefined)
   const setSN = (key: string, checked: boolean) => setOne(key, checked ? 'S' : 'N')
 
@@ -1089,7 +1100,7 @@ export function PropertyModalOneClick({ property, onSave, onCancel, currentUserR
   }
 
   const renderStep = () => {
-    if (step === 1) return <div style={cardStyle}><div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 10 }}><div><label style={labelStyle}>Riferimento annuncio *</label><input style={inputStyle} value={form.oneClickData?.riferimento || form.reference || ''} placeholder="Codice univoco es. REF-12345" onChange={(e) => { setForm((p: any) => ({ ...p, reference: e.target.value })); setOne('riferimento', e.target.value) }} /><div style={hintStyle}>Identificativo unico dell'immobile</div></div><div><label style={labelStyle}>Tipologia immobile *</label><select style={inputStyle} value={form.oneClickData?.idtipologiaimmobile || ''} onChange={(e) => setOne('idtipologiaimmobile', e.target.value ? Number(e.target.value) : undefined)}><option value="">Seleziona tipologia...</option>{propertyTypes.map((r) => <option key={r.id} value={r.id}>{r.id} - {r.label}</option>)}</select></div><div><label style={labelStyle}>Tipo annuncio *</label><select style={inputStyle} value={form.oneClickData?.idtipologiaannuncio || 1} onChange={(e) => setOne('idtipologiaannuncio', Number(e.target.value))}>{announcementTypes.map((r) => <option key={r.id} value={r.id}>{r.id} - {r.label}</option>)}</select></div></div></div>
+    if (step === 1) return <div style={cardStyle}><div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 10 }}><div><label style={labelStyle}>Riferimento annuncio *</label><input style={inputStyle} value={form.oneClickData?.riferimento || form.reference || ''} placeholder="Codice univoco es. REF-12345" onChange={(e) => { setForm((p: any) => ({ ...p, reference: e.target.value })); setOne('riferimento', e.target.value) }} /><div style={hintStyle}>Identificativo unico dell'immobile</div></div><div><label style={labelStyle}>Tipologia immobile *</label><select style={inputStyle} value={form.oneClickData?.idtipologiaimmobile || ''} onChange={(e) => setOne('idtipologiaimmobile', e.target.value ? Number(e.target.value) : undefined)}><option value="">Seleziona tipologia...</option>{propertyTypes.map((r) => <option key={r.id} value={r.id}>{r.id} - {r.label}</option>)}</select></div><div><label style={labelStyle}>Tipo annuncio *</label><select style={inputStyle} value={form.oneClickData?.idtipologiaannuncio || 1} onChange={(e) => setAnnouncementType(Number(e.target.value))}>{announcementTypes.map((r) => <option key={r.id} value={r.id}>{r.id} - {r.label}</option>)}</select></div></div></div>
 
     if (step === 2) return <div style={{ ...cardStyle, display: 'grid', gap: 12 }}>
       <div ref={streetAutocompleteRef} style={{ position: 'relative' }}>
@@ -1460,7 +1471,8 @@ export function PropertyModalOneClick({ property, onSave, onCancel, currentUserR
     const announcementTypeId = Number(oneClickData.idtipologiaannuncio || 0)
     const selectedAnnouncementType = announcementTypes.find((r) => Number(r.id) === announcementTypeId)
     const isCasaVacanze = /casa\s*vacanz|turistic/i.test(String(selectedAnnouncementType?.label || ''))
-    const isRentListing = String(form.contractType || '').toUpperCase() === 'RENT' || announcementTypeId === 2
+    const resolvedContractType = announcementTypeId === 2 ? 'RENT' : 'SALE'
+    const isRentListing = resolvedContractType === 'RENT'
     const isYes = (v: any) => String(v || 'N').toUpperCase() === 'S'
     const hasPositive = (v: any) => Number.isFinite(Number(v)) && Number(v) > 0
 
@@ -1549,6 +1561,7 @@ export function PropertyModalOneClick({ property, onSave, onCancel, currentUserR
 
     const payload = {
       ...form,
+      contractType: resolvedContractType,
       title: String(form.title || form.oneClickData?.titolo_annuncio || '').trim(),
       reference: String(form.reference || oneClickData.riferimento || '').trim(),
       description: String(form.description || oneClickData.descrizione || '').trim(),
