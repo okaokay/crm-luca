@@ -1375,6 +1375,26 @@ const summarizePropertyForList = (property: any) => {
   };
 };
 
+const serializePropertyForDetail = (property: any, options: { includeOneClickMedia?: boolean } = {}) => {
+  const normalized = normalizePropertyPricesForUi(property);
+  if (!normalized || typeof normalized !== 'object') return normalized;
+  if (options.includeOneClickMedia) return normalized;
+
+  const oneClick = normalized.oneClickData && typeof normalized.oneClickData === 'object'
+    ? { ...normalized.oneClickData }
+    : normalized.oneClickData;
+
+  if (oneClick && typeof oneClick === 'object') {
+    delete (oneClick as any).immagini;
+    delete (oneClick as any).videos;
+  }
+
+  return {
+    ...normalized,
+    oneClickData: oneClick
+  };
+};
+
 const isRequirementSatisfied = (requirement: PortalRequirement, property: Prisma.PropertyGetPayload<{}>) => {
   if (requirement === 'price') {
     const value = getPreferredContractPrice(property);
@@ -17033,11 +17053,11 @@ app.get('/api/properties/:id', async (req, res) => {
         .join(' ')
         .trim();
       const agentName = ownerFullName || property.owner?.email || '';
-      const serialized = normalizePropertyPricesForUi({
+      const serialized = serializePropertyForDetail({
         ...property,
         agentId: property.owner?.id || property.ownerId || null,
         agentName: agentName || null
-      }) as any;
+      }, { includeOneClickMedia: req.query.includeOneClickMedia === '1' }) as any;
       delete serialized.owner;
       res.json({ success: true, data: serialized });
     } else {
