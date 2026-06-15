@@ -24063,24 +24063,50 @@ function PropertiesPage({
   const { token } = useAuthStore()
   const isAdminUser = user?.role === 'SUPER_ADMIN' || user?.role === 'AGENCY_ADMIN'
   const isAgentUser = user?.role === 'AGENT'
+  const nonCompliantPanelEnabled = false
 
-  const openApprovalModal = (property: Property) => {
+  const loadFullProperty = async (property: Property) => {
+    const authHeaders: HeadersInit = token ? { Authorization: `Bearer ${token}` } : {}
+    const response = await fetch(`/api/properties/${encodeURIComponent(property.id)}`, { headers: authHeaders })
+    const data = await response.json().catch(() => null)
+    if (!response.ok || !data?.success) {
+      throw new Error(data?.message || `HTTP ${response.status}`)
+    }
+    return data.data as Property
+  }
+
+  const openEditModal = async (property: Property) => {
+    try {
+      const fullProperty = await loadFullProperty(property)
+      setApprovingPropertyId(null)
+      setEditingProperty(fullProperty)
+    } catch (error) {
+      alert(`Errore caricamento immobile: ${error instanceof Error ? error.message : 'errore sconosciuto'}`)
+    }
+  }
+
+  const openApprovalModal = async (property: Property) => {
     setShowCreateModal(false)
     setShowViewModal(null)
-    setApprovingPropertyId(property.id)
-    setEditingProperty(property)
+    try {
+      const fullProperty = await loadFullProperty(property)
+      setApprovingPropertyId(fullProperty.id)
+      setEditingProperty(fullProperty)
+    } catch (error) {
+      alert(`Errore caricamento immobile: ${error instanceof Error ? error.message : 'errore sconosciuto'}`)
+    }
   }
 
   useEffect(() => {
     if (!focusApprovalPropertyId || !isAdminUser) return
     const target = properties.find((property) => property.id === focusApprovalPropertyId)
     if (!target) return
-    openApprovalModal(target)
+    void openApprovalModal(target)
     onFocusApprovalPropertyHandled?.()
   }, [focusApprovalPropertyId, isAdminUser, properties, onFocusApprovalPropertyHandled])
 
   useEffect(() => {
-    if (!isAdminUser || !token) {
+    if (!nonCompliantPanelEnabled || !isAdminUser || !token) {
       setNonCompliantRows([])
       return
     }
@@ -24107,7 +24133,7 @@ function PropertiesPage({
     return () => {
       cancelled = true
     }
-  }, [isAdminUser, token, properties.length])
+  }, [nonCompliantPanelEnabled, isAdminUser, token, properties.length])
 
   // Gestione CRUD immobili
 
@@ -25498,7 +25524,7 @@ function PropertiesPage({
 
                   {isAdminUser && !isAgentUser && isPendingApproval(property) && (
                     <button
-                      onClick={() => openApprovalModal(property)}
+                      onClick={() => void openApprovalModal(property)}
                       style={{
                         display: 'flex',
                         alignItems: 'center',
@@ -25552,10 +25578,7 @@ function PropertiesPage({
 
                   <button
 
-                    onClick={() => {
-                      setApprovingPropertyId(null)
-                      setEditingProperty(property)
-                    }}
+                    onClick={() => void openEditModal(property)}
 
                     style={{
 
@@ -25793,8 +25816,7 @@ function PropertiesPage({
 
           onEdit={() => {
 
-            setApprovingPropertyId(null)
-            setEditingProperty(showViewModal)
+            void openEditModal(showViewModal)
 
             setShowViewModal(null)
 

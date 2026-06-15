@@ -1353,6 +1353,28 @@ const normalizePropertyPricesForUi = (property: any) => {
   };
 };
 
+const summarizePropertyForList = (property: any) => {
+  const normalized = normalizePropertyPricesForUi(property);
+  if (!normalized || typeof normalized !== 'object') return normalized;
+
+  const images = Array.isArray(normalized.images)
+    ? normalized.images.filter((image: any) => typeof image === 'string' && image.trim())
+    : [];
+  const oneClick = normalized.oneClickData && typeof normalized.oneClickData === 'object'
+    ? normalized.oneClickData
+    : {};
+
+  return {
+    ...normalized,
+    images: images.length > 0 ? [images[0]] : [],
+    imageCount: images.length,
+    oneClickData: {
+      publicationReview: (oneClick as any).publicationReview || undefined,
+      selectedPortalCodes: Array.isArray((oneClick as any).selectedPortalCodes) ? (oneClick as any).selectedPortalCodes : undefined
+    }
+  };
+};
+
 const isRequirementSatisfied = (requirement: PortalRequirement, property: Prisma.PropertyGetPayload<{}>) => {
   if (requirement === 'price') {
     const value = getPreferredContractPrice(property);
@@ -16624,7 +16646,7 @@ app.get('/api/properties', async (req, res) => {
 
     res.json({
       success: true,
-      data: properties.map((property: any) => normalizePropertyPricesForUi(property)),
+      data: properties.map((property: any) => summarizePropertyForList(property)),
       pagination: {
         page: Number(page),
         limit: Number(limit),
