@@ -24751,7 +24751,7 @@ function PropertiesPage({
 
           <h1 style={{ fontSize: '2rem', fontWeight: 'bold', marginBottom: '0.5rem' }}>
 
-            ???????????????? Immobili ({properties.length})
+            Immobili ({properties.length})
 
           </h1>
 
