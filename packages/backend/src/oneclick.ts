@@ -282,7 +282,7 @@ export const ONECLICK_ENUMS = {
   giardino: ['nessuno', 'privato', 'comune'],
   piano: ['seminterrato', 'pianoterra', '1', '2', '3', '4', '5', '6', '7', '>7', 'ultimo', 'piano rialzato', 'su più livelli'],
   condizioni: ['abitabile', 'buono', 'nuovo', 'ottimo', 'ristrutturato', 'da ristrutturare'],
-  cucina: ['abitabile', 'angolo cottura', 'cucinotto', 'semiabitabile'],
+  cucina: ['abitabile', 'angolo cottura', 'cucinotto', 'semiabitabile', 'Non presente'],
   riscaldamento: ['autonomo', 'centralizzato', 'assente'],
   disponibilita: ['libero', 'occupato', 'nuda proprietà', 'affittato', 'libero al rogito'],
   tipo_riscaldamento: ['stufa', 'caldaia', 'termoconvettore', 'pompa di calore', 'a pannelli radianti', 'pannelli solari', 'termosifone', 'term. con contabilizzatore'],
