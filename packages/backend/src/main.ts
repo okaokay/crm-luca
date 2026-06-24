@@ -3145,7 +3145,8 @@ app.get('/api/public/properties/:id', async (req, res) => {
 
     const where: any = {
       id: req.params.id,
-      isPublished: true
+      isPublished: true,
+      status: { not: 'ARCHIVED' }
     };
 
     if (agencyId) where.agencyId = agencyId;
@@ -3854,7 +3855,7 @@ app.get('/api/portals', async (req, res) => {
     }
 
     const properties = await prisma.property.findMany({
-      where: { agencyId: auth.agencyId },
+      where: { agencyId: auth.agencyId, status: { not: 'ARCHIVED' } },
       select: {
         portalTargets: true,
         isPublished: true,
@@ -4437,7 +4438,8 @@ app.get('/api/portals/:portalId/stats', async (req, res) => {
 
     const properties = await prisma.property.findMany({
       where: {
-        agencyId: auth.agencyId
+        agencyId: auth.agencyId,
+        status: { not: 'ARCHIVED' }
       },
       select: {
         portalTargets: true,
@@ -6673,7 +6675,8 @@ app.get('/feeds/1clickannunci.xml', async (req, res) => {
   try {
     const agencyId = await resolvePublicAgencyId(req);
     const where: any = {
-      isPublished: true
+      isPublished: true,
+      status: { not: 'ARCHIVED' }
     };
     if (agencyId) where.agencyId = agencyId;
 
@@ -6785,7 +6788,7 @@ app.get('/feeds/gestionale_sync.tar.gz', async (req, res) => {
 app.get('/api/dashboard/stats', async (req, res) => {
   try {
     const auth = getAuth(req);
-    const propertyWhere: any = {};
+    const propertyWhere: any = { status: { not: 'ARCHIVED' } };
     const contactWhere: any = {};
     const appointmentWhere: any = {};
     const activityWhere: any = {};
@@ -9236,7 +9239,8 @@ app.post('/api/contact-requests', async (req, res) => {
     const property = await prisma.property.findFirst({
       where: {
         id: safePropertyId,
-        isPublished: true
+        isPublished: true,
+        status: { not: 'ARCHIVED' }
       },
       select: {
         id: true,
@@ -9404,7 +9408,8 @@ app.post('/api/visit-bookings', async (req, res) => {
     const property = await prisma.property.findFirst({
       where: {
         id: safePropertyId,
-        isPublished: true
+        isPublished: true,
+        status: { not: 'ARCHIVED' }
       },
       select: {
         id: true,
@@ -16622,13 +16627,13 @@ app.get('/api/agents/:id/performance-report', async (req, res) => {
 });
 
 app.get('/api/properties', async (req, res) => {
-  const { page = 1, limit = 10, search, type, status, city, assignedToId } = req.query;
+  const { page = 1, limit = 10, search, type, status, city, assignedToId, archived } = req.query;
 
   try {
     const auth = getAuth(req);
     if (!auth) return res.status(401).json({ success: false, message: 'Unauthorized' });
 
-    const where: any = {};
+    const where: any = { status: { not: 'ARCHIVED' } };
 
     if (auth.agencyId) {
       where.agencyId = auth.agencyId;
@@ -16651,7 +16656,13 @@ app.get('/api/properties', async (req, res) => {
     }
 
     if (type) where.type = type;
-    if (status) where.status = status;
+    if (archived === 'true' || archived === '1') {
+      where.status = 'ARCHIVED';
+    } else if (status) {
+      where.status = status;
+    } else {
+      where.status = { not: 'ARCHIVED' };
+    }
     if (city) where.city = { contains: city.toString(), mode: 'insensitive' };
 
     const [total, properties] = await Promise.all([
@@ -16948,7 +16959,7 @@ app.get('/api/properties/non-compliant', async (req, res) => {
     if (!auth) return res.status(401).json({ success: false, message: 'Unauthorized' });
     if (!isAdminRole(auth.role)) return res.status(403).json({ success: false, message: 'Forbidden' });
 
-    const where: any = {};
+    const where: any = { status: { not: 'ARCHIVED' } };
     if (auth.agencyId) where.agencyId = auth.agencyId;
 
     const properties = await prisma.property.findMany({
@@ -18594,6 +18605,42 @@ app.put('/api/properties/:id', async (req, res) => {
   } catch (error) {
     console.error('Error updating property:', error);
     res.status(500).json({ success: false, message: 'Error updating property', error: String(error) });
+  }
+});
+
+app.post('/api/properties/:id/archive', async (req, res) => {
+  try {
+    const auth = getAuth(req);
+    if (!auth) return res.status(401).json({ success: false, message: 'Unauthorized' });
+
+    const existing = await prisma.property.findUnique({
+      where: { id: req.params.id },
+      select: { id: true, ownerId: true, agencyId: true, status: true, title: true }
+    });
+    if (!existing) return res.status(404).json({ success: false, message: 'Property not found' });
+    if (auth.agencyId && existing.agencyId !== auth.agencyId) return res.status(404).json({ success: false, message: 'Property not found' });
+    if (auth.role === 'AGENT' && existing.ownerId !== auth.id) return res.status(403).json({ success: false, message: 'Forbidden' });
+
+    const archivedProperty = await prisma.property.update({
+      where: { id: existing.id },
+      data: {
+        status: 'ARCHIVED',
+        isPublished: false,
+        portalTargets: [],
+        publishedAt: null,
+        immoSyncStatus: 'NOT_SYNCED',
+        apimoPushStatus: 'NOT_SYNCED'
+      }
+    });
+
+    return res.json({
+      success: true,
+      data: archivedProperty,
+      message: 'Property archived successfully'
+    });
+  } catch (error) {
+    console.error('Error archiving property:', error);
+    return res.status(500).json({ success: false, message: 'Error archiving property' });
   }
 });
 

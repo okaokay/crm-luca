@@ -43,6 +43,7 @@ enum PropertyStatus {
   SOLD
   RENTED
   WITHDRAWN
+  ARCHIVED
 }
 
 enum ContractType {

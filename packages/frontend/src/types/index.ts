@@ -31,6 +31,7 @@ export enum PropertyStatus {
   SOLD = 'SOLD',
   RENTED = 'RENTED',
   WITHDRAWN = 'WITHDRAWN',
+  ARCHIVED = 'ARCHIVED',
 }
 
 export enum ContractType {

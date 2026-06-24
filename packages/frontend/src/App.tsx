@@ -24,6 +24,7 @@ import {
   User,
 
   Building,
+  Archive,
 
   Users,
 
@@ -7205,6 +7206,11 @@ function App() {
       return
     }
 
+    if (path === '/immobili-archivio') {
+      setCurrentPage('immobili-archivio')
+      return
+    }
+
     if (path.startsWith('/immobili/')) {
       const parts = path.split('/')
       const propertyId = parts[2] || ''
@@ -7862,7 +7868,7 @@ function App() {
 
       const [propertiesRes, contactsRes, appointmentsRes, activitiesRes, agentsRes, statsRes] = await Promise.all([
 
-        fetch('/api/properties?limit=100', { headers: authHeaders }),
+        fetch(currentPage === 'immobili-archivio' ? '/api/properties?limit=100&archived=true' : '/api/properties?limit=100', { headers: authHeaders }),
 
         fetch('/api/contacts?limit=50&page=1', { headers: authHeaders }),
 
@@ -7900,12 +7906,12 @@ function App() {
           (!properties || properties.length === 0) &&
           statsData?.success &&
           statsData.data?.totalProperties > 0 &&
-          (currentPage === 'immobili' || currentPage === 'dashboard' || currentPage === 'incrocio')
+          (currentPage === 'immobili' || currentPage === 'immobili-archivio' || currentPage === 'dashboard' || currentPage === 'incrocio')
         ) {
 
           const retryRes = await fetch(
 
-            `/api/properties?limit=${Math.min(Math.max(statsData.data.totalProperties, 100), 300)}`,
+            `/api/properties?limit=${Math.min(Math.max(statsData.data.totalProperties, 100), 300)}${currentPage === 'immobili-archivio' ? '&archived=true' : ''}`,
 
             { headers: authHeaders }
 
@@ -11679,6 +11685,7 @@ function App() {
     const routeMap: Record<string, string> = {
       dashboard: '/dashboard',
       immobili: '/immobili',
+      'immobili-archivio': '/immobili-archivio',
       portals: '/portals',
       contatti: '/contatti',
       incrocio: '/incrocio',
@@ -11709,6 +11716,8 @@ function App() {
     { name: 'Dashboard', page: 'dashboard', icon: Home },
 
     { name: 'Immobili', page: 'immobili', icon: Building },
+
+    { name: 'Archivio Immobili', page: 'immobili-archivio', icon: Archive },
 
     { name: '1clickannunci', page: 'portals', icon: Globe, adminOnly: true },
 
@@ -14533,6 +14542,37 @@ function App() {
             setShowNotifications={setShowNotifications}
             focusApprovalPropertyId={notificationFocusPropertyApprovalId}
             onFocusApprovalPropertyHandled={clearNotificationFocusPropertyApproval}
+
+          />}
+
+          {currentPage === 'immobili-archivio' && <PropertiesPage
+
+            properties={properties}
+
+            contacts={contacts}
+
+            dataLoading={dataLoading}
+
+            user={user}
+
+            onRefreshData={fetchData}
+
+            onViewProperty={(propertyId) => {
+
+              setCurrentPropertyId(propertyId)
+
+              setCurrentPage('property-detail')
+
+            }}
+
+            setNotifications={setNotifications}
+
+            setUnreadNotifications={setUnreadNotifications}
+
+            setShowNotifications={setShowNotifications}
+            focusApprovalPropertyId={null}
+            onFocusApprovalPropertyHandled={clearNotificationFocusPropertyApproval}
+            archiveMode
 
           />}
 
@@ -23972,7 +24012,8 @@ function PropertiesPage({
 
   setShowNotifications,
   focusApprovalPropertyId,
-  onFocusApprovalPropertyHandled
+  onFocusApprovalPropertyHandled,
+  archiveMode = false
 
 }: {
 
@@ -23995,6 +24036,7 @@ function PropertiesPage({
   setShowNotifications: React.Dispatch<React.SetStateAction<boolean>>
   focusApprovalPropertyId?: string | null
   onFocusApprovalPropertyHandled?: () => void
+  archiveMode?: boolean
 
 }) {
 
@@ -24370,6 +24412,30 @@ function PropertiesPage({
 
   }
 
+  const handleArchiveProperty = async (id: string, title: string) => {
+    if (!confirm(`Vuoi archiviare l'immobile "${title}"?\n\nL'immobile verrà rimosso dall'XML pubblico e spostato in Archivio Immobili.`)) {
+      return
+    }
+
+    try {
+      const authHeaders: HeadersInit = token ? { Authorization: `Bearer ${token}` } : {}
+      const response = await fetch(`/api/properties/${id}/archive`, {
+        method: 'POST',
+        headers: authHeaders
+      })
+      const data = await response.json().catch(() => null)
+      if (!response.ok || !data?.success) {
+        alert('Errore durante archiviazione: ' + (data?.message || `HTTP ${response.status}`))
+        return
+      }
+      onRefreshData()
+      alert('Immobile archiviato. Non sarà più presente nel file XML pubblico.')
+    } catch (error) {
+      console.error('Errore archiviazione immobile:', error)
+      alert('Errore di connessione durante archiviazione')
+    }
+  }
+
   const handleImportPropertiesCsvFile = async (file: File) => {
     if (!isAdminUser || importingPropertiesCsv) return
     setImportingPropertiesCsv(true)
@@ -24623,6 +24689,10 @@ function PropertiesPage({
   }
 
   const filteredProperties = properties.filter(property => {
+    const isArchivedProperty = String(property.status || '').toUpperCase() === 'ARCHIVED'
+    if (archiveMode && !isArchivedProperty) return false
+    if (!archiveMode && isArchivedProperty) return false
+
     const title = (property.title || '').toLowerCase()
     const city = (property.city || '').toLowerCase()
     const address = (property.address || '').toLowerCase()
@@ -24716,6 +24786,8 @@ function PropertiesPage({
 
       case 'SOLD': return '#ef4444'
 
+      case 'ARCHIVED': return '#64748b'
+
       default: return '#6b7280'
 
     }
@@ -24734,6 +24806,8 @@ function PropertiesPage({
 
       case 'SOLD': return 'Venduto'
 
+      case 'ARCHIVED': return 'Archiviato'
+
       default: return status
 
     }
@@ -24751,13 +24825,13 @@ function PropertiesPage({
 
           <h1 style={{ fontSize: '2rem', fontWeight: 'bold', marginBottom: '0.5rem' }}>
 
-            Immobili ({properties.length})
+            {archiveMode ? `Archivio Immobili (${properties.length})` : `Immobili (${properties.length})`}
 
           </h1>
 
           <p style={{ color: '#6b7280' }}>
 
-            Gestisci il tuo portafoglio immobiliare
+            {archiveMode ? 'Consulta gli immobili archiviati e rimossi dai feed pubblici' : 'Gestisci il tuo portafoglio immobiliare'}
 
           </p>
 
@@ -24782,7 +24856,7 @@ function PropertiesPage({
           >
             {exportingPropertiesCsv ? 'Export immobili...' : 'Export immobili CSV'}
           </button>
-          {isAdminUser && (
+          {!archiveMode && isAdminUser && (
             <button
               type="button"
               onClick={handleImportPropertiesCsvClick}
@@ -24803,7 +24877,7 @@ function PropertiesPage({
             </button>
           )}
 
-          <button
+          {!archiveMode && <button
             onClick={() => setShowCreateModal(true)}
             style={{
               display: 'flex',
@@ -24819,6 +24893,7 @@ function PropertiesPage({
             <Plus size={20} style={{ marginRight: '0.5rem' }} />
             Nuovo Immobile
           </button>
+          }
         </div>
 
       </div>
@@ -25609,6 +25684,42 @@ function PropertiesPage({
                     Modifica
 
                   </button>
+
+                  {!archiveMode && (
+                    <button
+
+                      onClick={() => handleArchiveProperty(property.id, property.title)}
+
+                      style={{
+
+                        display: 'flex',
+
+                        alignItems: 'center',
+
+                        padding: '0.4rem 0.75rem',
+
+                        backgroundColor: '#475569',
+
+                        color: 'white',
+
+                        border: 'none',
+
+                        borderRadius: '0.375rem',
+
+                        cursor: 'pointer',
+
+                        fontSize: '0.8rem'
+
+                      }}
+
+                    >
+
+                      <Archive size={14} style={{ marginRight: '0.35rem' }} />
+
+                      Archivia
+
+                    </button>
+                  )}
 
                   <button
 
