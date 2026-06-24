@@ -18644,6 +18644,39 @@ app.post('/api/properties/:id/archive', async (req, res) => {
   }
 });
 
+app.post('/api/properties/:id/restore', async (req, res) => {
+  try {
+    const auth = getAuth(req);
+    if (!auth) return res.status(401).json({ success: false, message: 'Unauthorized' });
+
+    const existing = await prisma.property.findUnique({
+      where: { id: req.params.id },
+      select: { id: true, ownerId: true, agencyId: true, status: true }
+    });
+    if (!existing) return res.status(404).json({ success: false, message: 'Property not found' });
+    if (auth.agencyId && existing.agencyId !== auth.agencyId) return res.status(404).json({ success: false, message: 'Property not found' });
+    if (auth.role === 'AGENT' && existing.ownerId !== auth.id) return res.status(403).json({ success: false, message: 'Forbidden' });
+
+    const restoredProperty = await prisma.property.update({
+      where: { id: existing.id },
+      data: {
+        status: 'AVAILABLE',
+        isPublished: false,
+        publishedAt: null
+      }
+    });
+
+    return res.json({
+      success: true,
+      data: restoredProperty,
+      message: 'Property restored successfully'
+    });
+  } catch (error) {
+    console.error('Error restoring property:', error);
+    return res.status(500).json({ success: false, message: 'Error restoring property' });
+  }
+});
+
 app.delete('/api/properties/:id', async (req, res) => {
   try {
     const auth = getAuth(req);

@@ -7618,6 +7618,12 @@ function App() {
 
   }, [user, token])
 
+  useEffect(() => {
+    if (!user || !token) return
+    if (currentPage !== 'immobili' && currentPage !== 'immobili-archivio') return
+    fetchData()
+  }, [currentPage])
+
 
 
   useEffect(() => {
@@ -24436,6 +24442,30 @@ function PropertiesPage({
     }
   }
 
+  const handleRestoreProperty = async (id: string, title: string) => {
+    if (!confirm(`Vuoi ripristinare l'immobile "${title}"?\n\nL'immobile tornerà nella lista Immobili come disponibile, ma non verrà pubblicato automaticamente nei feed.`)) {
+      return
+    }
+
+    try {
+      const authHeaders: HeadersInit = token ? { Authorization: `Bearer ${token}` } : {}
+      const response = await fetch(`/api/properties/${id}/restore`, {
+        method: 'POST',
+        headers: authHeaders
+      })
+      const data = await response.json().catch(() => null)
+      if (!response.ok || !data?.success) {
+        alert('Errore durante ripristino: ' + (data?.message || `HTTP ${response.status}`))
+        return
+      }
+      onRefreshData()
+      alert('Immobile ripristinato. Ora è di nuovo visibile nella lista Immobili.')
+    } catch (error) {
+      console.error('Errore ripristino immobile:', error)
+      alert('Errore di connessione durante ripristino')
+    }
+  }
+
   const handleImportPropertiesCsvFile = async (file: File) => {
     if (!isAdminUser || importingPropertiesCsv) return
     setImportingPropertiesCsv(true)
@@ -25717,6 +25747,42 @@ function PropertiesPage({
                       <Archive size={14} style={{ marginRight: '0.35rem' }} />
 
                       Archivia
+
+                    </button>
+                  )}
+
+                  {archiveMode && (
+                    <button
+
+                      onClick={() => handleRestoreProperty(property.id, property.title)}
+
+                      style={{
+
+                        display: 'flex',
+
+                        alignItems: 'center',
+
+                        padding: '0.4rem 0.75rem',
+
+                        backgroundColor: '#2563eb',
+
+                        color: 'white',
+
+                        border: 'none',
+
+                        borderRadius: '0.375rem',
+
+                        cursor: 'pointer',
+
+                        fontSize: '0.8rem'
+
+                      }}
+
+                    >
+
+                      <Play size={14} style={{ marginRight: '0.35rem' }} />
+
+                      Ripristina
 
                     </button>
                   )}
