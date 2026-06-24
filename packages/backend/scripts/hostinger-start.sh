@@ -4,6 +4,8 @@ set -e
 echo "Starting Hostinger backend bootstrap..."
 
 npx prisma generate
+node scripts/ensure-archived-property-status.js || true
+npx prisma migrate resolve --rolled-back 20260624120000_add_archived_property_status || true
 npx prisma migrate deploy
 
 if [ "$IMPORT_IMMOBILIARE_CSV_ON_BOOT" = "true" ]; then
