@@ -358,9 +358,11 @@ const inferCityFromFreeAddress = (input: string, cities: City[], provinceCodeHin
     .sort((a, b) => b.name.length - a.name.length)
   for (const c of pool) {
     const cityNorm = normText(c.name)
-    if (cleaned === cityNorm || cleaned.endsWith(` ${cityNorm}`) || cleaned.includes(` ${cityNorm} `)) {
-      return c
-    }
+    // In un indirizzo italiano la citta' e' il token FINALE. Confrontiamo solo
+    // la coda della stringa: mai prefissi o sottostringhe interne, altrimenti
+    // "strada colle pineta" verrebbe associato al comune "Stra" (VE).
+    if (cityNorm.length < 3) continue
+    if (cleaned.endsWith(` ${cityNorm}`)) return c
   }
   return null
 }
@@ -585,8 +587,10 @@ export function PropertyModalOneClick({ property, onSave, onCancel, currentUserR
         const inferredCity = inferCityFromFreeAddress(rawStreet, cities, String(form.province || '').trim() || undefined)
           || inferCityFromFreeAddress(rawStreet, cities)
         const city = String(form.city || inferredCity?.name || '').trim()
-        const effectiveCity = String(inferredCity?.name || city).trim()
-        const province = String(inferredCity?.provinceCode || form.province || '').trim()
+        // Priorita' alla citta'/provincia impostate nel form (selezione utente),
+        // l'inferenza dal testo libero e' solo un ripiego.
+        const effectiveCity = String(form.city || inferredCity?.name || city).trim()
+        const province = String(form.province || inferredCity?.provinceCode || '').trim()
         const zipCode = String(form.zipCode || '').trim()
         let street = rawStreet
         if (effectiveCity) street = stripTrailingToken(street, effectiveCity)
