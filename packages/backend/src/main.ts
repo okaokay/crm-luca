@@ -16397,6 +16397,7 @@ app.get('/api/properties', async (req, res) => {
       prisma.property.count({ where }),
       prisma.property.findMany({
         where,
+        omit: { oneClickData: true },
         skip: (Number(page) - 1) * Number(limit),
         take: Number(limit),
         orderBy: { createdAt: 'desc' }
