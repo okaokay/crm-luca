@@ -15835,12 +15835,14 @@ app.get('/api/geocoding/streets/autocomplete', async (req, res) => {
       if (collected.length >= 120) break;
     }
 
-    if (collected.length === 0) {
+    // Photon sempre interrogato (non solo come fallback): ha copertura strade
+    // molto migliore per l'autocomplete, cosi' si riducono le vie mancanti.
+    {
       for (const candidate of queryCandidates.slice(0, 3)) {
         const controller = new AbortController();
         const timeout = setTimeout(() => controller.abort(), 7000);
         try {
-          const url = `https://photon.komoot.io/api/?limit=30&q=${encodeURIComponent(candidate)}`;
+          const url = `https://photon.komoot.io/api/?limit=30&lang=it&q=${encodeURIComponent(candidate)}`;
           const response = await fetch(url, {
             signal: controller.signal,
             headers: { 'User-Agent': 'CosmoCasaCRM/1.0 (geocoding autocomplete fallback)' }
@@ -15876,7 +15878,7 @@ app.get('/api/geocoding/streets/autocomplete', async (req, res) => {
         } catch {
           clearTimeout(timeout);
         }
-        if (collected.length >= 60) break;
+        if (collected.length >= 200) break;
       }
     }
 
@@ -15936,7 +15938,10 @@ app.get('/api/geocoding/streets/autocomplete', async (req, res) => {
       const houseNorm = norm(row.houseNumber);
       const reqHouseNorm = norm(number);
 
-      if (reqCityNorm && cityNorm !== reqCityNorm && !labelNorm.includes(reqCityNorm)) {
+      // Scarta per città solo se il risultato HA una città diversa da quella
+      // richiesta. Le vie senza città risolta vengono mantenute (la città verra'
+      // riempita con quella richiesta) per non perdere strade valide.
+      if (reqCityNorm && cityNorm && cityNorm !== reqCityNorm && !labelNorm.includes(reqCityNorm)) {
         return null;
       }
       if (reqZipNorm && zipNorm && zipNorm !== reqZipNorm) {
@@ -15957,8 +15962,10 @@ app.get('/api/geocoding/streets/autocomplete', async (req, res) => {
 
       if (full && labelNorm.includes(norm(full))) score += 20;
 
+      // Città mancante: usa quella richiesta (la via resta valida e selezionabile).
+      if (!row.city && city) row.city = city;
       return { ...row, score };
-    }).filter((item: any) => item && item.road && item.city);
+    }).filter((item: any) => item && item.road);
 
     const unique = new Map<string, any>();
     for (const item of mapped) {
