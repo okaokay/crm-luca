@@ -20343,27 +20343,13 @@ app.post('/api/contacts', async (req, res) => {
       const isWarehouseRequest = requestPropertyType === 'WAREHOUSE';
       const isLandRequest = requestPropertyType === 'LAND';
       const isGarageRequest = requestPropertyType === 'GARAGE';
-      const isResidentialRequest =
-        requestPropertyType === 'APARTMENT' ||
-        requestPropertyType === 'HOUSE' ||
-        requestPropertyType === 'VILLA';
       const isShopLikeRequest = requestPropertyType === 'SHOP';
       // tipologia appartamento: sotto-tipo opzionale, il form non lo impone.
       if (!isApartmentRequest && requestSurfaceSqm == null) {
         validationErrors.push('Inserisci i mq richiesti');
       }
-      if (isResidentialRequest && (requestBedrooms == null || requestBedrooms <= 0)) {
-        validationErrors.push('Inserisci almeno il numero camere richieste');
-      }
-      if (isResidentialRequest && (requestBathrooms == null || requestBathrooms <= 0)) {
-        validationErrors.push('Inserisci il numero bagni richiesti');
-      }
-      if (isResidentialRequest && (requestFloor == null || requestFloor <= 0)) {
-        validationErrors.push('Inserisci il piano richiesto');
-      }
-      if (isResidentialRequest && !requestCondition) {
-        validationErrors.push('Seleziona lo stato immobile richiesto');
-      }
+      // Dettagli residenziali (camere, bagni, piano, stato immobile) opzionali:
+      // il form li propone come facoltativi, non bloccano la creazione.
       if (isCommercialRequest) {
         if (requestBathrooms == null || requestBathrooms <= 0) validationErrors.push('Inserisci il numero bagni richiesti');
         if (requestCommercialRooms == null || requestCommercialRooms <= 0) validationErrors.push('Inserisci il numero locali richiesti');
