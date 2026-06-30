@@ -20328,8 +20328,8 @@ app.post('/api/contacts', async (req, res) => {
       if (!email || !phone) validationErrors.push('Per il cliente email e telefono sono obbligatori');
       if (!city || !province) validationErrors.push('Per il cliente città e provincia sono obbligatorie');
       if (!address) validationErrors.push('Per il cliente indirizzo obbligatorio');
-      if (!birthDate) validationErrors.push('Per il cliente data di nascita obbligatoria');
-      if (!birthPlace) validationErrors.push('Per il cliente luogo di nascita obbligatorio');
+      // data/luogo di nascita: dati anagrafici opzionali in fase di richiesta,
+      // si completano in seguito. Il form non li impone, quindi non bloccano.
       if (!requestGoal) validationErrors.push('Seleziona la finalità della richiesta');
       if (!requestPropertyTypeRaw || !requestPropertyType) {
         validationErrors.push('Seleziona la tipologia immobile richiesta');
@@ -20348,9 +20348,7 @@ app.post('/api/contacts', async (req, res) => {
         requestPropertyType === 'HOUSE' ||
         requestPropertyType === 'VILLA';
       const isShopLikeRequest = requestPropertyType === 'SHOP';
-      if (isApartmentRequest && !requestApartmentType) {
-        validationErrors.push('Seleziona la tipologia appartamento');
-      }
+      // tipologia appartamento: sotto-tipo opzionale, il form non lo impone.
       if (!isApartmentRequest && requestSurfaceSqm == null) {
         validationErrors.push('Inserisci i mq richiesti');
       }

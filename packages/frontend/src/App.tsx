@@ -9005,6 +9005,13 @@ function App() {
         payload.requestZone = (contactData as any).requestZone
         payload.requestSurfaceSqm = (contactData as any).requestSurfaceSqm
         payload.rentContractSubtype = (contactData as any).rentContractSubtype
+        payload.requestCondition = (contactData as any).requestCondition
+        payload.requestCommercialRooms = (contactData as any).requestCommercialRooms
+        payload.requestParkingSpots = (contactData as any).requestParkingSpots
+        payload.requestShopWindows = (contactData as any).requestShopWindows
+        payload.requestLandUse = (contactData as any).requestLandUse
+        payload.requestBuildable = (contactData as any).requestBuildable
+        payload.requestGarageType = (contactData as any).requestGarageType
 
         payload.requestBedrooms = contactData.requestBedrooms
 
@@ -9160,6 +9167,13 @@ function App() {
         payload.requestZone = (contactData as any).requestZone
         payload.requestSurfaceSqm = (contactData as any).requestSurfaceSqm
         payload.rentContractSubtype = (contactData as any).rentContractSubtype
+        payload.requestCondition = (contactData as any).requestCondition
+        payload.requestCommercialRooms = (contactData as any).requestCommercialRooms
+        payload.requestParkingSpots = (contactData as any).requestParkingSpots
+        payload.requestShopWindows = (contactData as any).requestShopWindows
+        payload.requestLandUse = (contactData as any).requestLandUse
+        payload.requestBuildable = (contactData as any).requestBuildable
+        payload.requestGarageType = (contactData as any).requestGarageType
         payload.requestBedrooms = (contactData as any).requestBedrooms
         payload.requestBathrooms = (contactData as any).requestBathrooms
         payload.requestFloor = (contactData as any).requestFloor
