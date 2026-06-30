@@ -16426,9 +16426,19 @@ app.get('/api/properties', async (req, res) => {
       })
     ]);
 
+    // Difensivo: non inviare MAI immagini base64 inline (data:...) nella lista.
+    // Pesano ~1.25MB l'una e gonfiano la risposta a decine di MB. Le immagini
+    // su MinIO (URL /api/.../images/...) restano, cosi' le miniature funzionano.
+    const lightProperties = properties.map((p: any) => ({
+      ...p,
+      images: Array.isArray(p.images)
+        ? p.images.filter((img: any) => typeof img === 'string' && !img.startsWith('data:'))
+        : p.images,
+    }));
+
     res.json({
       success: true,
-      data: properties,
+      data: lightProperties,
       pagination: {
         page: Number(page),
         limit: Number(limit),
