@@ -22009,7 +22009,6 @@ const runMorningDailyReminderSweep = async () => {
     prisma.activity.findMany({
       where: {
         completed: false,
-        assignedToId: { not: null },
         dueDate: {
           gte: rangeStart,
           lte: rangeEnd
@@ -22026,7 +22025,6 @@ const runMorningDailyReminderSweep = async () => {
     }),
     prisma.appointment.findMany({
       where: {
-        assignedToId: { not: null },
         status: { in: ['SCHEDULED', 'CONFIRMED'] },
         startTime: {
           gte: rangeStart,
