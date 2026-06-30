@@ -24,6 +24,7 @@ import {
   User,
 
   Building,
+  Archive,
 
   Users,
 
@@ -5973,98 +5974,7 @@ function InternalLoginPage() {
 
       </div>
 
-      {isGalleryOpen && imageList.length > 0 ? (
-        <div
-          onClick={() => setIsGalleryOpen(false)}
-          style={{
-            position: 'fixed',
-            inset: 0,
-            background: 'rgba(15, 23, 42, 0.92)',
-            zIndex: 2147483646,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            padding: '1rem'
-          }}
-        >
-          <button
-            type="button"
-            onClick={(event) => { event.stopPropagation(); setIsGalleryOpen(false) }}
-            style={{ position: 'absolute', top: '1rem', right: '1rem', border: 'none', background: 'rgba(255,255,255,0.2)', color: '#fff', borderRadius: '999px', width: '2.25rem', height: '2.25rem', cursor: 'pointer' }}
-            aria-label="Chiudi galleria"
-          >
-            <X size={18} />
-          </button>
-          <button
-            type="button"
-            onClick={(event) => { event.stopPropagation(); showPrevGalleryImage() }}
-            style={{ position: 'absolute', left: '1rem', border: 'none', background: 'rgba(255,255,255,0.2)', color: '#fff', borderRadius: '999px', width: '2.5rem', height: '2.5rem', cursor: 'pointer' }}
-            aria-label="Immagine precedente"
-          >
-            <ArrowLeft size={18} />
-          </button>
-          <img
-            src={imageList[galleryIndex]}
-            alt={`${property.title} - ${galleryIndex + 1}`}
-            onClick={(event) => event.stopPropagation()}
-            style={{ maxWidth: '94vw', maxHeight: '88vh', objectFit: 'contain', borderRadius: '0.5rem' }}
-          />
-          <button
-            type="button"
-            onClick={(event) => { event.stopPropagation(); showNextGalleryImage() }}
-            style={{ position: 'absolute', right: '1rem', border: 'none', background: 'rgba(255,255,255,0.2)', color: '#fff', borderRadius: '999px', width: '2.5rem', height: '2.5rem', cursor: 'pointer' }}
-            aria-label="Immagine successiva"
-          >
-            <ArrowRight size={18} />
-          </button>
-        </div>
-      ) : null}
-      {isPublicGalleryOpen && publicImageList.length > 0 ? (
-        <div
-          onClick={() => setIsPublicGalleryOpen(false)}
-          style={{
-            position: 'fixed',
-            inset: 0,
-            background: 'rgba(15, 23, 42, 0.92)',
-            zIndex: 2147483646,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            padding: '1rem'
-          }}
-        >
-          <button
-            type="button"
-            onClick={(event) => { event.stopPropagation(); setIsPublicGalleryOpen(false) }}
-            style={{ position: 'absolute', top: '1rem', right: '1rem', border: 'none', background: 'rgba(255,255,255,0.2)', color: '#fff', borderRadius: '999px', width: '2.25rem', height: '2.25rem', cursor: 'pointer' }}
-            aria-label="Chiudi galleria"
-          >
-            <X size={18} />
-          </button>
-          <button
-            type="button"
-            onClick={(event) => { event.stopPropagation(); showPrevPublicGalleryImage() }}
-            style={{ position: 'absolute', left: '1rem', border: 'none', background: 'rgba(255,255,255,0.2)', color: '#fff', borderRadius: '999px', width: '2.5rem', height: '2.5rem', cursor: 'pointer' }}
-            aria-label="Immagine precedente"
-          >
-            <ArrowLeft size={18} />
-          </button>
-          <img
-            src={publicImageList[activeImageIndex]}
-            alt={`${property.title} - ${activeImageIndex + 1}`}
-            onClick={(event) => event.stopPropagation()}
-            style={{ maxWidth: '94vw', maxHeight: '88vh', objectFit: 'contain', borderRadius: '0.5rem' }}
-          />
-          <button
-            type="button"
-            onClick={(event) => { event.stopPropagation(); showNextPublicGalleryImage() }}
-            style={{ position: 'absolute', right: '1rem', border: 'none', background: 'rgba(255,255,255,0.2)', color: '#fff', borderRadius: '999px', width: '2.5rem', height: '2.5rem', cursor: 'pointer' }}
-            aria-label="Immagine successiva"
-          >
-            <ArrowRight size={18} />
-          </button>
-        </div>
-      ) : null}
+
     </div>
 
   )
@@ -6230,43 +6140,44 @@ const MOJIBAKE_TEXT_REPLACEMENTS: Array<[RegExp, string]> = [
   [/Ã¢â‚¬â„¢|â€™/g, "'"],
   [/Ã¢â‚¬Å“|â€œ/g, '"'],
   [/Ã¢â‚¬Â|â€/g, '"'],
-  [/ÃƒÂ |Ã /g, 'à'],
-  [/ÃƒÂ¨|Ã¨/g, 'è'],
-  [/ÃƒÂ©|Ã©/g, 'é'],
-  [/ÃƒÂ¬|Ã¬/g, 'ì'],
-  [/ÃƒÂ²|Ã²/g, 'ò'],
-  [/ÃƒÂ¹|Ã¹/g, 'ù'],
-  [/Ò /g, 'à'],
-  [/Ò¨/g, 'è'],
-  [/Ò©/g, 'é'],
-  [/Ò¬/g, 'ì'],
-  [/Ò²/g, 'ò'],
-  [/Ò¹/g, 'ù'],
-  [/CittÃ[^\s<>"'`]*/g, 'Città'],
-  [/AttivitÃ[^\s<>"'`]*/g, 'Attività'],
-  [/OperativitÃ[^\s<>"'`]*/g, 'Operatività'],
-  [/compatibilitÃ[^\s<>"'`]*/g, 'compatibilità'],
-  [/funzionalitÃ[^\s<>"'`]*/g, 'funzionalità'],
-  [/identitÃ[^\s<>"'`]*/g, 'identità'],
-  [/proprietÃ[^\s<>"'`]*/g, 'proprietà'],
-  [/sarÃ[^\s<>"'`]*/g, 'sarà'],
-  [/verrÃ[^\s<>"'`]*/g, 'verrà'],
-  [/giÃ[^\s<>"'`]*/g, 'già'],
-  [/sÃ[^\s<>"'`]*/g, 'sì'],
-  [/piÃ[^\s<>"'`]*/g, 'più'],
+  [/ÃƒÂ |Ã /g, '�'],
+  [/ÃƒÂ¨|Ã¨/g, '�'],
+  [/ÃƒÂ©|Ã©/g, '�'],
+  [/ÃƒÂ¬|Ã¬/g, '�'],
+  [/ÃƒÂ²|Ã²/g, '�'],
+  [/ÃƒÂ¹|Ã¹/g, '�'],
+  [/Ò /g, '�'],
+  [/Ò¨/g, '�'],
+  [/Ò©/g, '�'],
+  [/Ò¬/g, '�'],
+  [/Ò²/g, '�'],
+  [/Ò¹/g, '�'],
+  [/CittÃ[^\s<>"'`]*/g, 'Citt�'],
+  [/AttivitÃ[^\s<>"'`]*/g, 'Attivit�'],
+  [/OperativitÃ[^\s<>"'`]*/g, 'Operativit�'],
+  [/compatibilitÃ[^\s<>"'`]*/g, 'compatibilit�'],
+  [/funzionalitÃ[^\s<>"'`]*/g, 'funzionalit�'],
+  [/identitÃ[^\s<>"'`]*/g, 'identit�'],
+  [/proprietÃ[^\s<>"'`]*/g, 'propriet�'],
+  [/sarÃ[^\s<>"'`]*/g, 'sar�'],
+  [/verrÃ[^\s<>"'`]*/g, 'verr�'],
+  [/giÃ[^\s<>"'`]*/g, 'gi�'],
+  [/sÃ[^\s<>"'`]*/g, 's�'],
+  [/piÃ[^\s<>"'`]*/g, 'pi�'],
   [/mÃ‚Â²/g, 'mq'],
   [/mï¿½/g, 'mq'],
-  [/cittÃ[^\s<>"'`]*/g, 'città'],
+  [/cittÃ[^\s<>"'`]*/g, 'citt�'],
   [/mï¿½/g, 'mq'],
   [/Cittï¿½/g, 'Citta']
 ]
 
 function normalizeMojibakeText(input: string): string {
   let value = input
-  const mojibakeMarkerRegex = /Ã.|Â.|â.|Å.|ð.|Ÿ|œ|ž|ï¿½|�/
+  const mojibakeMarkerRegex = /(�.|�.|�.|�.)/
   const mojibakeScore = (raw: string) => {
-    const matches = raw.match(/Ã.|Â.|â.|Å.|ð.|Ÿ|œ|ž|ï¿½|�/g)
-    return matches ? matches.length : 0
+    const badChunks = raw.match(/�.|�.|�.|�./g)
+    const replacementChars = raw.match(/\uFFFD/g)
+    return (badChunks ? badChunks.length : 0) + (replacementChars ? replacementChars.length * 2 : 0)
   }
   const cp1252Reverse: Record<string, number> = {
     '€': 0x80,
@@ -6339,11 +6250,16 @@ function normalizeMojibakeText(input: string): string {
       return raw
     }
   }
+  const shouldAttemptDecode = (raw: string) => mojibakeMarkerRegex.test(raw)
+  const decodePass = (raw: string) => {
+    const decoded = decodeMojibakeUtf8(raw)
+    if (decoded === raw) return raw
+    return mojibakeScore(decoded) <= mojibakeScore(raw) ? decoded : raw
+  }
   for (let i = 0; i < 4; i += 1) {
-    if (!mojibakeMarkerRegex.test(value)) break
-    const decoded = decodeMojibakeUtf8(value)
+    if (!shouldAttemptDecode(value)) break
+    const decoded = decodePass(value)
     if (decoded === value) break
-    if (mojibakeScore(decoded) > mojibakeScore(value)) break
     value = decoded
   }
   for (const [pattern, replacement] of MOJIBAKE_TEXT_REPLACEMENTS) {
@@ -7290,6 +7206,11 @@ function App() {
       return
     }
 
+    if (path === '/immobili-archivio') {
+      setCurrentPage('immobili-archivio')
+      return
+    }
+
     if (path.startsWith('/immobili/')) {
       const parts = path.split('/')
       const propertyId = parts[2] || ''
@@ -7697,6 +7618,12 @@ function App() {
 
   }, [user, token])
 
+  useEffect(() => {
+    if (!user || !token) return
+    if (currentPage !== 'immobili' && currentPage !== 'immobili-archivio') return
+    fetchData()
+  }, [currentPage])
+
 
 
   useEffect(() => {
@@ -7912,21 +7839,32 @@ function App() {
         normalizedUserRole === 'OWNER' ||
         normalizedUserRole === 'OPS_ADMIN'
 
+      const isAppointmentsHeavyPage =
+        currentPage === 'appuntamenti' ||
+        currentPage === 'dashboard'
+
+      const isActivitiesHeavyPage =
+        currentPage === 'attivita' ||
+        currentPage === 'dashboard'
+
+      const appointmentsLimit = isAppointmentsHeavyPage ? 1000 : 250
+      const activitiesLimit = isActivitiesHeavyPage ? 250 : 100
+
       const appointmentsUrl =
 
         !isAdminUser && user?.id
 
-          ? `/api/appointments?assignedToId=${encodeURIComponent(user.id)}&limit=5000`
+          ? `/api/appointments?assignedToId=${encodeURIComponent(user.id)}&limit=${appointmentsLimit}`
 
-          : '/api/appointments?limit=5000'
+          : `/api/appointments?limit=${appointmentsLimit}`
 
       const activitiesUrl =
 
         userRole === 'AGENT' && user?.id
 
-          ? `/api/activities?assignedToId=${encodeURIComponent(user.id)}&limit=100`
+          ? `/api/activities?assignedToId=${encodeURIComponent(user.id)}&limit=${activitiesLimit}`
 
-          : '/api/activities?limit=100'
+          : `/api/activities?limit=${activitiesLimit}`
 
 
 
@@ -7936,7 +7874,7 @@ function App() {
 
       const [propertiesRes, contactsRes, appointmentsRes, activitiesRes, agentsRes, statsRes] = await Promise.all([
 
-        fetch('/api/properties?limit=100', { headers: authHeaders }),
+        fetch(currentPage === 'immobili-archivio' ? '/api/properties?limit=100&archived=true' : '/api/properties?limit=100', { headers: authHeaders }),
 
         fetch('/api/contacts?limit=50&page=1', { headers: authHeaders }),
 
@@ -7970,11 +7908,16 @@ function App() {
 
 
 
-        if ((!properties || properties.length === 0) && statsData?.success && statsData.data?.totalProperties > 0) {
+        if (
+          (!properties || properties.length === 0) &&
+          statsData?.success &&
+          statsData.data?.totalProperties > 0 &&
+          (currentPage === 'immobili' || currentPage === 'immobili-archivio' || currentPage === 'dashboard' || currentPage === 'incrocio')
+        ) {
 
           const retryRes = await fetch(
 
-            `/api/properties?limit=${Math.max(statsData.data.totalProperties, 100)}`,
+            `/api/properties?limit=${Math.min(Math.max(statsData.data.totalProperties, 100), 300)}${currentPage === 'immobili-archivio' ? '&archived=true' : ''}`,
 
             { headers: authHeaders }
 
@@ -8093,35 +8036,37 @@ function App() {
 
 
 
-      try {
+      if (currentPage === 'contratti' || currentPage === 'dashboard') {
+        try {
 
-        const templatesRes = await fetch('/api/contract-templates', { headers: authHeaders })
+          const templatesRes = await fetch('/api/contract-templates', { headers: authHeaders })
 
-        const templatesData = await templatesRes.json()
+          const templatesData = await templatesRes.json()
 
-        if (templatesData?.success) {
+          if (templatesData?.success) {
 
-          setContractTemplates(templatesData.data || [])
+            setContractTemplates(templatesData.data || [])
 
-        }
+          }
 
-      } catch {}
+        } catch {}
 
 
 
-      try {
+        try {
 
-        const contractsRes = await fetch('/api/contracts', { headers: authHeaders })
+          const contractsRes = await fetch('/api/contracts', { headers: authHeaders })
 
-        const contractsData = await contractsRes.json()
+          const contractsData = await contractsRes.json()
 
-        if (contractsData?.success) {
+          if (contractsData?.success) {
 
-          setContracts(contractsData.data || [])
+            setContracts(contractsData.data || [])
 
-        }
+          }
 
-      } catch {}
+        } catch {}
+      }
 
 
 
@@ -8892,6 +8837,7 @@ function App() {
     const loadNotifications = async () => {
 
       try {
+        if (typeof document !== 'undefined' && document.hidden) return
 
         const isAdminUser = userRole === 'SUPER_ADMIN' || userRole === 'AGENCY_ADMIN'
 
@@ -8979,7 +8925,7 @@ function App() {
 
     const initialLoadTimeout = window.setTimeout(loadNotifications, 1500)
 
-    const intervalId = window.setInterval(loadNotifications, 10000)
+    const intervalId = window.setInterval(loadNotifications, 30000)
 
 
 
@@ -9067,6 +9013,8 @@ function App() {
         payload.requestFloor = contactData.requestFloor
 
         payload.budget = contactData.budget
+        payload.budgetMin = (contactData as any).budgetMin
+        payload.budgetMax = (contactData as any).budgetMax
 
         payload.preferences = contactData.preferences
 
@@ -9216,6 +9164,8 @@ function App() {
         payload.requestBathrooms = (contactData as any).requestBathrooms
         payload.requestFloor = (contactData as any).requestFloor
         payload.budget = (contactData as any).budget
+        payload.budgetMin = (contactData as any).budgetMin
+        payload.budgetMax = (contactData as any).budgetMax
         payload.preferences = (contactData as any).preferences
       }
 
@@ -9604,8 +9554,7 @@ function App() {
 
           'TASK_COMPLETED',
 
-          '
-? Task Completato',
+          'Task Completato',
 
           `${activityTitle} ÃƒÂ¨ stato completato`,
 
@@ -11742,6 +11691,7 @@ function App() {
     const routeMap: Record<string, string> = {
       dashboard: '/dashboard',
       immobili: '/immobili',
+      'immobili-archivio': '/immobili-archivio',
       portals: '/portals',
       contatti: '/contatti',
       incrocio: '/incrocio',
@@ -11772,6 +11722,8 @@ function App() {
     { name: 'Dashboard', page: 'dashboard', icon: Home },
 
     { name: 'Immobili', page: 'immobili', icon: Building },
+
+    { name: 'Archivio Immobili', page: 'immobili-archivio', icon: Archive },
 
     { name: '1clickannunci', page: 'portals', icon: Globe, adminOnly: true },
 
@@ -14599,6 +14551,37 @@ function App() {
 
           />}
 
+          {currentPage === 'immobili-archivio' && <PropertiesPage
+
+            properties={properties}
+
+            contacts={contacts}
+
+            dataLoading={dataLoading}
+
+            user={user}
+
+            onRefreshData={fetchData}
+
+            onViewProperty={(propertyId) => {
+
+              setCurrentPropertyId(propertyId)
+
+              setCurrentPage('property-detail')
+
+            }}
+
+            setNotifications={setNotifications}
+
+            setUnreadNotifications={setUnreadNotifications}
+
+            setShowNotifications={setShowNotifications}
+            focusApprovalPropertyId={null}
+            onFocusApprovalPropertyHandled={clearNotificationFocusPropertyApproval}
+            archiveMode
+
+          />}
+
           {currentPage === 'property-detail' && currentPropertyId && (
 
             <PropertyDetailPage
@@ -16518,6 +16501,7 @@ export function PortalsPage({
         </div>
 
       )}
+
 
     </div>
 
@@ -24034,7 +24018,8 @@ function PropertiesPage({
 
   setShowNotifications,
   focusApprovalPropertyId,
-  onFocusApprovalPropertyHandled
+  onFocusApprovalPropertyHandled,
+  archiveMode = false
 
 }: {
 
@@ -24057,6 +24042,7 @@ function PropertiesPage({
   setShowNotifications: React.Dispatch<React.SetStateAction<boolean>>
   focusApprovalPropertyId?: string | null
   onFocusApprovalPropertyHandled?: () => void
+  archiveMode?: boolean
 
 }) {
 
@@ -24084,6 +24070,9 @@ function PropertiesPage({
   const [postCreateUploadProperty, setPostCreateUploadProperty] = useState<Property | null>(null)
   const [postCreateUploadFiles, setPostCreateUploadFiles] = useState<FileList | null>(null)
   const [postCreateUploadLoading, setPostCreateUploadLoading] = useState(false)
+  const [exportingPropertiesCsv, setExportingPropertiesCsv] = useState(false)
+  const [importingPropertiesCsv, setImportingPropertiesCsv] = useState(false)
+  const [importPropertiesCsvProgress, setImportPropertiesCsvProgress] = useState(0)
   const [nonCompliantRows, setNonCompliantRows] = useState<Array<{
     id: string
     reference: string | null
@@ -24122,24 +24111,50 @@ function PropertiesPage({
   const { token } = useAuthStore()
   const isAdminUser = user?.role === 'SUPER_ADMIN' || user?.role === 'AGENCY_ADMIN'
   const isAgentUser = user?.role === 'AGENT'
+  const nonCompliantPanelEnabled = false
 
-  const openApprovalModal = (property: Property) => {
+  const loadFullProperty = async (property: Property) => {
+    const authHeaders: HeadersInit = token ? { Authorization: `Bearer ${token}` } : {}
+    const response = await fetch(`/api/properties/${encodeURIComponent(property.id)}`, { headers: authHeaders })
+    const data = await response.json().catch(() => null)
+    if (!response.ok || !data?.success) {
+      throw new Error(data?.message || `HTTP ${response.status}`)
+    }
+    return data.data as Property
+  }
+
+  const openEditModal = async (property: Property) => {
+    try {
+      const fullProperty = await loadFullProperty(property)
+      setApprovingPropertyId(null)
+      setEditingProperty(fullProperty)
+    } catch (error) {
+      alert(`Errore caricamento immobile: ${error instanceof Error ? error.message : 'errore sconosciuto'}`)
+    }
+  }
+
+  const openApprovalModal = async (property: Property) => {
     setShowCreateModal(false)
     setShowViewModal(null)
-    setApprovingPropertyId(property.id)
-    setEditingProperty(property)
+    try {
+      const fullProperty = await loadFullProperty(property)
+      setApprovingPropertyId(fullProperty.id)
+      setEditingProperty(fullProperty)
+    } catch (error) {
+      alert(`Errore caricamento immobile: ${error instanceof Error ? error.message : 'errore sconosciuto'}`)
+    }
   }
 
   useEffect(() => {
     if (!focusApprovalPropertyId || !isAdminUser) return
     const target = properties.find((property) => property.id === focusApprovalPropertyId)
     if (!target) return
-    openApprovalModal(target)
+    void openApprovalModal(target)
     onFocusApprovalPropertyHandled?.()
   }, [focusApprovalPropertyId, isAdminUser, properties, onFocusApprovalPropertyHandled])
 
   useEffect(() => {
-    if (!isAdminUser || !token) {
+    if (!nonCompliantPanelEnabled || !isAdminUser || !token) {
       setNonCompliantRows([])
       return
     }
@@ -24166,7 +24181,7 @@ function PropertiesPage({
     return () => {
       cancelled = true
     }
-  }, [isAdminUser, token, properties.length])
+  }, [nonCompliantPanelEnabled, isAdminUser, token, properties.length])
 
   // Gestione CRUD immobili
 
@@ -24403,6 +24418,154 @@ function PropertiesPage({
 
   }
 
+  const handleArchiveProperty = async (id: string, title: string) => {
+    if (!confirm(`Vuoi archiviare l'immobile "${title}"?\n\nL'immobile verrà rimosso dall'XML pubblico e spostato in Archivio Immobili.`)) {
+      return
+    }
+
+    try {
+      const authHeaders: HeadersInit = token ? { Authorization: `Bearer ${token}` } : {}
+      const response = await fetch(`/api/properties/${id}/archive`, {
+        method: 'POST',
+        headers: authHeaders
+      })
+      const data = await response.json().catch(() => null)
+      if (!response.ok || !data?.success) {
+        alert('Errore durante archiviazione: ' + (data?.message || `HTTP ${response.status}`))
+        return
+      }
+      onRefreshData()
+      alert('Immobile archiviato. Non sarà più presente nel file XML pubblico.')
+    } catch (error) {
+      console.error('Errore archiviazione immobile:', error)
+      alert('Errore di connessione durante archiviazione')
+    }
+  }
+
+  const handleRestoreProperty = async (id: string, title: string) => {
+    if (!confirm(`Vuoi ripristinare l'immobile "${title}"?\n\nL'immobile tornerà nella lista Immobili come disponibile, ma non verrà pubblicato automaticamente nei feed.`)) {
+      return
+    }
+
+    try {
+      const authHeaders: HeadersInit = token ? { Authorization: `Bearer ${token}` } : {}
+      const response = await fetch(`/api/properties/${id}/restore`, {
+        method: 'POST',
+        headers: authHeaders
+      })
+      const data = await response.json().catch(() => null)
+      if (!response.ok || !data?.success) {
+        alert('Errore durante ripristino: ' + (data?.message || `HTTP ${response.status}`))
+        return
+      }
+      onRefreshData()
+      alert('Immobile ripristinato. Ora è di nuovo visibile nella lista Immobili.')
+    } catch (error) {
+      console.error('Errore ripristino immobile:', error)
+      alert('Errore di connessione durante ripristino')
+    }
+  }
+
+  const handleImportPropertiesCsvFile = async (file: File) => {
+    if (!isAdminUser || importingPropertiesCsv) return
+    setImportingPropertiesCsv(true)
+    setImportPropertiesCsvProgress(10)
+    try {
+      const form = new FormData()
+      form.append('file', file)
+      const authHeaders: HeadersInit = token ? { Authorization: `Bearer ${token}` } : {}
+      const response = await fetch('/api/properties/import-immobiliare-csv', {
+        method: 'POST',
+        headers: authHeaders,
+        body: form
+      })
+      const data = await response.json().catch(() => null)
+      if (!response.ok || !data?.success) {
+        throw new Error(data?.message || `HTTP ${response.status}`)
+      }
+      setImportPropertiesCsvProgress(100)
+      alert(
+        `Import immobili completato. Totale righe: ${data.data?.totalRows ?? 0}, Creati: ${data.data?.created ?? 0}, Aggiornati: ${data.data?.updated ?? 0}, Scartati: ${data.data?.skipped ?? 0}`
+      )
+      onRefreshData()
+    } catch (error) {
+      alert(`Errore import immobili CSV: ${error instanceof Error ? error.message : 'errore sconosciuto'}`)
+    } finally {
+      window.setTimeout(() => {
+        setImportingPropertiesCsv(false)
+        setImportPropertiesCsvProgress(0)
+      }, 250)
+    }
+  }
+
+  const handleImportPropertiesCsvClick = async () => {
+    if (!isAdminUser || importingPropertiesCsv) return
+    try {
+      const picker = (window as any).showOpenFilePicker
+      if (typeof picker === 'function') {
+        const handles = await picker({
+          multiple: false,
+          excludeAcceptAllOption: false,
+          types: [
+            {
+              description: 'CSV Immobili',
+              accept: {
+                'text/csv': ['.csv'],
+                'application/vnd.ms-excel': ['.csv']
+              }
+            }
+          ]
+        })
+        const handle = handles?.[0]
+        if (!handle) return
+        const file = await handle.getFile()
+        if (file) {
+          await handleImportPropertiesCsvFile(file)
+        }
+        return
+      }
+    } catch {
+      // Fallback to classic input picker below.
+    }
+
+    const input = document.createElement('input')
+    input.type = 'file'
+    input.accept = '.csv,text/csv'
+    input.style.position = 'fixed'
+    input.style.left = '-9999px'
+    input.style.top = '-9999px'
+    document.body.appendChild(input)
+    input.onchange = () => {
+      const file = input.files?.[0]
+      input.remove()
+      if (file) void handleImportPropertiesCsvFile(file)
+    }
+    input.click()
+  }
+
+  const handleExportPropertiesCsv = async () => {
+    if (exportingPropertiesCsv) return
+    try {
+      setExportingPropertiesCsv(true)
+      const authHeaders: HeadersInit = token ? { Authorization: `Bearer ${token}` } : {}
+      const response = await fetch('/api/properties/export', { headers: authHeaders })
+      if (!response.ok) throw new Error(`HTTP ${response.status}`)
+      const blob = await response.blob()
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `immobili-export-${new Date().toISOString().slice(0, 10)}.csv`
+      document.body.appendChild(a)
+      a.click()
+      a.remove()
+      URL.revokeObjectURL(url)
+    } catch (error) {
+      alert(`Errore durante export CSV immobili: ${error instanceof Error ? error.message : 'errore sconosciuto'}`)
+    } finally {
+      setExportingPropertiesCsv(false)
+    }
+  }
+
   const isPendingApproval = (property: Partial<Property>) =>
     typeof property.notes === 'string' && property.notes.includes('[PENDING_APPROVAL]')
   const isApprovedByAdmin = (property: Partial<Property>) =>
@@ -24556,6 +24719,10 @@ function PropertiesPage({
   }
 
   const filteredProperties = properties.filter(property => {
+    const isArchivedProperty = String(property.status || '').toUpperCase() === 'ARCHIVED'
+    if (archiveMode && !isArchivedProperty) return false
+    if (!archiveMode && isArchivedProperty) return false
+
     const title = (property.title || '').toLowerCase()
     const city = (property.city || '').toLowerCase()
     const address = (property.address || '').toLowerCase()
@@ -24649,6 +24816,8 @@ function PropertiesPage({
 
       case 'SOLD': return '#ef4444'
 
+      case 'ARCHIVED': return '#64748b'
+
       default: return '#6b7280'
 
     }
@@ -24667,6 +24836,8 @@ function PropertiesPage({
 
       case 'SOLD': return 'Venduto'
 
+      case 'ARCHIVED': return 'Archiviato'
+
       default: return status
 
     }
@@ -24674,63 +24845,108 @@ function PropertiesPage({
   }
 
 
-
   return (
 
     <div>
 
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem', gap: '1rem', flexWrap: 'wrap' }}>
 
         <div>
 
           <h1 style={{ fontSize: '2rem', fontWeight: 'bold', marginBottom: '0.5rem' }}>
 
-            Ã°Å¸ÂÂ  Immobili ({properties.length})
+            {archiveMode ? `Archivio Immobili (${properties.length})` : `Immobili (${properties.length})`}
 
           </h1>
 
           <p style={{ color: '#6b7280' }}>
 
-            Gestisci il tuo portafoglio immobiliare
+            {archiveMode ? 'Consulta gli immobili archiviati e rimossi dai feed pubblici' : 'Gestisci il tuo portafoglio immobiliare'}
 
           </p>
 
         </div>
 
-        <button
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+          <button
+            type="button"
+            onClick={handleExportPropertiesCsv}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              backgroundColor: exportingPropertiesCsv ? '#9ca3af' : '#111827',
+              color: 'white',
+              padding: '0.75rem 1rem',
+              borderRadius: '0.375rem',
+              border: 'none',
+              cursor: exportingPropertiesCsv ? 'not-allowed' : 'pointer',
+              userSelect: 'none'
+            }}
+            disabled={exportingPropertiesCsv}
+          >
+            {exportingPropertiesCsv ? 'Export immobili...' : 'Export immobili CSV'}
+          </button>
+          {!archiveMode && isAdminUser && (
+            <button
+              type="button"
+              onClick={handleImportPropertiesCsvClick}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                backgroundColor: importingPropertiesCsv ? '#9ca3af' : '#0ea5e9',
+                color: 'white',
+                padding: '0.75rem 1rem',
+                borderRadius: '0.375rem',
+                border: 'none',
+                cursor: importingPropertiesCsv ? 'not-allowed' : 'pointer',
+                userSelect: 'none'
+              }}
+              disabled={importingPropertiesCsv}
+            >
+              {importingPropertiesCsv ? 'Import immobili...' : 'Import immobili CSV'}
+            </button>
+          )}
 
-          onClick={() => setShowCreateModal(true)}
-
-          style={{
-
-            display: 'flex',
-
-            alignItems: 'center',
-
-            backgroundColor: '#2563eb',
-
-            color: 'white',
-
-            padding: '0.75rem 1.5rem',
-
-            borderRadius: '0.375rem',
-
-            border: 'none',
-
-            cursor: 'pointer'
-
-          }}
-
-        >
-
-          <Plus size={20} style={{ marginRight: '0.5rem' }} />
-
-          Nuovo Immobile
-
-        </button>
+          {!archiveMode && <button
+            onClick={() => setShowCreateModal(true)}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              backgroundColor: '#2563eb',
+              color: 'white',
+              padding: '0.75rem 1.5rem',
+              borderRadius: '0.375rem',
+              border: 'none',
+              cursor: 'pointer'
+            }}
+          >
+            <Plus size={20} style={{ marginRight: '0.5rem' }} />
+            Nuovo Immobile
+          </button>
+          }
+        </div>
 
       </div>
 
+      {importingPropertiesCsv && (
+        <div style={{ marginBottom: '1rem' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.4rem' }}>
+            <span style={{ fontSize: '0.9rem', fontWeight: 600, color: '#0f172a' }}>Importazione immobili in corso...</span>
+            <span style={{ fontSize: '0.85rem', color: '#475569' }}>{Math.max(0, Math.min(100, Math.round(importPropertiesCsvProgress)))}%</span>
+          </div>
+          <div style={{ width: '100%', height: '10px', borderRadius: '9999px', background: '#dbeafe', overflow: 'hidden' }}>
+            <div
+              style={{
+                width: `${Math.max(6, importPropertiesCsvProgress)}%`,
+                height: '100%',
+                borderRadius: '9999px',
+                background: 'linear-gradient(90deg, #2563eb 0%, #38bdf8 100%)',
+                transition: 'width 220ms ease'
+              }}
+            />
+          </div>
+        </div>
+      )}
 
 
       {false && isAdminUser && (
@@ -25055,7 +25271,7 @@ function PropertiesPage({
 
           <div>
 
-            <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.875rem', fontWeight: '500' }}>Classe energetica</label>
+            <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.875rem', fontWeight: '500' }}>Classe energetica *</label>
 
             <select value={filterEnergyClass} onChange={(e) => setFilterEnergyClass(e.target.value)} style={{ width: '100%', padding: '0.75rem', border: '1px solid #d1d5db', borderRadius: '0.375rem' }}>
 
@@ -25414,7 +25630,7 @@ function PropertiesPage({
 
                   {isAdminUser && !isAgentUser && isPendingApproval(property) && (
                     <button
-                      onClick={() => openApprovalModal(property)}
+                      onClick={() => void openApprovalModal(property)}
                       style={{
                         display: 'flex',
                         alignItems: 'center',
@@ -25468,10 +25684,7 @@ function PropertiesPage({
 
                   <button
 
-                    onClick={() => {
-                      setApprovingPropertyId(null)
-                      setEditingProperty(property)
-                    }}
+                    onClick={() => void openEditModal(property)}
 
                     style={{
 
@@ -25502,6 +25715,78 @@ function PropertiesPage({
                     Modifica
 
                   </button>
+
+                  {!archiveMode && (
+                    <button
+
+                      onClick={() => handleArchiveProperty(property.id, property.title)}
+
+                      style={{
+
+                        display: 'flex',
+
+                        alignItems: 'center',
+
+                        padding: '0.4rem 0.75rem',
+
+                        backgroundColor: '#475569',
+
+                        color: 'white',
+
+                        border: 'none',
+
+                        borderRadius: '0.375rem',
+
+                        cursor: 'pointer',
+
+                        fontSize: '0.8rem'
+
+                      }}
+
+                    >
+
+                      <Archive size={14} style={{ marginRight: '0.35rem' }} />
+
+                      Archivia
+
+                    </button>
+                  )}
+
+                  {archiveMode && (
+                    <button
+
+                      onClick={() => handleRestoreProperty(property.id, property.title)}
+
+                      style={{
+
+                        display: 'flex',
+
+                        alignItems: 'center',
+
+                        padding: '0.4rem 0.75rem',
+
+                        backgroundColor: '#2563eb',
+
+                        color: 'white',
+
+                        border: 'none',
+
+                        borderRadius: '0.375rem',
+
+                        cursor: 'pointer',
+
+                        fontSize: '0.8rem'
+
+                      }}
+
+                    >
+
+                      <Play size={14} style={{ marginRight: '0.35rem' }} />
+
+                      Ripristina
+
+                    </button>
+                  )}
 
                   <button
 
@@ -25709,8 +25994,7 @@ function PropertiesPage({
 
           onEdit={() => {
 
-            setApprovingPropertyId(null)
-            setEditingProperty(showViewModal)
+            void openEditModal(showViewModal)
 
             setShowViewModal(null)
 
@@ -26258,7 +26542,7 @@ function IncrocioPage({
                     .filter((property) => property.status === 'AVAILABLE')
                     .map((property) => (
                       <option key={property.id} value={property.id}>
-                        {clean(property.title)} - {clean(property.city)} - EUR {(property.salePrice || property.rentPrice || 0).toLocaleString()}
+                        {clean(property.title)} - {clean(property.city)} - EUR {(getPropertyDisplayPrice(property) || 0).toLocaleString()}
                       </option>
                     ))}
                 </select>
@@ -28041,11 +28325,11 @@ function ClientViewModal({
 
                           <div style={{ textAlign: 'right' }}>
 
-                            {(property.salePrice || property.rentPrice) && (
+                            {getPropertyDisplayPrice(property) > 0 && (
 
                               <p style={{ fontSize: '0.95rem', fontWeight: 'bold', color: '#059669', margin: 0 }}>
 
-                                a{(property.salePrice || property.rentPrice || 0).toLocaleString()}
+                                a{(getPropertyDisplayPrice(property) || 0).toLocaleString()}
 
                               </p>
 
@@ -28433,7 +28717,7 @@ function ClientViewModal({
 
                             }}>
 
-                              a{(property.salePrice || property.rentPrice || 0).toLocaleString()}
+                              a{(getPropertyDisplayPrice(property) || 0).toLocaleString()}
 
                             </span>
 
@@ -28705,6 +28989,7 @@ function ClientViewModal({
 
       </div>
 
+
     </div>
 
   )
@@ -28729,6 +29014,38 @@ function ClientDetailPage({
   onBack: () => void
 }) {
   const [activeTab, setActiveTab] = useState<'anagrafica' | 'richiesta' | 'proposte'>('anagrafica')
+  const mapContractTypeLabel = (value: unknown) => {
+    const key = String(value || '').trim().toUpperCase()
+    if (key === 'RENT' || key === 'AFFITTO' || key === 'LOCAZIONE') return 'Affitto'
+    if (key === 'SALE' || key === 'VENDITA') return 'Vendita'
+    return key ? String(value) : 'N/D'
+  }
+  const mapClientTypeLabel = (value: unknown) => {
+    const key = String(value || '').trim().toUpperCase()
+    if (key === 'BUYER') return 'Acquirente'
+    if (key === 'TENANT') return 'Inquilino'
+    if (key === 'SELLER') return 'Venditore'
+    if (key === 'LANDLORD') return 'Proprietario'
+    if (key === 'LEAD') return 'Lead'
+    return key ? String(value) : 'N/D'
+  }
+  const mapRequestTypeLabel = (requestType: unknown, apartmentSubtype: unknown) => {
+    const subtype = String(apartmentSubtype || '').trim()
+    if (subtype) return subtype
+    const key = String(requestType || '').trim().toUpperCase()
+    const labels: Record<string, string> = {
+      APARTMENT: 'Appartamento',
+      HOUSE: 'Casa',
+      VILLA: 'Villa',
+      OFFICE: 'Ufficio',
+      SHOP: 'Negozio',
+      WAREHOUSE: 'Magazzino',
+      LAND: 'Terreno',
+      GARAGE: 'Garage',
+      OTHER: 'Altro'
+    }
+    return labels[key] || (key ? String(requestType) : 'N/D')
+  }
 
   if (!contact) {
     return (
@@ -28741,11 +29058,10 @@ function ClientDetailPage({
     )
   }
 
-  const reqContract = String(request?.contractType || '').toUpperCase()
-  const reqType = String(request?.type || contact.requestApartmentType || '').toUpperCase()
-  const requestBudgetMin = Number(request?.minPrice ?? (contact as any)?.budgetMin ?? 0) || 0
-  const requestBudgetMax = Number(request?.maxPrice ?? (contact as any)?.budgetMax ?? contact.budget ?? 0) || 0
-  const reqMaxPrice = requestBudgetMax
+  const reqContract = String(request?.contractType || (contact as any)?.requestGoal || '').toUpperCase()
+  const reqType = String(request?.type || (contact as any)?.requestPropertyType || contact.requestApartmentType || '').toUpperCase()
+  const reqMinPrice = Number(request?.minPrice ?? (contact as any).budgetMin ?? 0) || 0
+  const reqMaxPrice = Number(request?.maxPrice ?? (contact as any).budgetMax ?? contact.budget ?? 0) || 0
   const reqMinRooms = Number(request?.minRooms ?? contact.requestBedrooms ?? 0) || 0
   const reqMinBathrooms = Number(request?.minBathrooms ?? contact.requestBathrooms ?? 0) || 0
   const reqCity = String(request?.cities?.[0] || contact.city || '').trim().toLowerCase()
@@ -28756,10 +29072,14 @@ function ClientDetailPage({
       if (reqContract && String(property.contractType || '').toUpperCase() === reqContract) score += 35
       if (reqContract && String(property.contractType || '').toUpperCase() !== reqContract) return { property, score: 0 }
       if (reqType && String(property.type || '').toUpperCase().includes(reqType)) score += 25
-      if (reqMaxPrice > 0) {
+      if (reqMaxPrice > 0 || reqMinPrice > 0) {
         const p = Number(property.price || 0)
-        if (p > 0 && p <= reqMaxPrice) score += 20
-        else if (p > 0 && p <= reqMaxPrice * 1.1) score += 10
+        if (p > 0) {
+          const withinMin = reqMinPrice > 0 ? p >= reqMinPrice : true
+          const withinMax = reqMaxPrice > 0 ? p <= reqMaxPrice : true
+          if (withinMin && withinMax) score += 20
+          else if (withinMax && reqMaxPrice > 0 && p <= reqMaxPrice * 1.1) score += 10
+        }
       } else {
         score += 10
       }
@@ -28784,13 +29104,14 @@ function ClientDetailPage({
     .slice(0, 50)
 
   const fullName = `${contact.firstName || ''} ${contact.lastName || ''}`.trim() || 'Cliente'
-  const budgetLabel = requestBudgetMin > 0 && requestBudgetMax > 0
-    ? `EUR ${requestBudgetMin.toLocaleString('it-IT')} - EUR ${requestBudgetMax.toLocaleString('it-IT')}`
-    : requestBudgetMax > 0
-      ? `EUR ${requestBudgetMax.toLocaleString('it-IT')}`
-      : requestBudgetMin > 0
-        ? `EUR ${requestBudgetMin.toLocaleString('it-IT')}`
-        : 'N/D'
+  const budgetDisplay = (() => {
+    const hasMin = Number.isFinite(reqMinPrice) && reqMinPrice > 0
+    const hasMax = Number.isFinite(reqMaxPrice) && reqMaxPrice > 0
+    if (hasMin && hasMax) return `€${reqMinPrice.toLocaleString('it-IT')} - €${reqMaxPrice.toLocaleString('it-IT')}`
+    if (hasMax) return `€${reqMaxPrice.toLocaleString('it-IT')}`
+    if (hasMin) return `€${reqMinPrice.toLocaleString('it-IT')}`
+    return 'N/D'
+  })()
   return (
     <div style={{ display: 'grid', gap: '1rem' }}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
@@ -28842,7 +29163,7 @@ function ClientDetailPage({
           </div>
           <div>
             <div style={{ fontSize: '0.8rem', color: '#6b7280' }}>Tipologia cliente</div>
-            <div style={{ fontWeight: 600 }}>{contact.type || 'N/D'}</div>
+            <div style={{ fontWeight: 600 }}>{mapClientTypeLabel(contact.type)}</div>
           </div>
           <div>
             <div style={{ fontSize: '0.8rem', color: '#6b7280' }}>Città / Provincia</div>
@@ -28858,15 +29179,17 @@ function ClientDetailPage({
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '0.8rem' }}>
           <div>
             <div style={{ fontSize: '0.8rem', color: '#6b7280' }}>Tipologia richiesta</div>
-            <div style={{ fontWeight: 600 }}>{request?.type || (contact as any).requestPropertyType || contact.requestApartmentType || 'N/D'}</div>
+            <div style={{ fontWeight: 600 }}>
+              {mapRequestTypeLabel(request?.type || (contact as any)?.requestPropertyType, contact.requestApartmentType)}
+            </div>
           </div>
           <div>
             <div style={{ fontSize: '0.8rem', color: '#6b7280' }}>Contratto</div>
-            <div style={{ fontWeight: 600 }}>{request?.contractType || (contact as any).requestGoal || 'N/D'}</div>
+            <div style={{ fontWeight: 600 }}>{mapContractTypeLabel(request?.contractType || (contact as any)?.requestGoal)}</div>
           </div>
           <div>
             <div style={{ fontSize: '0.8rem', color: '#6b7280' }}>Budget</div>
-            <div style={{ fontWeight: 600 }}>{budgetLabel}</div>
+            <div style={{ fontWeight: 600 }}>{budgetDisplay}</div>
           </div>
           <div>
             <div style={{ fontSize: '0.8rem', color: '#6b7280' }}>Camere</div>
@@ -29463,6 +29786,33 @@ function ClientsPage({
       alert(`Errore eliminazione clienti: ${error instanceof Error ? error.message : 'errore sconosciuto'}`)
     } finally {
       setDeletingAllClients(false)
+    }
+  }
+
+  const handleDeleteContact = async (contact: Contact) => {
+    const fullName = [String(contact.firstName || '').trim(), String(contact.lastName || '').trim()].filter(Boolean).join(' ').trim() || 'questo cliente'
+    const confirmed = window.confirm(`Confermi l'eliminazione di ${fullName}? Questa azione non è reversibile.`)
+    if (!confirmed) return
+    try {
+      const response = await fetch(`/api/contacts/${contact.id}`, {
+        method: 'DELETE',
+        headers: authHeaders
+      })
+      const data = await response.json().catch(() => null)
+      if (!response.ok || !data?.success) {
+        throw new Error(data?.message || `HTTP ${response.status}`)
+      }
+      if (showViewModal?.id === contact.id) {
+        setShowViewModal(null)
+      }
+      if (editingContact?.id === contact.id) {
+        setEditingContact(null)
+        setShowModal(false)
+      }
+      alert(`Cliente eliminato: ${fullName}`)
+      setReloadTick((prev) => prev + 1)
+    } catch (error) {
+      alert(`Errore eliminazione cliente: ${error instanceof Error ? error.message : 'errore sconosciuto'}`)
     }
   }
 
@@ -30320,6 +30670,40 @@ function ClientsPage({
                     <Phone size={16} style={{ marginRight: '0.5rem' }} />
 
                     Chiama
+
+                  </button>
+
+                  <button
+
+                    onClick={() => handleDeleteContact(contact)}
+
+                    style={{
+
+                      display: 'flex',
+
+                      alignItems: 'center',
+
+                      padding: '0.5rem 1rem',
+
+                      backgroundColor: '#ef4444',
+
+                      color: 'white',
+
+                      border: 'none',
+
+                      borderRadius: '0.375rem',
+
+                      cursor: 'pointer',
+
+                      fontSize: '0.875rem'
+
+                    }}
+
+                  >
+
+                    <Trash2 size={16} style={{ marginRight: '0.5rem' }} />
+
+                    Elimina
 
                   </button>
 
@@ -37626,8 +38010,16 @@ const getPropertyNumberWithFallback = (property: Partial<Property>, coreValue: a
 }
 
 const getPropertyDisplayPrice = (property: Partial<Property>) => {
-  const sale = getPropertyNumberWithFallback(property, property.salePrice, 'prezzo') || 0
-  const rent = getPropertyNumberWithFallback(property, property.rentPrice, 'prezzo') || 0
+  const sale = getPropertyNumberWithFallback(
+    property,
+    (property as any).advertisingSalePrice ?? property.salePrice,
+    'prezzo'
+  ) || 0
+  const rent = getPropertyNumberWithFallback(
+    property,
+    (property as any).advertisingRentPrice ?? property.rentPrice,
+    'prezzo'
+  ) || 0
   if ((property.contractType || '').toUpperCase() === 'RENT') return rent || sale || 0
   return sale || rent || 0
 }
@@ -37927,14 +38319,20 @@ function PropertyDetailPage({
       const headers: HeadersInit = token ? { Authorization: `Bearer ${token}` } : {}
 
       const response = await fetch(`/api/properties/${propertyId}`, { headers })
-
-      const data = await response.json()
-
-      if (data.success) {
-
+      const data = await response.json().catch(() => null)
+      if (response.ok && data?.success) {
         setProperty(data.data)
-
+        return
       }
+      if (!token) {
+        const publicResponse = await fetch(`/api/public/properties/${propertyId}`)
+        const publicData = await publicResponse.json().catch(() => null)
+        if (publicResponse.ok && publicData?.success) {
+          setProperty(publicData.data)
+          return
+        }
+      }
+      setProperty(null)
 
     } catch (error) {
 
@@ -38520,44 +38918,6 @@ function PropertyDetailPage({
 
 
 
-  if (loading) {
-
-    return (
-
-      <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '400px' }}>
-
-        <div>Caricamento dettagli immobile...</div>
-
-      </div>
-
-    )
-
-  }
-
-
-
-  if (!property) {
-
-    return (
-
-      <div style={{ textAlign: 'center', padding: '2rem' }}>
-
-        <h2>Immobile non trovato</h2>
-
-        <button onClick={onBack} style={{ marginTop: '1rem', padding: '0.5rem 1rem', backgroundColor: '#6b7280', color: 'white', border: 'none', borderRadius: '0.375rem', cursor: 'pointer' }}>
-
-          Torna alla lista
-
-        </button>
-
-      </div>
-
-    )
-
-  }
-
-
-
   const compactHeader = isCompactLayout
     ? {
         display: 'flex',
@@ -38587,7 +38947,7 @@ function PropertyDetailPage({
         alignItems: 'start'
       }
 
-  const imageList = Array.isArray(property.images) ? property.images.filter(Boolean) : []
+  const imageList = Array.isArray(property?.images) ? property.images.filter(Boolean) : []
   const heroImage = imageList[0] || ''
   const thumbImages = imageList.slice(1, 5)
   const openGalleryAt = (index: number) => {
@@ -38604,11 +38964,65 @@ function PropertyDetailPage({
     if (!imageList.length) return
     setGalleryIndex((prev) => (prev + 1) % imageList.length)
   }
-  const hasPortals = Array.isArray(property.portalTargets) && property.portalTargets.length > 0
+  useEffect(() => {
+    if (!isGalleryOpen || imageList.length === 0) return
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        setIsGalleryOpen(false)
+        return
+      }
+      if (event.key === 'ArrowLeft') {
+        event.preventDefault()
+        showPrevGalleryImage()
+        return
+      }
+      if (event.key === 'ArrowRight') {
+        event.preventDefault()
+        showNextGalleryImage()
+      }
+    }
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [isGalleryOpen, imageList.length])
+  const hasPortals = Array.isArray(property?.portalTargets) && property.portalTargets.length > 0
   const sidebarLinkedRequests = [...linkedRequests]
     .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
     .slice(0, 2)
   const hiddenLinkedRequestsCount = Math.max(0, linkedRequests.length - sidebarLinkedRequests.length)
+
+  if (loading) {
+
+    return (
+
+      <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '400px' }}>
+
+        <div>Caricamento dettagli immobile...</div>
+
+      </div>
+
+    )
+
+  }
+
+  if (!property) {
+
+    return (
+
+      <div style={{ textAlign: 'center', padding: '2rem' }}>
+
+        <h2>Immobile non trovato</h2>
+
+        <button onClick={onBack} style={{ marginTop: '1rem', padding: '0.5rem 1rem', backgroundColor: '#6b7280', color: 'white', border: 'none', borderRadius: '0.375rem', cursor: 'pointer' }}>
+
+          Torna alla lista
+
+        </button>
+
+      </div>
+
+    )
+
+  }
 
   return (
     <>
@@ -38766,8 +39180,6 @@ function PropertyDetailPage({
 
           { id: 'documents', label: 'Documenti', icon: <FileText size={16} /> },
 
-          { id: 'full_data', label: 'Dati completi', icon: <FileText size={16} /> },
-
           { id: 'cross_calls', label: 'Incroci', icon: <Target size={16} /> },
 
           { id: 'portals', label: 'Portali', icon: <Target size={16} /> },
@@ -38923,175 +39335,6 @@ function PropertyDetailPage({
               isEditing={isEditing}
               onUpdate={handleUpdateProperty}
             />
-          )}
-
-          {activeTab === 'full_data' && (
-            <div style={{ display: 'grid', gap: '1rem' }}>
-              {(() => {
-                const full = (property || {}) as any
-                const oneClick = (full?.oneClickData || {}) as Record<string, any>
-                const keyMeta: Record<string, { label: string; help?: string }> = {
-                  title: { label: 'Titolo', help: 'Nome commerciale dellimmobile.' },
-                  reference: { label: 'Riferimento', help: 'Codice univoco interno dellannuncio.' },
-                  description: { label: 'Descrizione', help: 'Testo descrittivo completo dellimmobile.' },
-                  type: { label: 'Tipologia immobile', help: 'Categoria dellimmobile (appartamento, villa, ufficio, ecc.).' },
-                  contractType: { label: 'Tipo contratto', help: 'Indica se limmobile  in vendita o in affitto.' },
-                  status: { label: 'Stato', help: 'Stato commerciale corrente (disponibile, venduto, riservato, ecc.).' },
-                  address: { label: 'Indirizzo', help: 'Via e numero civico dellimmobile.' },
-                  city: { label: 'Citt', help: 'Comune in cui si trova limmobile.' },
-                  province: { label: 'Provincia', help: 'Sigla della provincia del comune.' },
-                  zipCode: { label: 'CAP', help: 'Codice di avviamento postale.' },
-                  giComuneIstat: { label: 'Codice ISTAT comune', help: 'Codice ISTAT ufficiale del comune.' },
-                  latitude: { label: 'Latitudine', help: 'Coordinata geografica nord/sud della posizione.' },
-                  longitude: { label: 'Longitudine', help: 'Coordinata geografica est/ovest della posizione.' },
-                  salePrice: { label: 'Prezzo vendita', help: 'Prezzo richiesto per la vendita (in euro).' },
-                  rentPrice: { label: 'Canone affitto', help: 'Importo mensile richiesto per laffitto (in euro).' },
-                  expenses: { label: 'Spese', help: 'Spese accessorie/condominiali in euro.' },
-                  surface: { label: 'Superficie (mq)', help: 'Metri quadrati dellimmobile: indica la dimensione complessiva.' },
-                  rooms: { label: 'Locali', help: 'Numero totale dei locali principali.' },
-                  bedrooms: { label: 'Camere da letto', help: 'Numero delle camere da letto.' },
-                  bathrooms: { label: 'Bagni', help: 'Numero dei servizi igienici.' },
-                  floor: { label: 'Piano', help: 'Piano in cui si trova lunit immobiliare.' },
-                  totalFloors: { label: 'Piani edificio', help: 'Numero totale di piani del fabbricato.' },
-                  elevator: { label: 'Ascensore', help: 'Presenza o assenza dellascensore.' },
-                  furnished: { label: 'Arredato', help: 'Indica se limmobile  arredato.' },
-                  energyClass: { label: 'Classe energetica', help: 'Classe di efficienza energetica (A4, A3...G).' },
-                  ownerFirstName: { label: 'Nome proprietario' },
-                  ownerLastName: { label: 'Cognome proprietario' },
-                  ownerEmail: { label: 'Email proprietario' },
-                  ownerPhone: { label: 'Telefono proprietario' },
-                  ownerFiscalCode: { label: 'Codice fiscale proprietario' },
-                  images: { label: 'Immagini', help: 'Elenco immagini associate allimmobile.' },
-                  portalTargets: { label: 'Canali portali', help: 'Canali di pubblicazione associati allannuncio.' },
-                  notes: { label: 'Note interne', help: 'Note operative ad uso interno.' },
-                  isPublished: { label: 'Pubblicato', help: 'Indica se limmobile  pubblicato.' },
-                  createdAt: { label: 'Creato il' },
-                  updatedAt: { label: 'Aggiornato il' },
-                  prezzo: { label: 'Prezzo', help: 'Prezzo dellannuncio nel tracciato 1click.' },
-                  mq: { label: 'Metri quadrati (1click)', help: 'Superficie in mq usata per esportazione verso i portali.' },
-                  nr_locali: { label: 'Numero locali (1click)' },
-                  nr_camere: { label: 'Numero camere (1click)' },
-                  nr_servizi: { label: 'Numero bagni (1click)' },
-                  comune_istat: { label: 'Comune ISTAT (1click)' },
-                  descrizione: { label: 'Descrizione annuncio (1click)' },
-                  idtipologiaimmobile: { label: 'ID tipologia immobile (1click)' },
-                  idtipologiaannuncio: { label: 'ID tipologia annuncio (1click)' },
-                  data_inserimento: { label: 'Data inserimento (1click)' },
-                  data_aggiornamento: { label: 'Data aggiornamento (1click)' },
-                  selectedPortalCodes: { label: 'Portali selezionati', help: 'Codici portale su cui pubblicare lannuncio.' }
-                }
-                const fallbackLabel = (key: string) =>
-                  key
-                    .replace(/_/g, ' ')
-                    .replace(/([a-z])([A-Z])/g, '$1 $2')
-                    .replace(/\s+/g, ' ')
-                    .trim()
-                    .replace(/^./, (m) => m.toUpperCase())
-                const labelize = (key: string) => keyMeta[key]?.label || fallbackLabel(key)
-                const helpFor = (key: string) => keyMeta[key]?.help || ''
-                const formatValueByKey = (key: string, value: any) => {
-                  if (value === null || value === undefined || value === '') return '-'
-                  if (key === 'contractType') {
-                    const map: Record<string, string> = { SALE: 'Vendita', RENT: 'Affitto', BOTH: 'Vendita + Affitto' }
-                    return map[String(value).toUpperCase()] || String(value)
-                  }
-                  if (key === 'status') {
-                    const map: Record<string, string> = {
-                      AVAILABLE: 'Disponibile',
-                      RESERVED: 'Riservato',
-                      SOLD: 'Venduto',
-                      RENTED: 'Affittato',
-                      WITHDRAWN: 'Ritirato'
-                    }
-                    return map[String(value).toUpperCase()] || String(value)
-                  }
-                  if (typeof value === 'boolean') return value ? 'Si' : 'No'
-                  if (Array.isArray(value)) return value.length === 0 ? '[]' : JSON.stringify(value)
-                  if (typeof value === 'object') return JSON.stringify(value)
-                  return String(value)
-                }
-                const toDisplay = (value: any): string => {
-                  if (value === null || value === undefined || value === '') return '-'
-                  if (typeof value === 'boolean') return value ? 'Si' : 'No'
-                  if (Array.isArray(value)) return value.length === 0 ? '[]' : JSON.stringify(value)
-                  if (typeof value === 'object') return JSON.stringify(value)
-                  return String(value)
-                }
-                const coreKeys = [
-                  'title', 'reference', 'description', 'type', 'contractType', 'status',
-                  'address', 'city', 'province', 'zipCode', 'giComuneIstat', 'latitude', 'longitude',
-                  'salePrice', 'rentPrice', 'expenses', 'surface', 'rooms', 'bedrooms', 'bathrooms',
-                  'floor', 'totalFloors', 'elevator', 'furnished', 'energyClass',
-                  'ownerFirstName', 'ownerLastName', 'ownerEmail', 'ownerPhone', 'ownerFiscalCode',
-                  'buildingConstructionYear', 'buildingRenovationYear', 'buildingFloorsTotal',
-                  'buildingElevator', 'buildingConcierge', 'buildingGardenShared', 'buildingHeatingType', 'buildingCondition',
-                  'images', 'portalTargets', 'notes', 'isPublished', 'createdAt', 'updatedAt'
-                ]
-                const coreEntries = coreKeys
-                  .filter((k) => k in full)
-                  .map((k) => [k, full[k]] as const)
-                const oneClickEntries = Object.entries(oneClick).sort(([a], [b]) => a.localeCompare(b, 'it'))
-
-                const sectionStyle: React.CSSProperties = {
-                  border: '1px solid #d5deea',
-                  borderRadius: '0.85rem',
-                  background: '#eef5ff',
-                  padding: isCompactLayout ? '0.75rem' : '1rem'
-                }
-                const gridStyle: React.CSSProperties = {
-                  display: 'grid',
-                  gridTemplateColumns: isCompactLayout ? '1fr' : 'repeat(2, minmax(0, 1fr))',
-                  gap: '0.55rem 1rem'
-                }
-                const rowStyle: React.CSSProperties = {
-                  borderBottom: '1px dashed #d5deea',
-                  paddingBottom: '0.35rem'
-                }
-
-                return (
-                  <>
-                    <div style={sectionStyle}>
-                      <h3 style={{ margin: 0, marginBottom: '0.8rem', fontSize: '1.05rem', color: '#1e3a8a', fontWeight: 700 }}>
-                        Dati Core Immobile
-                      </h3>
-                      <div style={gridStyle}>
-                        {coreEntries.map(([k, v]) => (
-                          <div key={`core-${k}`} style={rowStyle}>
-                            <div style={{ color: '#1e3a8a', fontSize: '0.78rem', fontWeight: 700 }}>{labelize(k)}</div>
-                            {helpFor(k) ? <div style={{ color: '#64748b', fontSize: '0.72rem', marginBottom: '0.18rem' }}>{helpFor(k)}</div> : null}
-                            <div style={{ color: '#0f172a', fontWeight: 600, whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>{formatValueByKey(k, v)}</div>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-
-                    <div style={sectionStyle}>
-                      <h3 style={{ margin: 0, marginBottom: '0.8rem', fontSize: '1.05rem', color: '#1e3a8a', fontWeight: 700 }}>
-                        Dati 1clickannunci (Tutte le voci)
-                      </h3>
-                      <div style={gridStyle}>
-                        {oneClickEntries.map(([k, v]) => (
-                          <div key={`oc-${k}`} style={rowStyle}>
-                            <div style={{ color: '#1e3a8a', fontSize: '0.78rem', fontWeight: 700 }}>{labelize(k)}</div>
-                            {helpFor(k) ? <div style={{ color: '#64748b', fontSize: '0.72rem', marginBottom: '0.18rem' }}>{helpFor(k)}</div> : null}
-                            <div style={{ color: '#0f172a', fontWeight: 600, whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>{formatValueByKey(k, v)}</div>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-
-                    <div style={sectionStyle}>
-                      <h3 style={{ margin: 0, marginBottom: '0.8rem', fontSize: '1.05rem', color: '#1e3a8a', fontWeight: 700 }}>
-                        JSON Completo Salvataggio
-                      </h3>
-                      <pre style={{ margin: 0, background: '#0f172a', color: '#e2e8f0', borderRadius: 8, padding: '0.8rem', fontSize: '0.78rem', overflowX: 'auto' }}>
-                        {JSON.stringify(full, null, 2)}
-                      </pre>
-                    </div>
-                  </>
-                )
-              })()}
-            </div>
           )}
 
           {activeTab === 'cross_calls' && (
@@ -39457,6 +39700,52 @@ function PropertyDetailPage({
         </aside>}
       </div>
     </div>
+    {isGalleryOpen && imageList.length > 0 ? (
+      <div
+        onClick={() => setIsGalleryOpen(false)}
+        style={{
+          position: 'fixed',
+          inset: 0,
+          background: 'rgba(15, 23, 42, 0.92)',
+          zIndex: 2147483646,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          padding: '1rem'
+        }}
+      >
+        <button
+          type="button"
+          onClick={(event) => { event.stopPropagation(); setIsGalleryOpen(false) }}
+          style={{ position: 'absolute', top: '1rem', right: '1rem', border: 'none', background: 'rgba(255,255,255,0.2)', color: '#fff', borderRadius: '999px', width: '2.25rem', height: '2.25rem', cursor: 'pointer' }}
+          aria-label="Chiudi galleria"
+        >
+          <X size={18} />
+        </button>
+        <button
+          type="button"
+          onClick={(event) => { event.stopPropagation(); showPrevGalleryImage() }}
+          style={{ position: 'absolute', left: '1rem', border: 'none', background: 'rgba(255,255,255,0.2)', color: '#fff', borderRadius: '999px', width: '2.5rem', height: '2.5rem', cursor: 'pointer' }}
+          aria-label="Immagine precedente"
+        >
+          <ArrowLeft size={18} />
+        </button>
+        <img
+          src={imageList[galleryIndex]}
+          alt={`${property.title} - ${galleryIndex + 1}`}
+          onClick={(event) => event.stopPropagation()}
+          style={{ maxWidth: '94vw', maxHeight: '88vh', objectFit: 'contain', borderRadius: '0.5rem' }}
+        />
+        <button
+          type="button"
+          onClick={(event) => { event.stopPropagation(); showNextGalleryImage() }}
+          style={{ position: 'absolute', right: '1rem', border: 'none', background: 'rgba(255,255,255,0.2)', color: '#fff', borderRadius: '999px', width: '2.5rem', height: '2.5rem', cursor: 'pointer' }}
+          aria-label="Immagine successiva"
+        >
+          <ArrowRight size={18} />
+        </button>
+      </div>
+    ) : null}
     {showQuickClientModal ? (
       <ContactModal
         contact={null}
@@ -39575,12 +39864,7 @@ function PropertyOverviewTab({
       ? (property.advertisingRentPrice || undefined)
       : (property.advertisingSalePrice || undefined)
   const internalAcquisitionPrice = Number(oneClick?.prezzo_acquisizione || 0) || undefined
-  const fallbackPublicPrice =
-    (property.contractType || '').toUpperCase() === 'RENT'
-      ? (property.rentPrice || property.salePrice || undefined)
-      : (property.salePrice || property.rentPrice || undefined)
-  const publicPrice = advertisingPrice || fallbackPublicPrice
-  const overviewDescription = String(property.description || oneClick?.descrizione || '').trim()
+  const publicPrice = advertisingPrice
 
 
 
@@ -40115,12 +40399,6 @@ function PropertyOverviewTab({
         ) : (
 
           <div style={{ display: 'grid', gap: '1rem' }}>
-            <div style={{ border: '1px solid #e5e7eb', borderRadius: '0.55rem', padding: '0.9rem', background: '#f8fafc' }}>
-              <h5 style={{ fontWeight: '700', marginBottom: '0.45rem', color: '#0f172a' }}>Descrizione</h5>
-              <div style={{ color: '#334155', lineHeight: 1.55 }}>
-                {overviewDescription || <span style={{ color: '#9ca3af', fontStyle: 'italic' }}>Descrizione non disponibile</span>}
-              </div>
-            </div>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: '1rem' }}>
 
             <div style={{ border: '1px solid #e5e7eb', borderRadius: '0.55rem', padding: '0.9rem', background: '#ffffff' }}>
@@ -40263,6 +40541,7 @@ function PropertyOverviewTab({
         </div>
 
       </div>
+
 
     </div>
 
@@ -41874,8 +42153,7 @@ function PublicCheckoutPage() {
 
     const iconBackground = effectiveStatus === 'ERROR' ? '#fee2e2' : '#dcfce7'
 
-    const iconSymbol = effectiveStatus === 'ERROR' ? '!' : '
-S'
+    const iconSymbol = effectiveStatus === 'ERROR' ? '!' : 'S'
 
 
 
@@ -42477,6 +42755,26 @@ function PublicPropertyPage({
     if (!publicImageList.length) return
     setActiveImageIndex((prev) => (prev + 1) % publicImageList.length)
   }
+  useEffect(() => {
+    if (!isPublicGalleryOpen || publicImageList.length === 0) return
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        setIsPublicGalleryOpen(false)
+        return
+      }
+      if (event.key === 'ArrowLeft') {
+        event.preventDefault()
+        showPrevPublicGalleryImage()
+        return
+      }
+      if (event.key === 'ArrowRight') {
+        event.preventDefault()
+        showNextPublicGalleryImage()
+      }
+    }
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [isPublicGalleryOpen, publicImageList.length])
 
 
 
@@ -42897,12 +43195,9 @@ function PublicPropertyPage({
 
                             borderRadius: '0.375rem',
 
-                            cursor: 'pointer',
-
+                            cursor: 'zoom-in',
                             border: activeImageIndex === index ? '2px solid #2563eb' : '2px solid transparent',
-
-                            flexShrink: 0,
-                            cursor: 'zoom-in'
+                            flexShrink: 0
 
                           }}
 
@@ -43066,6 +43361,53 @@ function PublicPropertyPage({
         </div>
 
       </div>
+
+      {isPublicGalleryOpen && publicImageList.length > 0 ? (
+        <div
+          onClick={() => setIsPublicGalleryOpen(false)}
+          style={{
+            position: 'fixed',
+            inset: 0,
+            background: 'rgba(15, 23, 42, 0.92)',
+            zIndex: 2147483646,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: '1rem'
+          }}
+        >
+          <button
+            type="button"
+            onClick={(event) => { event.stopPropagation(); setIsPublicGalleryOpen(false) }}
+            style={{ position: 'absolute', top: '1rem', right: '1rem', border: 'none', background: 'rgba(255,255,255,0.2)', color: '#fff', borderRadius: '999px', width: '2.25rem', height: '2.25rem', cursor: 'pointer' }}
+            aria-label="Chiudi galleria"
+          >
+            <X size={18} />
+          </button>
+          <button
+            type="button"
+            onClick={(event) => { event.stopPropagation(); showPrevPublicGalleryImage() }}
+            style={{ position: 'absolute', left: '1rem', border: 'none', background: 'rgba(255,255,255,0.2)', color: '#fff', borderRadius: '999px', width: '2.5rem', height: '2.5rem', cursor: 'pointer' }}
+            aria-label="Immagine precedente"
+          >
+            <ArrowLeft size={18} />
+          </button>
+          <img
+            src={publicImageList[activeImageIndex]}
+            alt={`${property.title} - ${activeImageIndex + 1}`}
+            onClick={(event) => event.stopPropagation()}
+            style={{ maxWidth: '94vw', maxHeight: '88vh', objectFit: 'contain', borderRadius: '0.5rem' }}
+          />
+          <button
+            type="button"
+            onClick={(event) => { event.stopPropagation(); showNextPublicGalleryImage() }}
+            style={{ position: 'absolute', right: '1rem', border: 'none', background: 'rgba(255,255,255,0.2)', color: '#fff', borderRadius: '999px', width: '2.5rem', height: '2.5rem', cursor: 'pointer' }}
+            aria-label="Immagine successiva"
+          >
+            <ArrowRight size={18} />
+          </button>
+        </div>
+      ) : null}
 
     </div>
 
@@ -44835,9 +45177,77 @@ function CrossClientProfileModal({
 }) {
   const request = row?.request || {}
   const contact = row?.contact || {}
+  const mapContractTypeLabel = (value: unknown) => {
+    const key = String(value || '').trim().toUpperCase()
+    if (key === 'RENT' || key === 'AFFITTO' || key === 'LOCAZIONE') return 'Affitto'
+    if (key === 'SALE' || key === 'VENDITA') return 'Vendita'
+    return key ? String(value) : 'N/D'
+  }
+  const mapClientTypeLabel = (value: unknown) => {
+    const key = String(value || '').trim().toUpperCase()
+    if (key === 'BUYER') return 'Acquirente'
+    if (key === 'TENANT') return 'Inquilino'
+    if (key === 'SELLER') return 'Venditore'
+    if (key === 'LANDLORD') return 'Proprietario'
+    if (key === 'LEAD') return 'Lead'
+    return key ? String(value) : 'N/D'
+  }
+  const mapPropertyTypeLabel = (value: unknown) => {
+    const key = String(value || '').trim().toUpperCase()
+    const labels: Record<string, string> = {
+      APARTMENT: 'Appartamento',
+      HOUSE: 'Casa',
+      VILLA: 'Villa',
+      OFFICE: 'Ufficio',
+      SHOP: 'Negozio',
+      WAREHOUSE: 'Magazzino',
+      LAND: 'Terreno',
+      GARAGE: 'Garage',
+      OTHER: 'Altro'
+    }
+    return labels[key] || (key ? String(value) : 'N/D')
+  }
+  const requestTypeLabel = mapPropertyTypeLabel(request.type || (contact as any).requestPropertyType || contact.requestApartmentType)
+  const requestContractLabel = mapContractTypeLabel(request.contractType || (contact as any).requestGoal)
+  const normalizedGoal = String(request.contractType || (contact as any).requestGoal || '').trim().toUpperCase()
+  const inferredGoal =
+    normalizedGoal ||
+    (String(contact.type || '').toUpperCase() === 'TENANT' ? 'RENT' : (String(contact.type || '').toUpperCase() === 'BUYER' ? 'SALE' : ''))
+  const requestGoalLabel = mapContractTypeLabel(inferredGoal)
+  const detailsText = String(
+    request.noteText ||
+    request.description ||
+    request.notes ||
+    (contact as any).preferences ||
+    contact.notes ||
+    ''
+  )
+  const pickDetailNumber = (label: string): string | null => {
+    const rx = new RegExp(`${label}\\s*:\\s*(\\d+)`, 'i')
+    const m = detailsText.match(rx)
+    return m?.[1] || null
+  }
+  const requestedRooms =
+    request.minRooms ??
+    request.maxRooms ??
+    (contact as any).requestBedrooms ??
+    pickDetailNumber('Camere') ??
+    null
+  const requestedBathrooms =
+    request.minBathrooms ??
+    request.maxBathrooms ??
+    (contact as any).requestBathrooms ??
+    pickDetailNumber('Bagni') ??
+    null
+  const requestedFloor =
+    request.minFloor ??
+    request.maxFloor ??
+    (contact as any).requestFloor ??
+    pickDetailNumber('Piano') ??
+    null
   const budgetLabel =
-    request.minPrice != null || request.maxPrice != null
-      ? `${request.minPrice != null ? `EUR ${request.minPrice}` : 'min n/d'} - ${request.maxPrice != null ? `EUR ${request.maxPrice}` : 'max n/d'}`
+    request.minPrice != null || request.maxPrice != null || (contact as any).budgetMin != null || (contact as any).budgetMax != null
+      ? `${(request.minPrice ?? (contact as any).budgetMin) != null ? `€${Number(request.minPrice ?? (contact as any).budgetMin).toLocaleString('it-IT')}` : 'min N/D'} - ${(request.maxPrice ?? (contact as any).budgetMax ?? contact.budget) != null ? `€${Number(request.maxPrice ?? (contact as any).budgetMax ?? contact.budget).toLocaleString('it-IT')}` : 'max N/D'}`
       : 'Non impostato'
 
   const noteRichiesta =
@@ -44871,46 +45281,103 @@ function CrossClientProfileModal({
           maxHeight: 'calc(100vh - 24px)',
           overflowY: 'auto',
           background: '#ffffff',
-          border: '2px solid #000000',
+          border: '1px solid #d5deea',
           borderRadius: '14px',
+          boxShadow: '0 20px 45px rgba(15,23,42,0.25)',
           padding: '1rem'
         }}
         onClick={(event) => event.stopPropagation()}
       >
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid #000000', paddingBottom: '0.5rem', marginBottom: '0.8rem' }}>
-          <h2 style={{ margin: 0, color: '#000000' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid #d8e0eb', paddingBottom: '0.6rem', marginBottom: '0.8rem' }}>
+          <h2 style={{ margin: 0, color: '#0f172a', fontSize: '1.2rem' }}>
             Profilo cliente: {contact.name || `${contact.firstName || ''} ${contact.lastName || ''}`.trim() || 'N/D'}
           </h2>
-          <button type="button" onClick={onClose} style={{ border: '1px solid #000000', background: '#ffffff', color: '#000000', borderRadius: '8px', padding: '0.35rem 0.6rem', cursor: 'pointer' }}>
+          <button type="button" onClick={onClose} style={{ border: '1px solid #cbd5e1', background: '#ffffff', color: '#0f172a', borderRadius: '10px', padding: '0.45rem 0.75rem', cursor: 'pointer', fontWeight: 600 }}>
             Chiudi
           </button>
         </div>
 
+        <div style={{ display: 'flex', gap: '0.6rem', flexWrap: 'wrap', marginBottom: '0.8rem' }}>
+          <a
+            href={contact.phone ? `tel:${contact.phone}` : '#'}
+            onClick={(e) => { if (!contact.phone) e.preventDefault() }}
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '0.45rem',
+              borderRadius: '10px',
+              padding: '0.5rem 0.8rem',
+              border: '1px solid #bfdbfe',
+              background: '#eff6ff',
+              color: contact.phone ? '#1d4ed8' : '#94a3b8',
+              textDecoration: 'none',
+              fontWeight: 700
+            }}
+          >
+            <Phone size={16} /> Chiama cliente
+          </a>
+          <a
+            href={contact.email ? `mailto:${contact.email}` : '#'}
+            onClick={(e) => { if (!contact.email) e.preventDefault() }}
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '0.45rem',
+              borderRadius: '10px',
+              padding: '0.5rem 0.8rem',
+              border: '1px solid #bbf7d0',
+              background: '#f0fdf4',
+              color: contact.email ? '#15803d' : '#94a3b8',
+              textDecoration: 'none',
+              fontWeight: 700
+            }}
+          >
+            <Mail size={16} /> Invia email
+          </a>
+        </div>
+
         <div style={{ display: 'grid', gap: '0.75rem' }}>
-          <div style={{ border: '1px solid #000000', borderRadius: '10px', padding: '0.75rem' }}>
+          <div style={{ display: 'flex', gap: '0.6rem', flexWrap: 'wrap' }}>
+            <span style={{ fontSize: '0.8rem', color: '#475569', fontWeight: 700 }}>Finalità richiesta:</span>
+            <span
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                borderRadius: '999px',
+                padding: '0.2rem 0.55rem',
+                fontSize: '0.78rem',
+                fontWeight: 700,
+                background: inferredGoal === 'RENT' ? '#fef3c7' : '#dbeafe',
+                color: inferredGoal === 'RENT' ? '#92400e' : '#1d4ed8'
+              }}
+            >
+              {requestGoalLabel}
+            </span>
+          </div>
+          <div style={{ border: '1px solid #d8e0eb', borderRadius: '12px', padding: '0.9rem', background: '#f8fbff' }}>
             <div style={{ fontWeight: 700, marginBottom: '0.45rem' }}>Contatti cliente</div>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0,1fr))', gap: '0.45rem 0.8rem' }}>
-              <div><strong>Email:</strong> {contact.email ? <a href={`mailto:${contact.email}`} style={{ color: '#000000', textDecoration: 'underline' }}>{contact.email}</a> : 'N/D'}</div>
-              <div><strong>Telefono:</strong> {contact.phone ? <a href={`tel:${contact.phone}`} style={{ color: '#000000', textDecoration: 'underline' }}>{contact.phone}</a> : 'N/D'}</div>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0,1fr))', gap: '0.5rem 0.9rem' }}>
+              <div><strong>Email:</strong> {contact.email ? <a href={`mailto:${contact.email}`} style={{ color: '#1d4ed8', textDecoration: 'underline' }}>{contact.email}</a> : 'N/D'}</div>
+              <div><strong>Telefono:</strong> {contact.phone ? <a href={`tel:${contact.phone}`} style={{ color: '#1d4ed8', textDecoration: 'underline' }}>{contact.phone}</a> : 'N/D'}</div>
               <div><strong>Citt:</strong> {contact.city || (Array.isArray(request.cities) && request.cities[0]) || 'N/D'}</div>
               <div><strong>Provincia:</strong> {contact.province || (Array.isArray(request.provinces) && request.provinces[0]) || 'N/D'}</div>
               <div><strong>Nazione:</strong> Italia</div>
               <div><strong>Luogo di nascita:</strong> {contact.birthPlace || 'N/D'}</div>
-              <div><strong>Cliente attivo:</strong> {contact.isActive === false ? 'No' : 'Si'}</div>
-              <div><strong>Tipologia cliente:</strong> {contact.type || 'N/D'}</div>
+              <div><strong>Cliente attivo:</strong> {contact.isActive === false ? 'No' : 'Sì'}</div>
+              <div><strong>Tipologia cliente:</strong> {mapClientTypeLabel(contact.type)}</div>
             </div>
           </div>
 
-          <div style={{ border: '1px solid #000000', borderRadius: '10px', padding: '0.75rem' }}>
+          <div style={{ border: '1px solid #d8e0eb', borderRadius: '12px', padding: '0.9rem', background: '#ffffff' }}>
             <div style={{ fontWeight: 700, marginBottom: '0.45rem' }}>Richiesta immobiliare</div>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0,1fr))', gap: '0.45rem 0.8rem' }}>
-              <div><strong>Tipologia appartamento richiesta:</strong> {request.apartmentSubtype || request.type || 'N/D'}</div>
-              <div><strong>Contratto:</strong> {request.contractType || 'N/D'}</div>
-              <div><strong>Camere richieste:</strong> {request.minRooms ?? request.maxRooms ?? 'N/D'}</div>
-              <div><strong>Bagni richiesti:</strong> {request.minBathrooms ?? request.maxBathrooms ?? 'N/D'}</div>
-              <div><strong>Piano richiesto:</strong> {request.minFloor ?? request.maxFloor ?? 'N/D'}</div>
+              <div><strong>Tipologia richiesta:</strong> {requestTypeLabel}</div>
+              <div><strong>Contratto:</strong> {requestContractLabel}</div>
+              <div><strong>Camere richieste:</strong> {requestedRooms ?? 'N/D'}</div>
+              <div><strong>Bagni richiesti:</strong> {requestedBathrooms ?? 'N/D'}</div>
+              <div><strong>Piano richiesto:</strong> {requestedFloor ?? 'N/D'}</div>
               <div><strong>Budget (EUR):</strong> {budgetLabel}</div>
-              <div style={{ gridColumn: '1 / -1' }}><strong>Preferenze/Richieste:</strong> {request.notePreset || '-'}</div>
+              <div style={{ gridColumn: '1 / -1' }}><strong>Preferenze/Richieste:</strong> {request.notePreset || contact.preferences || '-'}</div>
               <div style={{ gridColumn: '1 / -1' }}><strong>Note:</strong> {noteRichiesta}</div>
             </div>
           </div>
@@ -45061,6 +45528,18 @@ function PropertyHistoryTab({
       email?: string | null
       role?: string | null
     } | null
+    lead?: {
+      title?: string | null
+      message?: string | null
+      propertyTitle?: string | null
+      propertyReference?: string | null
+      contactName?: string | null
+      contactEmail?: string | null
+      contactPhone?: string | null
+      availability?: string | null
+      timeSlot?: string | null
+      note?: string | null
+    } | null
   }>
   onOpenLinkedRequest: (request: {
     id: string
@@ -45195,6 +45674,64 @@ function PropertyHistoryTab({
               </div>
             </div>
           ))}
+
+        {historyEvents
+          .filter((event) => {
+            const type = String(event.type || '').toUpperCase()
+            return type === 'PUBLIC_VISIT' || type === 'PUBLIC_CONTACT'
+          })
+          .map((event) => {
+            const isVisit = String(event.type || '').toUpperCase() === 'PUBLIC_VISIT'
+            const lead = event.lead || null
+            const detailParts = [
+              lead?.contactName ? `Contatto: ${lead.contactName}` : null,
+              lead?.contactPhone ? `Telefono: ${lead.contactPhone}` : null,
+              lead?.contactEmail ? `Email: ${lead.contactEmail}` : null,
+              isVisit && lead?.availability ? `Disponibilità: ${lead.availability}` : null,
+              isVisit && lead?.timeSlot ? `Fascia oraria: ${lead.timeSlot}` : null,
+              lead?.note ? `Messaggio: ${lead.note}` : null
+            ].filter(Boolean)
+            return (
+              <div
+                key={`public-lead-${event.id}`}
+                style={{
+                  display: 'flex',
+                  alignItems: 'flex-start',
+                  gap: '1rem',
+                  padding: '1rem',
+                  backgroundColor: '#f8fafc',
+                  borderRadius: '0.375rem'
+                }}
+              >
+                <div style={{
+                  width: '3rem',
+                  height: '3rem',
+                  backgroundColor: isVisit ? '#7c3aed' : '#2563eb',
+                  borderRadius: '50%',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  color: 'white',
+                  fontWeight: 'bold'
+                }}>
+                  {isVisit ? <Calendar size={18} /> : <Mail size={18} />}
+                </div>
+                <div style={{ minWidth: 0 }}>
+                  <h4 style={{ fontWeight: '600', margin: 0 }}>
+                    {isVisit ? 'Richiesta visita da pagina pubblica' : 'Richiesta informazioni da pagina pubblica'}
+                  </h4>
+                  {detailParts.length > 0 && (
+                    <p style={{ color: '#334155', fontSize: '0.875rem', margin: '0.25rem 0 0 0', lineHeight: 1.5 }}>
+                      {detailParts.join('  ')}
+                    </p>
+                  )}
+                  <p style={{ color: '#6b7280', fontSize: '0.8rem', margin: '0.25rem 0 0 0' }}>
+                    {formatDateTime(event.at)}
+                  </p>
+                </div>
+              </div>
+            )
+          })}
 
         {linkedRequests.map((request) => (
           <div
@@ -45364,7 +45901,7 @@ function PropertyModal({
   })
   const [istatManualOverride, setIstatManualOverride] = useState(false)
 
-  const { token } = useAuthStore()
+  const { token, user } = useAuthStore()
   const isAdminUser = currentUserRole === 'SUPER_ADMIN' || currentUserRole === 'AGENCY_ADMIN'
 
 
@@ -45480,6 +46017,58 @@ function PropertyModal({
     }
     fetchOneClickDictionaries()
   }, [token])
+
+  const resolveAgentDisplayName = (agent: any) =>
+    String(agent?.name || [agent?.firstName, agent?.lastName].filter(Boolean).join(' ') || '').trim()
+
+  const createAgentFallbackOption = (): Agent | null => {
+    const fallbackId = String(property?.agentId || (property as any)?.ownerId || (!isAdminUser ? user?.id || '' : '')).trim()
+    if (!fallbackId) return null
+    const fallbackName = String(
+      property?.agentName ||
+      [user?.firstName, user?.lastName].filter(Boolean).join(' ') ||
+      user?.name ||
+      ''
+    ).trim()
+    return {
+      id: fallbackId,
+      name: fallbackName || 'Agente assegnato',
+      email: String(property?.agentEmail || user?.email || '').trim(),
+      phone: String(property?.agentPhone || '').trim(),
+      role: !isAdminUser && user?.role === 'AGENT' ? 'AGENT' : 'COLLABORATOR',
+      isActive: true,
+      commission: 0,
+      specialization: '',
+      notes: '',
+      createdAt: ''
+    }
+  }
+
+  const effectiveAvailableAgents = React.useMemo(() => {
+    const baseAgents = Array.isArray(availableAgents) ? [...availableAgents] : []
+    const fallbackAgent = createAgentFallbackOption()
+    if (!fallbackAgent) return baseAgents
+    if (baseAgents.some((agent) => String(agent.id || '').trim() === fallbackAgent.id)) return baseAgents
+    return [...baseAgents, fallbackAgent]
+  }, [availableAgents, isAdminUser, property, user])
+
+  const resolveInitialAssignedAgent = () => {
+    const propertyAgentId = String(property?.agentId || (property as any)?.ownerId || '').trim()
+    if (propertyAgentId) {
+      const fromProperty = effectiveAvailableAgents.find((agent: any) => String(agent.id || '').trim() === propertyAgentId)
+      if (fromProperty) return fromProperty
+    }
+    if (!isAdminUser) {
+      const currentUserId = String(user?.id || '').trim()
+      const currentUserEmail = String(user?.email || '').trim().toLowerCase()
+      const ownAgent = effectiveAvailableAgents.find((agent: any) =>
+        String(agent.id || '').trim() === currentUserId ||
+        String(agent.email || '').trim().toLowerCase() === currentUserEmail
+      )
+      if (ownAgent) return ownAgent
+    }
+    return null
+  }
 
   const INTERNAL_PRICE_TAG = '[INCARICO_PRICE:'
   const extractInternalAgencyPrice = (notesValue?: string | null): string => {
@@ -45706,7 +46295,7 @@ function PropertyModal({
 
     // Energia e ambiente
 
-    energyClass: property?.energyClass || 'G',
+    energyClass: property ? (property?.energyClass || 'G') : '',
 
 
 
@@ -45720,13 +46309,13 @@ function PropertyModal({
 
     // Agente
 
-    agentId: property?.agentId || '',
+    agentId: property?.agentId || (property as any)?.ownerId || '',
 
-    agentName: property?.agentName || 'Mario Rossi',
+    agentName: property?.agentName || '',
 
-    agentPhone: property?.agentPhone || '02 1234567',
+    agentPhone: property?.agentPhone || '',
 
-    agentEmail: property?.agentEmail || 'info@crmimmobiliare.it',
+    agentEmail: property?.agentEmail || '',
 
 
 
@@ -45839,6 +46428,36 @@ function PropertyModal({
 
   const [internalAgencyPrice, setInternalAgencyPrice] = useState<string>(() => extractInternalAgencyPrice(property?.notes))
 
+  useEffect(() => {
+    if (!effectiveAvailableAgents.length) return
+    const initialAgent = resolveInitialAssignedAgent()
+    if (!initialAgent) return
+    setFormData((prev) => {
+      const nextId = String(initialAgent.id || '')
+      const nextName = resolveAgentDisplayName(initialAgent)
+      const nextPhone = String((initialAgent as any).phone || '')
+      const nextEmail = String((initialAgent as any).email || '')
+      if (
+        String(prev.agentId || '') === nextId &&
+        String(prev.agentName || '') === nextName &&
+        String(prev.agentPhone || '') === nextPhone &&
+        String(prev.agentEmail || '') === nextEmail
+      ) {
+        return prev
+      }
+      if (!isAdminUser || !String(prev.agentId || '').trim() || String(property?.agentId || (property as any)?.ownerId || '').trim()) {
+        return {
+          ...prev,
+          agentId: nextId,
+          agentName: nextName,
+          agentPhone: nextPhone,
+          agentEmail: nextEmail
+        }
+      }
+      return prev
+    })
+  }, [effectiveAvailableAgents, isAdminUser, property, user?.email, user?.id])
+
   const normalizeForCompare = (value: string) =>
     value
       .toLowerCase()
@@ -45880,7 +46499,13 @@ function PropertyModal({
     setStreetSuggestions([])
   }
 
-  const nextStep = () => setActiveStep((prev) => Math.min(finalStep, prev + 1))
+  const nextStep = () => {
+    if (activeStep === 9 && !String(formData.energyClass || '').trim()) {
+      alert('La classe energetica è obbligatoria')
+      return
+    }
+    setActiveStep((prev) => Math.min(finalStep, prev + 1))
+  }
   const prevStep = () => setActiveStep((prev) => Math.max(1, prev - 1))
 
   useEffect(() => {
@@ -46020,7 +46645,7 @@ function PropertyModal({
 
   const handleAgentSelection = (agentId: string) => {
 
-    const selectedAgent = availableAgents.find(agent => agent.id === agentId)
+    const selectedAgent = effectiveAvailableAgents.find(agent => agent.id === agentId)
 
     if (selectedAgent) {
 
@@ -46030,7 +46655,7 @@ function PropertyModal({
 
         agentId: selectedAgent.id,
 
-        agentName: selectedAgent.name,
+        agentName: resolveAgentDisplayName(selectedAgent),
 
         agentPhone: selectedAgent.phone,
 
@@ -46059,6 +46684,14 @@ function PropertyModal({
     }
 
   }
+
+  const assignableAgents = isAdminUser
+    ? effectiveAvailableAgents
+    : effectiveAvailableAgents.filter((agent: any) => {
+        const currentUserId = String(user?.id || '').trim()
+        const currentUserEmail = String(user?.email || '').trim().toLowerCase()
+        return String(agent.id || '').trim() === currentUserId || String(agent.email || '').trim().toLowerCase() === currentUserEmail
+      })
 
 
 
@@ -46294,13 +46927,13 @@ function PropertyModal({
       ...randomData,
       portalTargets: ['ONECLICKANNUNCI'],
 
-      agentId: availableAgents.length > 0 ? availableAgents[0].id : prev.agentId,
+      agentId: (resolveInitialAssignedAgent()?.id || assignableAgents[0]?.id || prev.agentId) as any,
 
-      agentName: availableAgents.length > 0 ? availableAgents[0].name : prev.agentName,
+      agentName: resolveAgentDisplayName(resolveInitialAssignedAgent() || assignableAgents[0]) || prev.agentName,
 
-      agentPhone: availableAgents.length > 0 ? availableAgents[0].phone : prev.agentPhone,
+      agentPhone: String(((resolveInitialAssignedAgent() || assignableAgents[0]) as any)?.phone || prev.agentPhone || ''),
 
-      agentEmail: availableAgents.length > 0 ? availableAgents[0].email : prev.agentEmail,
+      agentEmail: String(((resolveInitialAssignedAgent() || assignableAgents[0]) as any)?.email || prev.agentEmail || ''),
 
     }))
 
@@ -46410,6 +47043,11 @@ function PropertyModal({
       setActiveStep(10)
       return
     }
+    if (!String(formData.energyClass || '').trim()) {
+      alert('La classe energetica � obbligatoria')
+      setActiveStep(9)
+      return
+    }
 
 
 
@@ -46418,6 +47056,16 @@ function PropertyModal({
     const notesWithInternalPrice = normalizedInternalPrice
       ? `${cleanNotes}${cleanNotes ? '\n' : ''}${INTERNAL_PRICE_TAG}${normalizedInternalPrice}]`
       : cleanNotes
+
+    const effectivePublicPrice =
+      formData.contractType === 'RENT'
+        ? Number(formData.rentPrice || 0) || undefined
+        : Number(formData.salePrice || 0) || undefined
+    const effectiveAdvertisingPrice =
+      formData.contractType === 'RENT'
+        ? Number(formData.advertisingRentPrice || 0) || undefined
+        : Number(formData.advertisingSalePrice || 0) || undefined
+    const finalAdvertisingPrice = effectiveAdvertisingPrice ?? effectivePublicPrice
 
     const computedOneClickData = {
       ...(formData.oneClickData || {}),
@@ -46435,6 +47083,8 @@ function PropertyModal({
         new Date().toLocaleString('it-IT'),
       titolo_annuncio:
         (formData.oneClickData?.titolo_annuncio || formData.title || '').trim().slice(0, 50),
+      prezzo:
+        finalAdvertisingPrice,
       selectedPortalCodes: Array.isArray(formData.oneClickData?.selectedPortalCodes)
         ? formData.oneClickData.selectedPortalCodes
             .map((v: any) => Number(v))
@@ -46485,8 +47135,8 @@ function PropertyModal({
       notes: notesWithInternalPrice,
       propertyTax: undefined,
       images: uploadedImages,
-      advertisingSalePrice: formData.contractType === 'RENT' ? undefined : (formData.advertisingSalePrice || undefined),
-      advertisingRentPrice: formData.contractType === 'RENT' ? (formData.advertisingRentPrice || undefined) : undefined,
+      advertisingSalePrice: formData.contractType === 'RENT' ? undefined : finalAdvertisingPrice,
+      advertisingRentPrice: formData.contractType === 'RENT' ? finalAdvertisingPrice : undefined,
       portalTargets: ['ONECLICKANNUNCI'],
       oneClickData: computedOneClickData,
       submitForApproval: !isAdminUser,
@@ -48179,9 +48829,9 @@ function PropertyModal({
                     </label>
                   </div>
                   <div>
-                    <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: '500' }}>Classe Energetica</label>
-                    <select value={formData.energyClass} onChange={(e) => setFormData({ ...formData, energyClass: e.target.value })} style={{ width:'100%', padding:'0.75rem', border:'1px solid rgba(71,85,105,.55)', borderRadius:'0.375rem' }}>
-                      <option value="A+">A+</option><option value="A">A</option><option value="B">B</option><option value="C">C</option><option value="D">D</option><option value="E">E</option><option value="F">F</option><option value="G">G</option>
+                    <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: '500' }}>Classe Energetica *</label>
+                    <select value={formData.energyClass} onChange={(e) => setFormData({ ...formData, energyClass: e.target.value })} required style={{ width:'100%', padding:'0.75rem', border:'1px solid rgba(71,85,105,.55)', borderRadius:'0.375rem' }}>
+                      <option value="">Seleziona...</option><option value="A+">A+</option><option value="A">A</option><option value="B">B</option><option value="C">C</option><option value="D">D</option><option value="E">E</option><option value="F">F</option><option value="G">G</option>
                     </select>
                   </div>
                   <div>
@@ -48578,8 +49228,7 @@ function PropertyModal({
                           ? { advertisingRentPrice: e.target.value ? parseInt(e.target.value) : undefined, advertisingSalePrice: undefined }
                           : { advertisingSalePrice: e.target.value ? parseInt(e.target.value) : undefined, advertisingRentPrice: undefined })
                       })}
-                      disabled={!isAdminUser}
-                      placeholder={isAdminUser ? 'Inserisci prezzo per i portali' : 'Modificabile solo da admin'}
+                      placeholder="Inserisci prezzo per i portali"
 
                       style={{
 
@@ -48590,7 +49239,7 @@ function PropertyModal({
                         border: '1px solid rgba(71, 85, 105, 0.55)',
 
                         borderRadius: '0.375rem'
-                        , backgroundColor: !isAdminUser ? 'rgba(15, 23, 42, 0.4)' : 'transparent'
+                        , backgroundColor: 'transparent'
 
                       }}
 
@@ -49763,16 +50412,17 @@ function PropertyModal({
                     }}
 
                     required
+                    disabled={!isAdminUser}
 
                   >
 
-                    <option value="">-- Seleziona un agente --</option>
+                    <option value="">{isAdminUser ? '-- Seleziona un agente --' : '-- Agente assegnato automaticamente --'}</option>
 
-                    {availableAgents.map(agent => (
+                    {assignableAgents.map(agent => (
 
                       <option key={agent.id} value={agent.id}>
 
-                        {agent.name} {agent.specialization ? `- ${agent.specialization}` : ''} (
+                        {resolveAgentDisplayName(agent)} {agent.specialization ? `- ${agent.specialization}` : ''} (
 
                           {agent.role === 'SUPER_ADMIN'
 
@@ -53299,7 +53949,7 @@ function ContactModal({
 
     city: contact?.city || '',
 
-    province: contact?.province || '',
+    province: contact?.province || (category === 'CLIENT' ? 'PE' : ''),
 
     address: contact?.address || '',
 
@@ -53312,6 +53962,8 @@ function ContactModal({
     fiscalCode: contact?.fiscalCode || '',
 
     budget: contact?.budget || undefined,
+    budgetMin: (contact as any)?.budgetMin ?? (contact?.budget || undefined),
+    budgetMax: (contact as any)?.budgetMax ?? (contact?.budget || undefined),
 
     preferences: contact?.preferences || '',
 
@@ -53541,20 +54193,8 @@ function ContactModal({
         alert('Per il cliente email e telefono sono obbligatori')
         return
       }
-      if (!formData.city.trim() || !formData.province.trim()) {
-        alert('Per il cliente citt� e provincia sono obbligatorie')
-        return
-      }
-      if (!String(formData.address || '').trim()) {
-        alert('Per il cliente l\'indirizzo � obbligatorio')
-        return
-      }
-      if (!String(formData.birthDate || '').trim()) {
-        alert('Per il cliente la data di nascita � obbligatoria')
-        return
-      }
-      if (!String(formData.birthPlace || '').trim()) {
-        alert('Per il cliente il luogo di nascita � obbligatorio')
+      if (!formData.province.trim()) {
+        alert('Per il cliente la provincia � obbligatoria')
         return
       }
       if (!String((formData as any).requestGoal || '').trim()) {
@@ -53569,101 +54209,10 @@ function ContactModal({
         alert('Inserisci la zona richiesta')
         return
       }
-      const isApartment = String((formData as any).requestPropertyType || '').toUpperCase() === 'APARTMENT'
-      if (isApartment && !String(formData.requestApartmentType || '').trim()) {
-        alert('Seleziona la tipologia appartamento')
-        return
-      }
-      if ((isLandRequest || isCommercialRequest || isWarehouseRequest || isGarageRequest) && (formData as any).requestSurfaceSqm == null) {
-        alert('Inserisci i mq richiesti')
-        return
-      }
-      if (isResidentialRequest && !formData.requestBedrooms) {
-        alert('Inserisci almeno il numero camere richieste')
-        return
-      }
-      if (isResidentialRequest && !formData.requestBathrooms) {
-        alert('Inserisci il numero bagni richiesti')
-        return
-      }
-      if (isResidentialRequest && !formData.requestFloor) {
-        alert('Inserisci il piano richiesto')
-        return
-      }
-      if (isResidentialRequest && !String((formData as any).requestCondition || '').trim()) {
-        alert('Seleziona lo stato immobile richiesto')
-        return
-      }
-      if (isCommercialRequest) {
-        if ((formData as any).requestSurfaceSqm == null) {
-          alert('Inserisci i mq richiesti')
-          return
-        }
-        if (!formData.requestBathrooms) {
-          alert('Inserisci il numero bagni richiesti')
-          return
-        }
-        if (!(formData as any).requestCommercialRooms) {
-          alert('Inserisci il numero locali richiesti')
-          return
-        }
-        if (!(formData as any).requestParkingSpots) {
-          alert('Inserisci i posti auto richiesti')
-          return
-        }
-        if (isShopLikeRequest && !(formData as any).requestShopWindows) {
-          alert('Inserisci il numero vetrine richieste')
-          return
-        }
-        if (!String((formData as any).requestCondition || '').trim()) {
-          alert('Seleziona lo stato immobile richiesto')
-          return
-        }
-      }
-      if (isWarehouseRequest) {
-        if ((formData as any).requestSurfaceSqm == null) {
-          alert('Inserisci i mq richiesti')
-          return
-        }
-        if (!(formData as any).requestParkingSpots) {
-          alert('Inserisci i posti auto richiesti')
-          return
-        }
-      }
-      if (isLandRequest) {
-        if ((formData as any).requestSurfaceSqm == null) {
-          alert('Inserisci i mq richiesti')
-          return
-        }
-        if (!String((formData as any).requestLandUse || '').trim()) {
-          alert('Inserisci uso terreno')
-          return
-        }
-        if (!String((formData as any).requestBuildable || '').trim()) {
-          alert('Indica se il terreno � edificabile')
-          return
-        }
-      }
-      if (isGarageRequest) {
-        if ((formData as any).requestSurfaceSqm == null) {
-          alert('Inserisci i mq richiesti')
-          return
-        }
-        if (!String((formData as any).requestGarageType || '').trim()) {
-          alert('Seleziona il tipo box richiesto')
-          return
-        }
-      }
-      if (String((formData as any).requestGoal || '').toUpperCase() === 'RENT' && !String((formData as any).rentContractSubtype || '').trim()) {
-        alert('Seleziona il tipo contratto per l\'affitto')
-        return
-      }
-      if ((formData as any).budget == null || Number((formData as any).budget) <= 0) {
-        alert('Inserisci il budget richiesto')
-        return
-      }
-      if (!String(formData.notes || '').trim()) {
-        alert('Inserisci le note richiesta')
+      const budgetMin = Number((formData as any).budgetMin)
+      const budgetMax = Number((formData as any).budgetMax)
+      if (!Number.isFinite(budgetMin) || budgetMin <= 0 || !Number.isFinite(budgetMax) || budgetMax <= 0) {
+        alert('Inserisci budget minimo e massimo richiesti')
         return
       }
     }
@@ -53714,8 +54263,29 @@ function ContactModal({
       .trim()
     const mergedPreferences = [basePreferences, dynamicDetails].filter(Boolean).join('\n\n')
 
+    const rawBudgetMin = Number((formData as any).budgetMin)
+    const rawBudgetMax = Number((formData as any).budgetMax)
+    const normalizedBudgetMin = Number.isFinite(rawBudgetMin) && Number.isFinite(rawBudgetMax)
+      ? Math.min(rawBudgetMin, rawBudgetMax)
+      : (Number.isFinite(rawBudgetMin) ? rawBudgetMin : undefined)
+    const normalizedBudgetMax = Number.isFinite(rawBudgetMin) && Number.isFinite(rawBudgetMax)
+      ? Math.max(rawBudgetMin, rawBudgetMax)
+      : (Number.isFinite(rawBudgetMax) ? rawBudgetMax : undefined)
+
+    const normalizedRequestGoal = String((formData as any).requestGoal || '').trim().toUpperCase()
+    const normalizedType = category === 'CLIENT'
+      ? (normalizedRequestGoal === 'RENT'
+        ? 'TENANT'
+        : (normalizedRequestGoal === 'SALE' ? 'BUYER' : formData.type))
+      : formData.type
+
     onSave({
       ...(formData as any),
+      type: normalizedType as any,
+      requestGoal: normalizedRequestGoal || (formData as any).requestGoal,
+      budgetMin: normalizedBudgetMin,
+      budgetMax: normalizedBudgetMax,
+      budget: normalizedBudgetMax ?? normalizedBudgetMin ?? (formData as any).budget,
       preferences: mergedPreferences
     })
 
@@ -55067,7 +55637,7 @@ function ContactModal({
                   </div>
                   <div>
                     <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: '500' }}>
-                      Citt� *
+                      Citt�
                     </label>
                     <select
                       value={formData.city}
@@ -55087,7 +55657,6 @@ function ContactModal({
                         border: '1px solid #d1d5db',
                         borderRadius: '0.375rem'
                       }}
-                      required
                     >
                       <option value="">
                         {formData.province
@@ -55127,7 +55696,7 @@ function ContactModal({
                   {isRentRequest && (
                     <>
                       <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: '500' }}>
-                        Tipo contratto affitto *
+                        Tipo contratto affitto
                       </label>
                       <select
                         value={(formData as any).rentContractSubtype || ''}
@@ -55138,7 +55707,6 @@ function ContactModal({
                           border: '1px solid #d1d5db',
                           borderRadius: '0.375rem'
                         }}
-                        required={isRentRequest}
                       >
                         <option value="">Seleziona contratto...</option>
                         {rentContractSubtypeOptions.map((option) => (
@@ -55155,20 +55723,20 @@ function ContactModal({
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
                 <div>
                   <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: '500' }}>
-                    Budget (EUR){category === 'CLIENT' ? ' *' : ''}
+                    Budget Min (EUR) *
                   </label>
                   <input
                     type="number"
                     min={0}
-                    step="1000"
-                    value={formData.budget ?? ''}
+                    step="1"
+                    value={(formData as any).budgetMin ?? ''}
                     onChange={(e) =>
                       setFormData((prev) => ({
                         ...prev,
-                        budget: e.target.value ? Number(e.target.value) : undefined
+                        budgetMin: e.target.value ? Number(e.target.value) : undefined
                       }))
                     }
-                    placeholder="Es. 250000"
+                    placeholder="Es. 147000"
                     style={{
                       width: '100%',
                       padding: '0.75rem',
@@ -55178,7 +55746,31 @@ function ContactModal({
                     required={category === 'CLIENT'}
                   />
                 </div>
-                <div />
+                <div>
+                  <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: '500' }}>
+                    Budget Max (EUR) *
+                  </label>
+                  <input
+                    type="number"
+                    min={0}
+                    step="1"
+                    value={(formData as any).budgetMax ?? ''}
+                    onChange={(e) =>
+                      setFormData((prev) => ({
+                        ...prev,
+                        budgetMax: e.target.value ? Number(e.target.value) : undefined
+                      }))
+                    }
+                    placeholder="Es. 143000"
+                    style={{
+                      width: '100%',
+                      padding: '0.75rem',
+                      border: '1px solid #d1d5db',
+                      borderRadius: '0.375rem'
+                    }}
+                    required={category === 'CLIENT'}
+                  />
+                </div>
               </div>
 
 
@@ -55189,13 +55781,12 @@ function ContactModal({
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '0.75rem' }}>
                     <div>
                       <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: '600', color: '#111111' }}>
-                        Camere richieste *
+                        Camere richieste
                       </label>
                       <select
                         value={formData.requestBedrooms ? formData.requestBedrooms.toString() : ''}
                         onChange={(e) => setFormData(prev => ({ ...prev, requestBedrooms: e.target.value ? parseInt(e.target.value, 10) : undefined }))}
                         style={{ width: '100%', padding: '0.75rem', border: '1px solid #d1d5db', borderRadius: '0.375rem' }}
-                        required={isResidentialRequest}
                       >
                         <option value="">Seleziona camere...</option>
                         {numberOptions.map(n => <option key={n} value={n}>{n}</option>)}
@@ -55248,7 +55839,7 @@ function ContactModal({
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '0.75rem' }}>
                     <div>
                       <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: '600', color: '#111111' }}>
-                        MQ richiesti *
+                        MQ richiesti
                       </label>
                       <input
                         type="number"
@@ -55259,7 +55850,6 @@ function ContactModal({
                           requestSurfaceSqm: e.target.value ? parseInt(e.target.value, 10) : undefined
                         }))}
                         style={{ width: '100%', padding: '0.75rem', border: '1px solid #d1d5db', borderRadius: '0.375rem' }}
-                        required
                       />
                     </div>
                     {(isCommercialRequest || isWarehouseRequest) && (
@@ -56477,6 +57067,7 @@ function NotificationsPage({
   const [dayFilter, setDayFilter] = useState<string>('all')
 
   const [typeFilter, setTypeFilter] = useState<string>('all')
+  const [selectedNotification, setSelectedNotification] = useState<Notification | null>(null)
 
 
 
@@ -56712,6 +57303,40 @@ function NotificationsPage({
     }
 
   }
+
+  const getNotificationRoute = (notification: Notification) => {
+    const route = typeof notification.data?.route === 'string'
+      ? String(notification.data.route).trim()
+      : ''
+    const url = typeof notification.data?.url === 'string'
+      ? String(notification.data.url).trim()
+      : ''
+    if (route) return route
+    if (url) return url
+    const propertyId = typeof notification.data?.propertyId === 'string'
+      ? String(notification.data.propertyId).trim()
+      : ''
+    return propertyId ? `/immobili/${encodeURIComponent(propertyId)}` : ''
+  }
+
+  const openNotificationDetails = (notification: Notification) => {
+    if (!notification.isRead) onMarkAsRead(notification.id)
+    setSelectedNotification(notification)
+  }
+
+  const notificationDetail = selectedNotification
+    ? {
+        propertyTitle: String(selectedNotification.data?.propertyTitle || '').trim(),
+        propertyReference: String(selectedNotification.data?.propertyReference || '').trim(),
+        contactName: String(selectedNotification.data?.contactName || '').trim(),
+        contactEmail: String(selectedNotification.data?.contactEmail || '').trim(),
+        contactPhone: String(selectedNotification.data?.contactPhone || '').trim(),
+        availability: String(selectedNotification.data?.availability || '').trim(),
+        timeSlot: String(selectedNotification.data?.timeSlot || '').trim(),
+        note: String(selectedNotification.data?.message || '').trim(),
+        route: getNotificationRoute(selectedNotification)
+      }
+    : null
 
 
 
@@ -57216,13 +57841,16 @@ function NotificationsPage({
                       overflow: 'hidden',
 
                       position: 'relative',
-                      cursor: isPendingApprovalActionable ? 'pointer' : 'default'
+                      cursor: 'pointer'
 
                     }}
                     onClick={() => {
-                      if (!isPendingApprovalActionable || !pendingApprovalPropertyId || !onOpenApprovalProperty) return
-                      if (!notification.isRead) onMarkAsRead(notification.id)
-                      onOpenApprovalProperty(pendingApprovalPropertyId)
+                      if (isPendingApprovalActionable && pendingApprovalPropertyId && onOpenApprovalProperty) {
+                        if (!notification.isRead) onMarkAsRead(notification.id)
+                        onOpenApprovalProperty(pendingApprovalPropertyId)
+                        return
+                      }
+                      openNotificationDetails(notification)
                     }}
 
                   >
@@ -57475,6 +58103,269 @@ function NotificationsPage({
 
       )}
 
+      {selectedNotification && notificationDetail && createPortal(
+        <div
+          onClick={() => setSelectedNotification(null)}
+          style={{
+            position: 'fixed',
+            inset: 0,
+            backgroundColor: 'rgba(15, 23, 42, 0.52)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 10000,
+            padding: '1.5rem'
+          }}
+        >
+          <div
+            onClick={(event) => event.stopPropagation()}
+            style={{
+              width: 'min(760px, 100%)',
+              maxHeight: '90vh',
+              overflowY: 'auto',
+              backgroundColor: '#ffffff',
+              borderRadius: '1rem',
+              boxShadow: '0 24px 60px rgba(15, 23, 42, 0.22)',
+              border: '1px solid #dbe4f0'
+            }}
+          >
+            <div style={{
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'flex-start',
+              gap: '1rem',
+              padding: '1.25rem 1.25rem 1rem 1.25rem',
+              borderBottom: '1px solid #e5e7eb'
+            }}>
+              <div>
+                <div style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '0.4rem',
+                  padding: '0.25rem 0.6rem',
+                  borderRadius: '999px',
+                  backgroundColor: '#eff6ff',
+                  color: '#1d4ed8',
+                  fontSize: '0.75rem',
+                  fontWeight: 700,
+                  marginBottom: '0.75rem'
+                }}>
+                  <span>{getNotificationIcon(selectedNotification.type)}</span>
+                  <span>{getNotificationTypeLabel(selectedNotification.type)}</span>
+                </div>
+                <h3 style={{ margin: 0, fontSize: '1.25rem', fontWeight: 800, color: '#0f172a' }}>
+                  {selectedNotification.title}
+                </h3>
+                <p style={{ margin: '0.45rem 0 0 0', color: '#64748b', fontSize: '0.92rem' }}>
+                  {new Date(selectedNotification.createdAt).toLocaleString('it-IT', {
+                    day: '2-digit',
+                    month: 'long',
+                    year: 'numeric',
+                    hour: '2-digit',
+                    minute: '2-digit'
+                  })}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setSelectedNotification(null)}
+                style={{
+                  width: '2.5rem',
+                  height: '2.5rem',
+                  borderRadius: '999px',
+                  border: '1px solid #d1d5db',
+                  backgroundColor: '#fff',
+                  color: '#334155',
+                  cursor: 'pointer',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  justifyContent: 'center'
+                }}
+                title="Chiudi dettaglio notifica"
+              >
+                <X size={16} />
+              </button>
+            </div>
+
+            <div style={{ padding: '1.25rem', display: 'grid', gap: '1rem' }}>
+              <div style={{
+                backgroundColor: '#f8fafc',
+                border: '1px solid #e2e8f0',
+                borderRadius: '0.85rem',
+                padding: '1rem'
+              }}>
+                <div style={{ fontSize: '0.82rem', fontWeight: 700, color: '#64748b', marginBottom: '0.45rem' }}>
+                  Riepilogo
+                </div>
+                <div style={{ color: '#0f172a', lineHeight: 1.6, whiteSpace: 'pre-wrap' }}>
+                  {selectedNotification.message}
+                </div>
+              </div>
+
+              {(notificationDetail.propertyTitle || notificationDetail.propertyReference || notificationDetail.route) && (
+                <div style={{
+                  backgroundColor: '#ffffff',
+                  border: '1px solid #e2e8f0',
+                  borderRadius: '0.85rem',
+                  padding: '1rem'
+                }}>
+                  <div style={{ fontSize: '0.82rem', fontWeight: 700, color: '#64748b', marginBottom: '0.75rem' }}>
+                    Immobile collegato
+                  </div>
+                  {notificationDetail.propertyTitle && (
+                    <div style={{ fontSize: '1rem', fontWeight: 700, color: '#0f172a', marginBottom: '0.35rem' }}>
+                      {notificationDetail.propertyTitle}
+                    </div>
+                  )}
+                  {notificationDetail.propertyReference && (
+                    <div style={{ color: '#475569', marginBottom: '0.75rem' }}>
+                      Riferimento: {notificationDetail.propertyReference}
+                    </div>
+                  )}
+                  {notificationDetail.route && (
+                    <a
+                      href={notificationDetail.route}
+                      style={{
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '0.45rem',
+                        padding: '0.7rem 0.95rem',
+                        borderRadius: '0.6rem',
+                        backgroundColor: '#2563eb',
+                        color: '#ffffff',
+                        textDecoration: 'none',
+                        fontWeight: 700
+                      }}
+                    >
+                      <Eye size={15} />
+                      Apri immobile
+                    </a>
+                  )}
+                </div>
+              )}
+
+              {(notificationDetail.contactName || notificationDetail.contactPhone || notificationDetail.contactEmail) && (
+                <div style={{
+                  backgroundColor: '#ffffff',
+                  border: '1px solid #e2e8f0',
+                  borderRadius: '0.85rem',
+                  padding: '1rem'
+                }}>
+                  <div style={{ fontSize: '0.82rem', fontWeight: 700, color: '#64748b', marginBottom: '0.75rem' }}>
+                    Contatti
+                  </div>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '0.9rem' }}>
+                    <div>
+                      <div style={{ fontSize: '0.78rem', color: '#64748b', marginBottom: '0.2rem' }}>Nominativo</div>
+                      <div style={{ color: '#0f172a', fontWeight: 700 }}>
+                        {notificationDetail.contactName || 'N/D'}
+                      </div>
+                    </div>
+                    <div>
+                      <div style={{ fontSize: '0.78rem', color: '#64748b', marginBottom: '0.2rem' }}>Telefono</div>
+                      <div style={{ color: '#0f172a', fontWeight: 700 }}>
+                        {notificationDetail.contactPhone || 'N/D'}
+                      </div>
+                    </div>
+                    <div>
+                      <div style={{ fontSize: '0.78rem', color: '#64748b', marginBottom: '0.2rem' }}>Email</div>
+                      <div style={{ color: '#0f172a', fontWeight: 700, wordBreak: 'break-word' }}>
+                        {notificationDetail.contactEmail || 'N/D'}
+                      </div>
+                    </div>
+                  </div>
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.75rem', marginTop: '1rem' }}>
+                    {notificationDetail.contactPhone && (
+                      <a
+                        href={`tel:${notificationDetail.contactPhone}`}
+                        style={{
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '0.45rem',
+                          padding: '0.7rem 0.95rem',
+                          borderRadius: '0.6rem',
+                          backgroundColor: '#eff6ff',
+                          color: '#1d4ed8',
+                          textDecoration: 'none',
+                          fontWeight: 700,
+                          border: '1px solid #bfdbfe'
+                        }}
+                      >
+                        <Phone size={15} />
+                        Chiama subito
+                      </a>
+                    )}
+                    {notificationDetail.contactEmail && (
+                      <a
+                        href={`mailto:${notificationDetail.contactEmail}`}
+                        style={{
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '0.45rem',
+                          padding: '0.7rem 0.95rem',
+                          borderRadius: '0.6rem',
+                          backgroundColor: '#f0fdf4',
+                          color: '#15803d',
+                          textDecoration: 'none',
+                          fontWeight: 700,
+                          border: '1px solid #bbf7d0'
+                        }}
+                      >
+                        <Mail size={15} />
+                        Invia email
+                      </a>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {(notificationDetail.availability || notificationDetail.timeSlot || notificationDetail.note) && (
+                <div style={{
+                  backgroundColor: '#ffffff',
+                  border: '1px solid #e2e8f0',
+                  borderRadius: '0.85rem',
+                  padding: '1rem'
+                }}>
+                  <div style={{ fontSize: '0.82rem', fontWeight: 700, color: '#64748b', marginBottom: '0.75rem' }}>
+                    Dettagli richiesta
+                  </div>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '0.9rem' }}>
+                    {notificationDetail.availability && (
+                      <div>
+                        <div style={{ fontSize: '0.78rem', color: '#64748b', marginBottom: '0.2rem' }}>Disponibilità</div>
+                        <div style={{ color: '#0f172a', fontWeight: 700 }}>{notificationDetail.availability}</div>
+                      </div>
+                    )}
+                    {notificationDetail.timeSlot && (
+                      <div>
+                        <div style={{ fontSize: '0.78rem', color: '#64748b', marginBottom: '0.2rem' }}>Fascia oraria</div>
+                        <div style={{ color: '#0f172a', fontWeight: 700 }}>{notificationDetail.timeSlot}</div>
+                      </div>
+                    )}
+                  </div>
+                  {notificationDetail.note && (
+                    <div style={{ marginTop: '0.9rem' }}>
+                      <div style={{ fontSize: '0.78rem', color: '#64748b', marginBottom: '0.35rem' }}>Messaggio</div>
+                      <div style={{
+                        whiteSpace: 'pre-wrap',
+                        color: '#0f172a',
+                        lineHeight: 1.6,
+                        backgroundColor: '#f8fafc',
+                        border: '1px solid #e2e8f0',
+                        borderRadius: '0.65rem',
+                        padding: '0.85rem'
+                      }}>
+                        {notificationDetail.note}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>,
+        document.body
+      )}
     </div>
 
   )
@@ -60517,6 +61408,11 @@ export default App
 // Force HMR update
 
  
+
+
+
+
+
 
 
 
