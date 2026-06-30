@@ -40,6 +40,7 @@ type FieldDef = {
   type: 'text' | 'number' | 'textarea' | 'checkbox' | 'enum'
   placeholder?: string
   required?: boolean
+  oneClickRequired?: boolean
   enumKey?: string
 }
 
@@ -89,6 +90,7 @@ const badgeBaseStyle: React.CSSProperties = { borderRadius: 999, padding: '1px 6
 const reqBadgeStyle: React.CSSProperties = { ...badgeBaseStyle, color: '#b91c1c', borderColor: '#fca5a5', background: '#fef2f2' }
 const optBadgeStyle: React.CSSProperties = { ...badgeBaseStyle, color: '#374151', borderColor: '#d1d5db', background: '#f9fafb' }
 const helpBadgeStyle: React.CSSProperties = { ...badgeBaseStyle, color: '#1f2937', borderColor: '#cbd5e1', background: '#eff6ff', cursor: 'help' }
+const oneclickBadgeStyle: React.CSSProperties = { ...badgeBaseStyle, color: '#065f46', borderColor: '#6ee7b7', background: '#ecfdf5' }
 
 const pad2 = (n: number) => String(n).padStart(2, '0')
 const toOneClickDateTime = (d: Date) =>
@@ -442,18 +444,7 @@ export function PropertyModalOneClick({ property, onSave, onCancel, currentUserR
   const [form, setForm] = useState<any>(() => buildInitialFormState(property, currentUserRole, user, isAdminUser))
 
   const setOne = (key: string, value: any) => setForm((prev: any) => ({ ...prev, oneClickData: { ...(prev.oneClickData || {}), [key]: value } }))
-  const setAnnouncementType = (value: number) => {
-    const nextContractType = value === 2 ? 'RENT' : 'SALE'
-    setForm((prev: any) => ({
-      ...prev,
-      contractType: nextContractType,
-      oneClickData: {
-        ...(prev.oneClickData || {}),
-        idtipologiaannuncio: value
-      }
-    }))
-  }
-  const setNum = (key: string, value: string) => setOne(key, value ? Number(value) : undefined)
+  const setNum = (key: string, value: string) => setOne(key, value !== '' ? Number(value) : undefined)
   const setSN = (key: string, checked: boolean) => setOne(key, checked ? 'S' : 'N')
 
   useEffect(() => {
@@ -914,8 +905,8 @@ export function PropertyModalOneClick({ property, onSave, onCancel, currentUserR
       { key: 'note_locali', label: 'Note vani', type: 'text', placeholder: 'Es. soggiorno doppio' }
     ],
     11: [
-      { key: 'data_inserimento', label: 'Data inserimento', type: 'text', required: true, placeholder: 'gg/mm/aaaa hh:mm:ss' },
-      { key: 'data_aggiornamento', label: 'Data aggiornamento', type: 'text', required: true, placeholder: 'gg/mm/aaaa hh:mm:ss' }
+      { key: 'data_inserimento', label: 'Data inserimento', type: 'text', required: true, oneClickRequired: true, placeholder: 'gg/mm/aaaa hh:mm:ss' },
+      { key: 'data_aggiornamento', label: 'Data aggiornamento', type: 'text', required: true, oneClickRequired: true, placeholder: 'gg/mm/aaaa hh:mm:ss' }
     ],
     12: [
       { key: 'data_scadenza_asta', label: 'Data scadenza asta', type: 'text', placeholder: 'gg/mm/aaaa' },
@@ -1000,7 +991,10 @@ export function PropertyModalOneClick({ property, onSave, onCancel, currentUserR
     const isAdminOnlyPublishField = f.key === 'prezzo'
     const isReadOnlyForRole = isAdminOnlyPublishField && !isAdminUser
     const helpText = fieldHelp[f.key] || f.placeholder || ''
-    const badge = f.required ? <span style={reqBadgeStyle}>Obbligatorio</span> : <span style={optBadgeStyle}>Facoltativo</span>
+    const badge = <span style={{ display: 'inline-flex', gap: 4, alignItems: 'center' }}>
+      {f.required ? <span style={reqBadgeStyle}>Obbligatorio</span> : <span style={optBadgeStyle}>Facoltativo</span>}
+      {f.oneClickRequired && <span style={oneclickBadgeStyle}>1click</span>}
+    </span>
     const help = helpText ? <span style={helpBadgeStyle} title={helpText}>?</span> : null
     if (f.type === 'checkbox') {
       return <div key={f.key} style={{ border: '1px solid #d1d5db', borderRadius: 6, padding: '0.4rem 0.5rem', background: '#fff' }}>
@@ -1100,7 +1094,7 @@ export function PropertyModalOneClick({ property, onSave, onCancel, currentUserR
   }
 
   const renderStep = () => {
-    if (step === 1) return <div style={cardStyle}><div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 10 }}><div><label style={labelStyle}>Riferimento annuncio *</label><input style={inputStyle} value={form.oneClickData?.riferimento || form.reference || ''} placeholder="Codice univoco es. REF-12345" onChange={(e) => { setForm((p: any) => ({ ...p, reference: e.target.value })); setOne('riferimento', e.target.value) }} /><div style={hintStyle}>Identificativo unico dell'immobile</div></div><div><label style={labelStyle}>Tipologia immobile *</label><select style={inputStyle} value={form.oneClickData?.idtipologiaimmobile || ''} onChange={(e) => setOne('idtipologiaimmobile', e.target.value ? Number(e.target.value) : undefined)}><option value="">Seleziona tipologia...</option>{propertyTypes.map((r) => <option key={r.id} value={r.id}>{r.id} - {r.label}</option>)}</select></div><div><label style={labelStyle}>Tipo annuncio *</label><select style={inputStyle} value={form.oneClickData?.idtipologiaannuncio || 1} onChange={(e) => setAnnouncementType(Number(e.target.value))}>{announcementTypes.map((r) => <option key={r.id} value={r.id}>{r.id} - {r.label}</option>)}</select></div></div></div>
+    if (step === 1) return <div style={cardStyle}><div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 10 }}><div><div style={labelRowStyle}><span style={labelLeftStyle}>Riferimento annuncio *</span><span style={{ display: 'inline-flex', gap: 4 }}><span style={reqBadgeStyle}>Obbligatorio</span><span style={oneclickBadgeStyle}>1click</span></span></div><input style={inputStyle} value={form.oneClickData?.riferimento || form.reference || ''} placeholder="Codice univoco es. REF-12345" onChange={(e) => { setForm((p: any) => ({ ...p, reference: e.target.value })); setOne('riferimento', e.target.value) }} /><div style={hintStyle}>Identificativo unico dell'immobile</div></div><div><div style={labelRowStyle}><span style={labelLeftStyle}>Tipologia immobile *</span><span style={{ display: 'inline-flex', gap: 4 }}><span style={reqBadgeStyle}>Obbligatorio</span><span style={oneclickBadgeStyle}>1click</span></span></div><select style={inputStyle} value={form.oneClickData?.idtipologiaimmobile || ''} onChange={(e) => setOne('idtipologiaimmobile', e.target.value ? Number(e.target.value) : undefined)}><option value="">Seleziona tipologia...</option>{propertyTypes.map((r) => <option key={r.id} value={r.id}>{r.id} - {r.label}</option>)}</select></div><div><div style={labelRowStyle}><span style={labelLeftStyle}>Tipo annuncio *</span><span style={{ display: 'inline-flex', gap: 4 }}><span style={reqBadgeStyle}>Obbligatorio</span><span style={oneclickBadgeStyle}>1click</span></span></div><select style={inputStyle} value={form.oneClickData?.idtipologiaannuncio || 1} onChange={(e) => setOne('idtipologiaannuncio', Number(e.target.value))}>{announcementTypes.map((r) => <option key={r.id} value={r.id}>{r.id} - {r.label}</option>)}</select></div></div></div>
 
     if (step === 2) return <div style={{ ...cardStyle, display: 'grid', gap: 12 }}>
       <div ref={streetAutocompleteRef} style={{ position: 'relative' }}>
@@ -1195,7 +1189,7 @@ export function PropertyModalOneClick({ property, onSave, onCancel, currentUserR
 
       <div style={{ display: 'grid', gridTemplateColumns: '0.9fr 0.55fr 1fr 1fr', gap: 10 }}>
         <div>
-          <label style={labelStyle}>Comune ISTAT *</label>
+          <div style={labelRowStyle}><span style={labelLeftStyle}>Comune ISTAT *</span><span style={{ display: 'inline-flex', gap: 4 }}><span style={reqBadgeStyle}>Obbligatorio</span><span style={oneclickBadgeStyle}>1click</span></span></div>
           <input style={inputStyle} value={form.oneClickData?.comune_istat || form.giComuneIstat || ''} placeholder="Auto da comune" onChange={(e) => { setIstatManual(true); setForm((p: any) => ({ ...p, giComuneIstat: e.target.value })); setOne('comune_istat', e.target.value) }} />
           <div style={hintStyle}>{istatManual ? 'Valore manuale' : 'Compilato automaticamente'}</div>
         </div>
@@ -1240,7 +1234,7 @@ export function PropertyModalOneClick({ property, onSave, onCancel, currentUserR
 
     if (step === 4) return <div style={cardStyle}><div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,minmax(0,1fr))', gap: 10 }}>{fieldDefs[4].map(renderField)}</div></div>
 
-    if (step === 5) return <div style={cardStyle}><div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,minmax(0,1fr))', gap: 10 }}>{renderYesNoChoice('ncostruzionesn', 'Nuova costruzione', true)}{renderField({ key: 'anno_costruzione', label: 'Anno costruzione', type: 'number', placeholder: 'Es. 2008', required: true })}<div><label style={labelStyle}>Condizioni</label><select style={inputStyle} value={form.oneClickData?.condizioni || ''} onChange={(e) => setOne('condizioni', e.target.value)}><option value="">Seleziona...</option>{(dict.enums.condizioni || []).map((o) => <option key={o} value={o}>{o}</option>)}</select></div><div><label style={labelStyle}>Classe immobile</label><select style={inputStyle} value={form.oneClickData?.classe_immobile || ''} onChange={(e) => setOne('classe_immobile', e.target.value)}><option value="">Seleziona...</option>{(dict.enums.classe_immobile || []).map((o) => <option key={o} value={o}>{o}</option>)}</select></div><div><label style={labelStyle}>Disponibilita</label><select style={inputStyle} value={form.oneClickData?.disponibilita || ''} onChange={(e) => setOne('disponibilita', e.target.value)}><option value="">Seleziona...</option>{(dict.enums.disponibilita || []).map((o) => <option key={o} value={o}>{o}</option>)}</select></div>{renderField({ key: 'vetrina', label: 'In vetrina', type: 'checkbox' })}</div></div>
+    if (step === 5) return <div style={cardStyle}><div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,minmax(0,1fr))', gap: 10 }}>{renderField({ key: 'ncostruzionesn', label: 'Nuova costruzione', type: 'checkbox', required: true })}{renderField({ key: 'anno_costruzione', label: 'Anno costruzione', type: 'number', placeholder: 'Es. 2008', required: true })}<div><label style={labelStyle}>Condizioni</label><select style={inputStyle} value={form.oneClickData?.condizioni || ''} onChange={(e) => setOne('condizioni', e.target.value)}><option value="">Seleziona...</option>{(dict.enums.condizioni || []).map((o) => <option key={o} value={o}>{o}</option>)}</select></div><div><label style={labelStyle}>Classe immobile</label><select style={inputStyle} value={form.oneClickData?.classe_immobile || ''} onChange={(e) => setOne('classe_immobile', e.target.value)}><option value="">Seleziona...</option>{(dict.enums.classe_immobile || []).map((o) => <option key={o} value={o}>{o}</option>)}</select></div><div><label style={labelStyle}>Disponibilita</label><select style={inputStyle} value={form.oneClickData?.disponibilita || ''} onChange={(e) => setOne('disponibilita', e.target.value)}><option value="">Seleziona...</option>{(dict.enums.disponibilita || []).map((o) => <option key={o} value={o}>{o}</option>)}</select></div>{renderField({ key: 'vetrina', label: 'In vetrina', type: 'checkbox' })}</div></div>
 
     if (step === 6) return <div style={cardStyle}><div style={{ display: 'grid', gridTemplateColumns: 'repeat(5,minmax(0,1fr))', gap: 10 }}><div><div style={labelRowStyle}><span style={labelLeftStyle}>Piano *</span><span style={reqBadgeStyle}>Obbligatorio</span></div><select style={inputStyle} value={form.oneClickData?.piano || ''} onChange={(e) => setOne('piano', e.target.value)}><option value="">Seleziona...</option>{(dict.enums.piano || []).map((o) => <option key={o} value={o}>{o}</option>)}</select></div>{renderField({ key: 'totale_piani', label: 'Totale piani edificio', type: 'number' })}{renderField({ key: 'unita_immobiliare', label: 'Unità immobiliari', type: 'number' })}{renderField({ key: 'spese_cond_mensili', label: 'Spese condominiali mensili', type: 'number', placeholder: 'Euro/mese', required: true })}{renderYesNoChoice('ascensore', 'Ascensore', true)}</div></div>
 
@@ -1250,7 +1244,7 @@ export function PropertyModalOneClick({ property, onSave, onCancel, currentUserR
 
     if (step === 9) return <div style={cardStyle}><div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,minmax(0,1fr))', gap: 10 }}><div><label style={labelStyle}>Tipo classe energetica</label><select style={inputStyle} value={form.oneClickData?.tipo_classe_energetica || 'V'} onChange={(e) => setOne('tipo_classe_energetica', e.target.value)}><option value="V">V (ante 2015)</option><option value="N">N (post 2015)</option></select></div><div><label style={labelStyle}>Classe energetica</label><select style={inputStyle} value={form.oneClickData?.classe_energetica || ''} onChange={(e) => setOne('classe_energetica', e.target.value)}><option value="">Seleziona...</option>{['A4','A3','A2','A1','B','C','D','E','F','G'].map((o) => <option key={o} value={o}>{o}</option>)}</select></div>{renderField({ key: 'ipe', label: 'IPE', type: 'number' })}{renderField({ key: 'ipe_rinnovabili', label: 'IPE rinnovabili', type: 'number' })}{renderField({ key: 'efficienza_estiva', label: 'Efficienza estiva', type: 'text', placeholder: 'scarsa/sufficiente/buona' })}{renderField({ key: 'efficienza_invernale', label: 'Efficienza invernale', type: 'text', placeholder: 'scarsa/sufficiente/buona' })}{renderField({ key: 'efficienza_zero', label: 'Edificio quasi zero', type: 'checkbox' })}{renderField({ key: 'ipe_certificato', label: 'IPE certificato', type: 'checkbox' })}</div></div>
 
-    if (step === 10) return <div style={cardStyle}><div>{renderField({ key: 'descrizione', label: 'Descrizione immobile', type: 'textarea', required: true, placeholder: 'Descrizione completa (obbligatoria)' })}</div><div style={{ marginTop: 10 }}>{renderField({ key: 'titolo_annuncio', label: 'Titolo annuncio', type: 'text', required: true, placeholder: 'Max 50 caratteri' })}</div><div style={{ marginTop: 10, display: 'grid', gridTemplateColumns: 'repeat(2,minmax(0,1fr))', gap: 10 }}>{fieldDefs[10].map(renderField)}</div></div>
+    if (step === 10) return <div style={cardStyle}><div>{renderField({ key: 'descrizione', label: 'Descrizione immobile', type: 'textarea', required: true, oneClickRequired: true, placeholder: 'Descrizione completa (obbligatoria)' })}</div><div style={{ marginTop: 10 }}>{renderField({ key: 'titolo_annuncio', label: 'Titolo annuncio', type: 'text', required: true, placeholder: 'Max 50 caratteri' })}</div><div style={{ marginTop: 10, display: 'grid', gridTemplateColumns: 'repeat(2,minmax(0,1fr))', gap: 10 }}>{fieldDefs[10].map(renderField)}</div></div>
 
     if (step === 11) return <div style={cardStyle}>
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,minmax(0,1fr))', gap: 10 }}>{fieldDefs[11].map(renderField)}</div>
@@ -1471,10 +1465,10 @@ export function PropertyModalOneClick({ property, onSave, onCancel, currentUserR
     const announcementTypeId = Number(oneClickData.idtipologiaannuncio || 0)
     const selectedAnnouncementType = announcementTypes.find((r) => Number(r.id) === announcementTypeId)
     const isCasaVacanze = /casa\s*vacanz|turistic/i.test(String(selectedAnnouncementType?.label || ''))
-    const resolvedContractType = announcementTypeId === 2 ? 'RENT' : 'SALE'
-    const isRentListing = resolvedContractType === 'RENT'
+    const isRentListing = String(form.contractType || '').toUpperCase() === 'RENT' || announcementTypeId === 2
     const isYes = (v: any) => String(v || 'N').toUpperCase() === 'S'
     const hasPositive = (v: any) => Number.isFinite(Number(v)) && Number(v) > 0
+    const hasNonNegative = (v: any) => v !== undefined && v !== null && v !== '' && Number.isFinite(Number(v)) && Number(v) >= 0
 
     const missing: string[] = []
     if (!oneClickData.riferimento) missing.push('Riferimento')
@@ -1506,9 +1500,9 @@ export function PropertyModalOneClick({ property, onSave, onCancel, currentUserR
     if (isCasaVacanze && !hasPositive(oneClickData.prezzo_settimanale)) missing.push('Prezzo settimanale (casa vacanze)')
 
     if (!hasPositive(oneClickData.mq)) missing.push('Superficie (mq)')
-    if (!hasPositive(oneClickData.nr_locali)) missing.push('Numero locali')
-    if (!hasPositive(oneClickData.nr_camere)) missing.push('Numero camere')
-    if (!hasPositive(oneClickData.nr_servizi)) missing.push('Numero bagni')
+    if (!hasNonNegative(oneClickData.nr_locali)) missing.push('Numero locali')
+    if (!hasNonNegative(oneClickData.nr_camere)) missing.push('Numero camere')
+    if (!hasNonNegative(oneClickData.nr_servizi)) missing.push('Numero bagni')
 
     if (!String(oneClickData.anno_costruzione || '').trim()) missing.push('Anno costruzione')
     if (!String(oneClickData.ncostruzionesn || '').trim()) missing.push('Nuova costruzione')
@@ -1561,7 +1555,6 @@ export function PropertyModalOneClick({ property, onSave, onCancel, currentUserR
 
     const payload = {
       ...form,
-      contractType: resolvedContractType,
       title: String(form.title || form.oneClickData?.titolo_annuncio || '').trim(),
       reference: String(form.reference || oneClickData.riferimento || '').trim(),
       description: String(form.description || oneClickData.descrizione || '').trim(),

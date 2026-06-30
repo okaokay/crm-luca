@@ -45,7 +45,6 @@ import {
   getMatchStatusFromScore,
   MATCHING_WEIGHTS
 } from './matchingEngine';
-import { importImmobiliareCsvBuffer } from './immobiliareCsvImport';
 import { saveSecret, getSecret } from './secretManagerClient';
 import { buildLegacyCapZoneLabel, extractLegacyCapFromZoneLabel } from './zoneIdentity';
 import { resolveZoneScope } from './zoneScopeResolver';
@@ -1315,10 +1314,10 @@ const toPositivePriceOrNull = (value: unknown): number | null => {
 };
 
 const getPreferredSalePrice = (property: any): number | null =>
-  toPositivePriceOrNull(property?.advertisingSalePrice);
+  toPositivePriceOrNull(property?.advertisingSalePrice) ?? toPositivePriceOrNull(property?.salePrice);
 
 const getPreferredRentPrice = (property: any): number | null =>
-  toPositivePriceOrNull(property?.advertisingRentPrice);
+  toPositivePriceOrNull(property?.advertisingRentPrice) ?? toPositivePriceOrNull(property?.rentPrice);
 
 const getPreferredContractPrice = (property: any): number | null => {
   const contractType = (property?.contractType || '').toString().toUpperCase();
@@ -1328,71 +1327,6 @@ const getPreferredContractPrice = (property: any): number | null => {
   if (contractType === 'RENT') return rent ?? sale;
   if (contractType === 'SALE') return sale ?? rent;
   return sale ?? rent;
-};
-
-const normalizePropertyPricesForUi = (property: any) => {
-  if (!property || typeof property !== 'object') return property;
-  const oneClick = property.oneClickData && typeof property.oneClickData === 'object' ? property.oneClickData : {};
-  const feedPriceRaw = (oneClick as any)?.prezzo;
-  const feedPrice = Number(feedPriceRaw);
-  if (!Number.isFinite(feedPrice) || feedPrice <= 0) return property;
-
-  const contractType = String(property.contractType || '').trim().toUpperCase();
-  if (contractType === 'RENT') {
-    return {
-      ...property,
-      advertisingRentPrice: feedPrice,
-      rentPrice: feedPrice
-    };
-  }
-
-  return {
-    ...property,
-    advertisingSalePrice: feedPrice,
-    salePrice: feedPrice
-  };
-};
-
-const summarizePropertyForList = (property: any) => {
-  const normalized = normalizePropertyPricesForUi(property);
-  if (!normalized || typeof normalized !== 'object') return normalized;
-
-  const images = Array.isArray(normalized.images)
-    ? normalized.images.filter((image: any) => typeof image === 'string' && image.trim())
-    : [];
-  const oneClick = normalized.oneClickData && typeof normalized.oneClickData === 'object'
-    ? normalized.oneClickData
-    : {};
-
-  return {
-    ...normalized,
-    images: images.length > 0 ? [images[0]] : [],
-    imageCount: images.length,
-    oneClickData: {
-      publicationReview: (oneClick as any).publicationReview || undefined,
-      selectedPortalCodes: Array.isArray((oneClick as any).selectedPortalCodes) ? (oneClick as any).selectedPortalCodes : undefined
-    }
-  };
-};
-
-const serializePropertyForDetail = (property: any, options: { includeOneClickMedia?: boolean } = {}) => {
-  const normalized = normalizePropertyPricesForUi(property);
-  if (!normalized || typeof normalized !== 'object') return normalized;
-  if (options.includeOneClickMedia) return normalized;
-
-  const oneClick = normalized.oneClickData && typeof normalized.oneClickData === 'object'
-    ? { ...normalized.oneClickData }
-    : normalized.oneClickData;
-
-  if (oneClick && typeof oneClick === 'object') {
-    delete (oneClick as any).immagini;
-    delete (oneClick as any).videos;
-  }
-
-  return {
-    ...normalized,
-    oneClickData: oneClick
-  };
 };
 
 const isRequirementSatisfied = (requirement: PortalRequirement, property: Prisma.PropertyGetPayload<{}>) => {
@@ -2598,13 +2532,14 @@ app.use(
     credentials: true
   })
 );
+const _jsonBodyLimit = (process.env.JSON_BODY_LIMIT || '10mb').trim() || '10mb';
+const _jsonParser = express.json({ limit: _jsonBodyLimit });
 app.use((req, res, next) => {
   if (req.originalUrl === '/stripe/webhook') {
     next();
     return;
   }
-  const jsonBodyLimit = (process.env.JSON_BODY_LIMIT || '50mb').trim() || '50mb';
-  express.json({ limit: jsonBodyLimit })(req, res, next);
+  _jsonParser(req, res, next);
 });
 
 app.use((req, res, next) => {
@@ -3091,7 +3026,7 @@ app.use(async (req, res, next) => {
     }
 
     (req as any).auth = { id: user.id, role: user.role, agencyId: user.agencyId };
-    maybeRunAppointmentReminderSweep();
+    if (!IS_VERCEL_RUNTIME) maybeRunAppointmentReminderSweep();
     return next();
   } catch (error) {
     return res.status(500).json({ success: false, message: 'Auth error' });
@@ -3145,8 +3080,7 @@ app.get('/api/public/properties/:id', async (req, res) => {
 
     const where: any = {
       id: req.params.id,
-      isPublished: true,
-      status: { not: 'ARCHIVED' }
+      isPublished: true
     };
 
     if (agencyId) where.agencyId = agencyId;
@@ -3855,7 +3789,7 @@ app.get('/api/portals', async (req, res) => {
     }
 
     const properties = await prisma.property.findMany({
-      where: { agencyId: auth.agencyId, status: { not: 'ARCHIVED' } },
+      where: { agencyId: auth.agencyId },
       select: {
         portalTargets: true,
         isPublished: true,
@@ -4438,8 +4372,7 @@ app.get('/api/portals/:portalId/stats', async (req, res) => {
 
     const properties = await prisma.property.findMany({
       where: {
-        agencyId: auth.agencyId,
-        status: { not: 'ARCHIVED' }
+        agencyId: auth.agencyId
       },
       select: {
         portalTargets: true,
@@ -6675,8 +6608,7 @@ app.get('/feeds/1clickannunci.xml', async (req, res) => {
   try {
     const agencyId = await resolvePublicAgencyId(req);
     const where: any = {
-      isPublished: true,
-      status: { not: 'ARCHIVED' }
+      isPublished: true
     };
     if (agencyId) where.agencyId = agencyId;
 
@@ -6788,7 +6720,7 @@ app.get('/feeds/gestionale_sync.tar.gz', async (req, res) => {
 app.get('/api/dashboard/stats', async (req, res) => {
   try {
     const auth = getAuth(req);
-    const propertyWhere: any = { status: { not: 'ARCHIVED' } };
+    const propertyWhere: any = {};
     const contactWhere: any = {};
     const appointmentWhere: any = {};
     const activityWhere: any = {};
@@ -7937,127 +7869,6 @@ app.post('/api/agent-zones/dynamic-groups', async (req, res) => {
   }
 });
 
-app.put('/api/agent-zones/dynamic-groups/:groupId', async (req, res) => {
-  try {
-    const auth = getAuth(req);
-    if (!auth) return res.status(401).json({ success: false, message: 'Unauthorized' });
-    if (!isAdminRole(auth.role)) return res.status(403).json({ success: false, message: 'Forbidden' });
-    const prismaAny = prisma as any;
-    const groupId = String(req.params.groupId || '').trim();
-    const nextGroupName = String(req.body?.groupName || '').trim();
-    const rawStreets = Array.isArray(req.body?.streets) ? req.body.streets : [];
-    if (!groupId) return res.status(400).json({ success: false, message: 'groupId obbligatorio' });
-    if (!nextGroupName) return res.status(400).json({ success: false, message: 'groupName obbligatorio' });
-
-    const group = await prismaAny.zoneStreetGroup.findUnique({
-      where: { id: groupId },
-      include: {
-        zone: { select: { id: true, agencyId: true, notes: true, city: true, province: true, region: true, zone: true } },
-        members: {
-          orderBy: { position: 'asc' },
-          include: {
-            street: { select: { id: true, name: true, normalizedName: true } }
-          }
-        }
-      }
-    });
-    if (!group || !group.zone) return res.status(404).json({ success: false, message: 'Gruppo non trovato' });
-    if (String(group.zone.notes || '') !== DYNAMIC_ZONE_GROUP_MARKER) {
-      return res.status(400).json({ success: false, message: 'Il gruppo selezionato non è dinamico' });
-    }
-    if (auth.agencyId && auth.role !== 'SUPER_ADMIN' && String(group.zone.agencyId) !== String(auth.agencyId)) {
-      return res.status(403).json({ success: false, message: 'Forbidden' });
-    }
-
-    const existingNorms = new Set<string>(
-      (group.members || [])
-        .map((member: any) => String(member?.street?.normalizedName || '').trim())
-        .filter(Boolean)
-    );
-    const dedupIncoming = new Map<string, string>();
-    for (const raw of rawStreets) {
-      const sanitized = sanitizeStreetName(String(raw || ''));
-      const normalized = normalizeStreetName(sanitized);
-      if (!sanitized || !normalized) continue;
-      if (!existingNorms.has(normalized) && !dedupIncoming.has(normalized)) dedupIncoming.set(normalized, sanitized);
-    }
-    const streetsToCreate = Array.from(dedupIncoming.entries());
-
-    const updated = await prismaAny.$transaction(async (tx: any) => {
-      const updatedGroup = await tx.zoneStreetGroup.update({
-        where: { id: group.id },
-        data: { name: nextGroupName }
-      });
-
-      let nextPosition = Number(
-        (group.members || []).reduce((acc: number, member: any) => Math.max(acc, Number(member.position || 0)), -1)
-      ) + 1;
-
-      for (const [normalizedName, streetName] of streetsToCreate) {
-        const street = await tx.zoneStreet.create({
-          data: {
-            agencyId: String(group.zone.agencyId),
-            zoneId: String(group.zone.id),
-            name: streetName,
-            normalizedName,
-            orderIndex: nextPosition
-          }
-        });
-        await tx.zoneStreetGroupMember.create({
-          data: {
-            groupId: String(group.id),
-            streetId: String(street.id),
-            position: nextPosition
-          }
-        });
-        nextPosition += 1;
-      }
-
-      const refreshedGroupSize = await tx.zoneStreetGroupMember.count({ where: { groupId: String(group.id) } });
-      await tx.zoneStreetGroup.update({
-        where: { id: String(group.id) },
-        data: { groupSize: refreshedGroupSize }
-      });
-      const refreshedZoneStreetCount = await tx.zoneStreet.count({ where: { zoneId: String(group.zone.id) } });
-      await tx.agentZone.update({
-        where: { id: String(group.zone.id) },
-        data: { groupSize: refreshedZoneStreetCount, lastImportedAt: new Date() }
-      });
-
-      const finalGroup = await tx.zoneStreetGroup.findUnique({
-        where: { id: String(group.id) },
-        include: {
-          members: {
-            orderBy: { position: 'asc' },
-            include: { street: { select: { id: true, name: true } } }
-          }
-        }
-      });
-      return { updatedGroup, finalGroup };
-    });
-
-    res.json({
-      success: true,
-      data: {
-        zoneId: String(group.zone.id),
-        groupId: String(group.id),
-        city: String(group.zone.city || ''),
-        province: String(group.zone.province || ''),
-        region: String(group.zone.region || ''),
-        zoneName: parseDynamicZoneLabel(group.zone.zone),
-        groupName: String(updated.updatedGroup.name || ''),
-        streets: (updated.finalGroup?.members || [])
-          .map((member: any) => member?.street)
-          .filter(Boolean)
-          .map((street: any) => ({ id: String(street.id), name: String(street.name) })),
-        createdStreets: streetsToCreate.length
-      }
-    });
-  } catch (error) {
-    res.status(500).json({ success: false, message: 'Error updating dynamic group' });
-  }
-});
-
 app.delete('/api/agent-zones/dynamic-groups/:groupId', async (req, res) => {
   try {
     const auth = getAuth(req);
@@ -8273,75 +8084,6 @@ app.post('/api/agent-zones/dynamic-groups/:groupId/logs', async (req, res) => {
     res.status(201).json({ success: true, data: created });
   } catch (error) {
     res.status(500).json({ success: false, message: 'Error saving dynamic group log' });
-  }
-});
-
-app.put('/api/agent-zones/dynamic-groups/:groupId/logs/:logId', async (req, res) => {
-  try {
-    const auth = getAuth(req);
-    if (!auth) return res.status(401).json({ success: false, message: 'Unauthorized' });
-    const prismaAny = prisma as any;
-    const groupId = String(req.params.groupId || '').trim();
-    const logId = String(req.params.logId || '').trim();
-    if (!groupId || !logId) return res.status(400).json({ success: false, message: 'groupId e logId obbligatori' });
-
-    const group = await prismaAny.zoneStreetGroup.findUnique({
-      where: { id: groupId },
-      include: { zone: { select: { id: true, agencyId: true, notes: true } } }
-    });
-    if (!group || !group.zone) return res.status(404).json({ success: false, message: 'Gruppo non trovato' });
-    if (String(group.zone.notes || '') !== DYNAMIC_ZONE_GROUP_MARKER) {
-      return res.status(400).json({ success: false, message: 'Gruppo non dinamico' });
-    }
-    if (auth.agencyId && auth.role !== 'SUPER_ADMIN' && String(group.zone.agencyId) !== String(auth.agencyId)) {
-      return res.status(403).json({ success: false, message: 'Forbidden' });
-    }
-
-    let canWrite = isAdminRole(auth.role);
-    if (!canWrite) {
-      const activeAssignment = await prismaAny.zoneAssignment.findFirst({
-        where: {
-          zoneId: group.zone.id,
-          groupId: group.id,
-          assignmentType: 'GROUP',
-          agentId: auth.id,
-          isActive: true
-        },
-        select: { id: true }
-      });
-      canWrite = Boolean(activeAssignment);
-    }
-    if (!canWrite) return res.status(403).json({ success: false, message: 'Forbidden' });
-
-    const existing = await prismaAny.zoneGroupWorkLog.findFirst({
-      where: {
-        id: logId,
-        groupId: String(group.id),
-        zoneId: String(group.zone.id)
-      }
-    });
-    if (!existing) return res.status(404).json({ success: false, message: 'Informazione non trovata' });
-
-    const entryTypeRaw = String(req.body?.entryType || existing.entryType || 'NOTE').trim().toUpperCase();
-    const validTypes = ['NOTE', 'STATUS', 'STATISTICS', 'HANDOVER'];
-    const entryType = validTypes.includes(entryTypeRaw) ? entryTypeRaw : 'NOTE';
-    const title = req.body?.title != null ? String(req.body.title).trim() : String(existing.title || '').trim();
-    const content = String(req.body?.content || '').trim();
-    if (!content) return res.status(400).json({ success: false, message: 'Contenuto obbligatorio' });
-
-    const updated = await prismaAny.zoneGroupWorkLog.update({
-      where: { id: existing.id },
-      data: {
-        entryType,
-        title: title || null,
-        content,
-        metadata: req.body?.metadata && typeof req.body.metadata === 'object' ? req.body.metadata : (existing.metadata || null)
-      }
-    });
-
-    res.json({ success: true, data: updated });
-  } catch (error) {
-    res.status(500).json({ success: false, message: 'Error updating dynamic group log' });
   }
 });
 
@@ -9239,8 +8981,7 @@ app.post('/api/contact-requests', async (req, res) => {
     const property = await prisma.property.findFirst({
       where: {
         id: safePropertyId,
-        isPublished: true,
-        status: { not: 'ARCHIVED' }
+        isPublished: true
       },
       select: {
         id: true,
@@ -9408,8 +9149,7 @@ app.post('/api/visit-bookings', async (req, res) => {
     const property = await prisma.property.findFirst({
       where: {
         id: safePropertyId,
-        isPublished: true,
-        status: { not: 'ARCHIVED' }
+        isPublished: true
       },
       select: {
         id: true,
@@ -9418,7 +9158,8 @@ app.post('/api/visit-bookings', async (req, res) => {
         city: true,
         address: true,
         agencyId: true,
-        ownerId: true
+        ownerId: true,
+        agentId: true
       }
     });
 
@@ -9429,7 +9170,7 @@ app.post('/api/visit-bookings', async (req, res) => {
       });
     }
 
-    const [admins, propertyOwner, linkedMatches] = await Promise.all([
+    const [admins, assignedAgent, propertyOwner, linkedMatches] = await Promise.all([
       prisma.user.findMany({
         where: {
           agencyId: property.agencyId,
@@ -9438,6 +9179,16 @@ app.post('/api/visit-bookings', async (req, res) => {
         },
         select: { id: true }
       }),
+      property.agentId
+        ? prisma.user.findFirst({
+            where: {
+              id: property.agentId,
+              agencyId: property.agencyId,
+              isActive: true
+            },
+            select: { id: true, role: true }
+          })
+        : Promise.resolve(null),
       prisma.user.findFirst({
         where: {
           id: property.ownerId,
@@ -9462,6 +9213,7 @@ app.post('/api/visit-bookings', async (req, res) => {
 
     const recipientIds = new Set<string>();
     admins.forEach((admin) => recipientIds.add(admin.id));
+    if (assignedAgent) recipientIds.add(assignedAgent.id);
     if (propertyOwner) {
       recipientIds.add(propertyOwner.id);
     }
@@ -9487,33 +9239,25 @@ app.post('/api/visit-bookings', async (req, res) => {
     };
 
     if (recipientIds.size > 0) {
-      try {
-        await Promise.all(
-          Array.from(recipientIds).map((recipientId) =>
-            createNotificationRecord({
-              agencyId: property.agencyId,
-              recipientId,
-              type: 'VISIT_REQUEST',
-              title: notificationTitle,
-              message: notificationMessage,
-              data: notificationData
-            })
-          )
-        );
-      } catch (notificationError) {
-        console.error('Visit booking notification failure:', {
-          propertyId: property.id,
-          agencyId: property.agencyId,
-          recipients: Array.from(recipientIds),
-          error: notificationError
-        });
-      }
+      await Promise.all(
+        Array.from(recipientIds).map((recipientId) =>
+          createNotificationRecord({
+            agencyId: property.agencyId,
+            recipientId,
+            type: 'VISIT_REQUEST',
+            title: notificationTitle,
+            message: notificationMessage,
+            data: notificationData
+          })
+        )
+      );
     }
 
     const firstLinkedAgentId = linkedMatches
       .map((match) => (match.request?.assignedToId ? String(match.request.assignedToId) : ''))
       .find((id) => Boolean(id));
     const activityAssigneeId =
+      (assignedAgent?.id || null) ||
       firstLinkedAgentId ||
       (propertyOwner && propertyOwner.role === 'AGENT' ? propertyOwner.id : null) ||
       admins[0]?.id ||
@@ -9521,37 +9265,27 @@ app.post('/api/visit-bookings', async (req, res) => {
       null;
 
     if (activityAssigneeId) {
-      try {
-        await prisma.activity.create({
-          data: {
-            type: 'TASK',
-            title: `Richiesta visita · ${property.reference || property.id}`,
-            description: [
-              `Contatto: ${safeName}`,
-              safePhone ? `Telefono: ${safePhone}` : null,
-              safeEmail ? `Email: ${safeEmail}` : null,
-              safeAvailability ? `Disponibilità: ${safeAvailability}` : null,
-              safeTimeSlot ? `Fascia oraria: ${safeTimeSlot}` : null,
-              safeMessage ? `Messaggio: ${safeMessage}` : null,
-              `Immobile: ${property.title}`
-            ]
-              .filter(Boolean)
-              .join('\n'),
-            priority: 2,
-            tags: ['public_visit_request'],
-            agencyId: property.agencyId,
-            assignedToId: activityAssigneeId,
-            propertyId: property.id
-          }
-        });
-      } catch (activityError) {
-        console.error('Visit booking activity failure:', {
-          propertyId: property.id,
+      await prisma.activity.create({
+        data: {
+          type: 'TASK',
+          title: `Richiesta visita · ${property.reference || property.id}`,
+          description: [
+            `Contatto: ${safeName}`,
+            safePhone ? `Telefono: ${safePhone}` : null,
+            safeEmail ? `Email: ${safeEmail}` : null,
+            safeAvailability ? `Disponibilità: ${safeAvailability}` : null,
+            safeTimeSlot ? `Fascia oraria: ${safeTimeSlot}` : null,
+            safeMessage ? `Messaggio: ${safeMessage}` : null,
+            `Immobile: ${property.title}`
+          ]
+            .filter(Boolean)
+            .join('\n'),
+          priority: 2,
           agencyId: property.agencyId,
           assignedToId: activityAssigneeId,
-          error: activityError
-        });
-      }
+          propertyId: property.id
+        }
+      });
     }
 
     return res.status(201).json({
@@ -16627,13 +16361,13 @@ app.get('/api/agents/:id/performance-report', async (req, res) => {
 });
 
 app.get('/api/properties', async (req, res) => {
-  const { page = 1, limit = 10, search, type, status, city, assignedToId, archived } = req.query;
+  const { page = 1, limit = 10, search, type, status, city, assignedToId } = req.query;
 
   try {
     const auth = getAuth(req);
     if (!auth) return res.status(401).json({ success: false, message: 'Unauthorized' });
 
-    const where: any = { status: { not: 'ARCHIVED' } };
+    const where: any = {};
 
     if (auth.agencyId) {
       where.agencyId = auth.agencyId;
@@ -16656,13 +16390,7 @@ app.get('/api/properties', async (req, res) => {
     }
 
     if (type) where.type = type;
-    if (archived === 'true' || archived === '1') {
-      where.status = 'ARCHIVED';
-    } else if (status) {
-      where.status = status;
-    } else {
-      where.status = { not: 'ARCHIVED' };
-    }
+    if (status) where.status = status;
     if (city) where.city = { contains: city.toString(), mode: 'insensitive' };
 
     const [total, properties] = await Promise.all([
@@ -16677,7 +16405,7 @@ app.get('/api/properties', async (req, res) => {
 
     res.json({
       success: true,
-      data: properties.map((property: any) => summarizePropertyForList(property)),
+      data: properties,
       pagination: {
         page: Number(page),
         limit: Number(limit),
@@ -16691,275 +16419,13 @@ app.get('/api/properties', async (req, res) => {
   }
 });
 
-const flattenPropertyExportJson = (
-  value: any,
-  prefix: string,
-  target: Record<string, any>
-) => {
-  if (value === null || value === undefined) {
-    target[prefix] = '';
-    return;
-  }
-
-  if (Array.isArray(value)) {
-    const hasNestedObjects = value.some((item) => item && typeof item === 'object');
-    target[prefix] = hasNestedObjects ? JSON.stringify(value) : value.join('|');
-    return;
-  }
-
-  if (typeof value === 'object') {
-    const entries = Object.entries(value);
-    if (entries.length === 0) {
-      target[prefix] = '';
-      return;
-    }
-    for (const [key, nestedValue] of entries) {
-      const nestedPrefix = prefix ? `${prefix}.${key}` : key;
-      flattenPropertyExportJson(nestedValue, nestedPrefix, target);
-    }
-    return;
-  }
-
-  target[prefix] = value;
-};
-
-const exportPropertiesCsvHandler = async (req: express.Request, res: express.Response) => {
-  try {
-    const auth = getAuth(req);
-    if (!auth) return res.status(401).json({ success: false, message: 'Unauthorized' });
-
-    const where: any = {};
-    if (auth.agencyId) {
-      where.agencyId = auth.agencyId;
-    }
-    if (auth.role === 'AGENT') {
-      where.ownerId = auth.id;
-    }
-
-    const properties = await prisma.property.findMany({
-      where,
-      orderBy: { createdAt: 'desc' },
-      include: {
-        owner: {
-          select: {
-            id: true,
-            firstName: true,
-            lastName: true,
-            email: true
-          }
-        }
-      }
-    });
-
-    const baseHeaders = [
-      'id',
-      'giListingId',
-      'immoTypologyId',
-      'immoListingId',
-      'immoSyncStatus',
-      'immoLastSyncAt',
-      'immoLastError',
-      'immoLastRequestId',
-      'apimoPropertyId',
-      'apimoPushStatus',
-      'apimoLastPushAt',
-      'apimoLastPushError',
-      'title',
-      'description',
-      'type',
-      'contractType',
-      'status',
-      'address',
-      'city',
-      'province',
-      'zipCode',
-      'giComuneIstat',
-      'latitude',
-      'longitude',
-      'rooms',
-      'bedrooms',
-      'bathrooms',
-      'surface',
-      'garden',
-      'terrace',
-      'balcony',
-      'parking',
-      'floor',
-      'totalFloors',
-      'elevator',
-      'furnished',
-      'salePrice',
-      'rentPrice',
-      'advertisingSalePrice',
-      'advertisingRentPrice',
-      'expenses',
-      'energyClass',
-      'ownerFirstName',
-      'ownerLastName',
-      'ownerBirthDate',
-      'ownerBirthPlace',
-      'ownerFiscalCode',
-      'ownerAddress',
-      'ownerCity',
-      'ownerZipCode',
-      'ownerEmail',
-      'ownerPhone',
-      'buildingConstructionYear',
-      'buildingRenovationYear',
-      'buildingFloorsTotal',
-      'buildingElevator',
-      'buildingConcierge',
-      'buildingGardenShared',
-      'buildingHeatingType',
-      'buildingCondition',
-      'virtualTour',
-      'floorPlan',
-      'portalTargets',
-      'reference',
-      'notes',
-      'isPublished',
-      'publishedAt',
-      'createdAt',
-      'updatedAt',
-      'agencyId',
-      'ownerId',
-      'assignedAgentId',
-      'assignedAgentName',
-      'assignedAgentEmail',
-      'imageCount',
-      'imageLinks'
-    ];
-
-    const maxImageCount = properties.reduce((max, property) => {
-      const count = Array.isArray(property.images) ? property.images.length : 0;
-      return Math.max(max, count);
-    }, 0);
-    const imageHeaders = Array.from({ length: maxImageCount }, (_, index) => `image_${index + 1}`);
-
-    const oneClickHeadersSet = new Set<string>();
-    const rows = properties.map((property) => {
-      const oneClickFlat: Record<string, any> = {};
-      flattenPropertyExportJson(property.oneClickData, 'oneClickData', oneClickFlat);
-      Object.keys(oneClickFlat).forEach((key) => oneClickHeadersSet.add(key));
-
-      const ownerFullName = [property.owner?.firstName, property.owner?.lastName]
-        .filter(Boolean)
-        .join(' ')
-        .trim();
-      const images = Array.isArray(property.images) ? property.images.filter((image) => typeof image === 'string' && image.trim()) : [];
-      const imageColumns = Object.fromEntries(
-        Array.from({ length: maxImageCount }, (_, index) => [`image_${index + 1}`, images[index] || ''])
-      );
-
-      return {
-        id: property.id,
-        giListingId: property.giListingId,
-        immoTypologyId: property.immoTypologyId,
-        immoListingId: property.immoListingId,
-        immoSyncStatus: property.immoSyncStatus,
-        immoLastSyncAt: property.immoLastSyncAt ? new Date(property.immoLastSyncAt).toISOString() : '',
-        immoLastError: property.immoLastError,
-        immoLastRequestId: property.immoLastRequestId,
-        apimoPropertyId: property.apimoPropertyId,
-        apimoPushStatus: property.apimoPushStatus,
-        apimoLastPushAt: property.apimoLastPushAt ? new Date(property.apimoLastPushAt).toISOString() : '',
-        apimoLastPushError: property.apimoLastPushError,
-        title: property.title,
-        description: property.description,
-        type: property.type,
-        contractType: property.contractType,
-        status: property.status,
-        address: property.address,
-        city: property.city,
-        province: property.province,
-        zipCode: property.zipCode,
-        giComuneIstat: property.giComuneIstat,
-        latitude: property.latitude,
-        longitude: property.longitude,
-        rooms: property.rooms,
-        bedrooms: property.bedrooms,
-        bathrooms: property.bathrooms,
-        surface: property.surface,
-        garden: property.garden,
-        terrace: property.terrace,
-        balcony: property.balcony,
-        parking: property.parking,
-        floor: property.floor,
-        totalFloors: property.totalFloors,
-        elevator: property.elevator,
-        furnished: property.furnished,
-        salePrice: property.salePrice,
-        rentPrice: property.rentPrice,
-        advertisingSalePrice: property.advertisingSalePrice,
-        advertisingRentPrice: property.advertisingRentPrice,
-        expenses: property.expenses,
-        energyClass: property.energyClass,
-        ownerFirstName: property.ownerFirstName,
-        ownerLastName: property.ownerLastName,
-        ownerBirthDate: property.ownerBirthDate,
-        ownerBirthPlace: property.ownerBirthPlace,
-        ownerFiscalCode: property.ownerFiscalCode,
-        ownerAddress: property.ownerAddress,
-        ownerCity: property.ownerCity,
-        ownerZipCode: property.ownerZipCode,
-        ownerEmail: property.ownerEmail,
-        ownerPhone: property.ownerPhone,
-        buildingConstructionYear: property.buildingConstructionYear,
-        buildingRenovationYear: property.buildingRenovationYear,
-        buildingFloorsTotal: property.buildingFloorsTotal,
-        buildingElevator: property.buildingElevator,
-        buildingConcierge: property.buildingConcierge,
-        buildingGardenShared: property.buildingGardenShared,
-        buildingHeatingType: property.buildingHeatingType,
-        buildingCondition: property.buildingCondition,
-        virtualTour: property.virtualTour,
-        floorPlan: property.floorPlan,
-        portalTargets: property.portalTargets,
-        reference: property.reference,
-        notes: property.notes,
-        isPublished: property.isPublished,
-        publishedAt: property.publishedAt ? new Date(property.publishedAt).toISOString() : '',
-        createdAt: property.createdAt ? new Date(property.createdAt).toISOString() : '',
-        updatedAt: property.updatedAt ? new Date(property.updatedAt).toISOString() : '',
-        agencyId: property.agencyId,
-        ownerId: property.ownerId,
-        assignedAgentId: property.owner?.id || property.ownerId,
-        assignedAgentName: ownerFullName || property.owner?.email || '',
-        assignedAgentEmail: property.owner?.email || '',
-        imageCount: images.length,
-        imageLinks: images.join('|'),
-        ...imageColumns,
-        ...oneClickFlat
-      };
-    });
-
-    const oneClickHeaders = Array.from(oneClickHeadersSet).sort((a, b) => a.localeCompare(b, 'it'));
-    const headers = [...baseHeaders, ...imageHeaders, ...oneClickHeaders];
-    const lines = [headers.join(';')];
-
-    rows.forEach((row) => {
-      lines.push(headers.map((header) => escapeCsv(row[header] ?? '')).join(';'));
-    });
-
-    res.setHeader('Content-Type', 'text/csv; charset=utf-8');
-    res.setHeader('Content-Disposition', `attachment; filename="immobili-export-${new Date().toISOString().slice(0, 10)}.csv"`);
-    res.send(`\uFEFF${lines.join('\n')}`);
-  } catch (error) {
-    console.error('Error exporting properties CSV:', error);
-    res.status(500).json({ success: false, message: 'Error exporting properties CSV' });
-  }
-};
-
-app.get('/api/properties/export.csv', exportPropertiesCsvHandler);
-app.get('/api/properties/export', exportPropertiesCsvHandler);
-
 app.get('/api/properties/non-compliant', async (req, res) => {
   try {
     const auth = getAuth(req);
     if (!auth) return res.status(401).json({ success: false, message: 'Unauthorized' });
     if (!isAdminRole(auth.role)) return res.status(403).json({ success: false, message: 'Forbidden' });
 
-    const where: any = { status: { not: 'ARCHIVED' } };
+    const where: any = {};
     if (auth.agencyId) where.agencyId = auth.agencyId;
 
     const properties = await prisma.property.findMany({
@@ -17064,11 +16530,11 @@ app.get('/api/properties/:id', async (req, res) => {
         .join(' ')
         .trim();
       const agentName = ownerFullName || property.owner?.email || '';
-      const serialized = serializePropertyForDetail({
+      const serialized = {
         ...property,
         agentId: property.owner?.id || property.ownerId || null,
         agentName: agentName || null
-      }, { includeOneClickMedia: req.query.includeOneClickMedia === '1' }) as any;
+      } as any;
       delete serialized.owner;
       res.json({ success: true, data: serialized });
     } else {
@@ -17118,11 +16584,10 @@ const parseYesNoFlag = (value: any): boolean | undefined => {
 };
 
 const normalizeContractTypeValue = (rawContractType: any, oneClickAnnouncementType?: any): 'SALE' | 'RENT' | 'BOTH' => {
-  const oneClickType = Number(oneClickAnnouncementType);
-  if (oneClickType === 2) return 'RENT';
-  if (oneClickType === 1) return 'SALE';
   const normalized = String(rawContractType || '').trim().toUpperCase();
   if (normalized === 'SALE' || normalized === 'RENT' || normalized === 'BOTH') return normalized;
+  const oneClickType = Number(oneClickAnnouncementType);
+  if (oneClickType === 2) return 'RENT';
   return 'SALE';
 };
 
@@ -17964,8 +17429,6 @@ app.post('/api/properties', async (req, res) => {
     const contractType = normalizeContractTypeValue(body?.contractType, oneClick?.idtipologiaannuncio);
     const status = normalizePropertyStatusValue(body?.status);
     const inferredPrice = parseNumberOrUndefined(oneClick?.prezzo);
-    const explicitAdvertisingSalePrice = parseNumberOrUndefined(body.advertisingSalePrice);
-    const explicitAdvertisingRentPrice = parseNumberOrUndefined(body.advertisingRentPrice);
     const inferredSurface = parseNumberOrUndefined(oneClick?.mq);
     const inferredRooms = parseIntOrUndefined(oneClick?.nr_locali);
     const inferredBedrooms = parseIntOrUndefined(oneClick?.nr_camere);
@@ -18000,18 +17463,10 @@ app.post('/api/properties', async (req, res) => {
       elevator: parseBooleanOrUndefined(firstDefinedValue(body.elevator, parseYesNoFlag(oneClick?.ascensore))),
       furnished: parseBooleanOrUndefined(firstDefinedValue(body.furnished, parseYesNoFlag(oneClick?.arredato))),
       
-      salePrice: parseNumberOrUndefined(firstDefinedValue(
-        contractType !== 'RENT' ? explicitAdvertisingSalePrice : undefined,
-        body.salePrice,
-        contractType !== 'RENT' ? inferredPrice : undefined
-      )),
-      rentPrice: parseNumberOrUndefined(firstDefinedValue(
-        contractType === 'RENT' ? explicitAdvertisingRentPrice : undefined,
-        body.rentPrice,
-        contractType === 'RENT' ? inferredPrice : undefined
-      )),
-      advertisingSalePrice: explicitAdvertisingSalePrice,
-      advertisingRentPrice: explicitAdvertisingRentPrice,
+      salePrice: parseNumberOrUndefined(firstDefinedValue(body.salePrice, contractType !== 'RENT' ? inferredPrice : undefined)),
+      rentPrice: parseNumberOrUndefined(firstDefinedValue(body.rentPrice, contractType === 'RENT' ? inferredPrice : undefined)),
+      advertisingSalePrice: parseNumberOrUndefined(body.advertisingSalePrice),
+      advertisingRentPrice: parseNumberOrUndefined(body.advertisingRentPrice),
       expenses: parseNumberOrUndefined(firstDefinedValue(body.condominium, body.expenses)), // Map condominium to expenses
       
       energyClass: inferredEnergyClass,
@@ -18325,13 +17780,7 @@ app.put('/api/properties/:id', async (req, res) => {
     // Step 9 - Energetica
     if (!hasValue(oneClickRequired.classe_energetica)) requiredErrors.push('classe_energetica');
 
-    const oneClick = (normalizedOneClickFinal || {}) as any;
-    const contractType = normalizeContractTypeValue(
-      firstDefinedValue(body?.contractType, existing?.contractType),
-      oneClick?.idtipologiaannuncio
-    );
-
-    if (contractType === 'RENT' && !String(oneClick?.contratto_affitto || '').trim()) {
+    if (String(firstDefinedValue(body?.contractType, existing?.contractType) || '').trim().toUpperCase() === 'RENT' && !String((normalizedOneClickFinal as any)?.contratto_affitto || '').trim()) {
       requiredErrors.push('contratto_affitto');
     }
 
@@ -18347,10 +17796,13 @@ app.put('/api/properties/:id', async (req, res) => {
       });
     }
 
+    const oneClick = (normalizedOneClickFinal || {}) as any;
+    const contractType = normalizeContractTypeValue(
+      firstDefinedValue(body?.contractType, existing?.contractType),
+      oneClick?.idtipologiaannuncio
+    );
     const status = normalizePropertyStatusValue(firstDefinedValue(body?.status, existing?.status));
     const inferredPrice = parseNumberOrUndefined(oneClick?.prezzo);
-    const explicitAdvertisingSalePrice = parseNumberOrUndefined(body.advertisingSalePrice);
-    const explicitAdvertisingRentPrice = parseNumberOrUndefined(body.advertisingRentPrice);
     const inferredSurface = parseNumberOrUndefined(oneClick?.mq);
     const inferredRooms = parseIntOrUndefined(oneClick?.nr_locali);
     const inferredBedrooms = parseIntOrUndefined(oneClick?.nr_camere);
@@ -18383,28 +17835,10 @@ app.put('/api/properties/:id', async (req, res) => {
       elevator: parseBooleanOrUndefined(firstDefinedValue(body.elevator, parseYesNoFlag(oneClick?.ascensore), existing?.elevator)),
       furnished: parseBooleanOrUndefined(firstDefinedValue(body.furnished, parseYesNoFlag(oneClick?.arredato), existing?.furnished)),
       
-      salePrice: parseNumberOrUndefined(firstDefinedValue(
-        contractType !== 'RENT' ? explicitAdvertisingSalePrice : undefined,
-        body.salePrice,
-        contractType !== 'RENT' ? inferredPrice : undefined,
-        existing?.salePrice
-      )),
-      rentPrice: parseNumberOrUndefined(firstDefinedValue(
-        contractType === 'RENT' ? explicitAdvertisingRentPrice : undefined,
-        body.rentPrice,
-        contractType === 'RENT' ? inferredPrice : undefined,
-        existing?.rentPrice
-      )),
-      advertisingSalePrice: parseNumberOrUndefined(firstDefinedValue(
-        explicitAdvertisingSalePrice,
-        contractType !== 'RENT' ? inferredPrice : undefined,
-        existing?.advertisingSalePrice
-      )),
-      advertisingRentPrice: parseNumberOrUndefined(firstDefinedValue(
-        explicitAdvertisingRentPrice,
-        contractType === 'RENT' ? inferredPrice : undefined,
-        existing?.advertisingRentPrice
-      )),
+      salePrice: parseNumberOrUndefined(firstDefinedValue(body.salePrice, contractType !== 'RENT' ? inferredPrice : undefined, existing?.salePrice)),
+      rentPrice: parseNumberOrUndefined(firstDefinedValue(body.rentPrice, contractType === 'RENT' ? inferredPrice : undefined, existing?.rentPrice)),
+      advertisingSalePrice: parseNumberOrUndefined(firstDefinedValue(body.advertisingSalePrice, existing?.advertisingSalePrice)),
+      advertisingRentPrice: parseNumberOrUndefined(firstDefinedValue(body.advertisingRentPrice, existing?.advertisingRentPrice)),
       expenses: parseNumberOrUndefined(firstDefinedValue(body.condominium, body.expenses, existing?.expenses)), // Map condominium to expenses
       
       energyClass: firstDefinedValue(body.energyClass, oneClick?.classe_energetica, existing?.energyClass),
@@ -18605,75 +18039,6 @@ app.put('/api/properties/:id', async (req, res) => {
   } catch (error) {
     console.error('Error updating property:', error);
     res.status(500).json({ success: false, message: 'Error updating property', error: String(error) });
-  }
-});
-
-app.post('/api/properties/:id/archive', async (req, res) => {
-  try {
-    const auth = getAuth(req);
-    if (!auth) return res.status(401).json({ success: false, message: 'Unauthorized' });
-
-    const existing = await prisma.property.findUnique({
-      where: { id: req.params.id },
-      select: { id: true, ownerId: true, agencyId: true, status: true, title: true }
-    });
-    if (!existing) return res.status(404).json({ success: false, message: 'Property not found' });
-    if (auth.agencyId && existing.agencyId !== auth.agencyId) return res.status(404).json({ success: false, message: 'Property not found' });
-    if (auth.role === 'AGENT' && existing.ownerId !== auth.id) return res.status(403).json({ success: false, message: 'Forbidden' });
-
-    const archivedProperty = await prisma.property.update({
-      where: { id: existing.id },
-      data: {
-        status: 'ARCHIVED',
-        isPublished: false,
-        portalTargets: [],
-        publishedAt: null,
-        immoSyncStatus: 'NOT_SYNCED',
-        apimoPushStatus: 'NOT_SYNCED'
-      }
-    });
-
-    return res.json({
-      success: true,
-      data: archivedProperty,
-      message: 'Property archived successfully'
-    });
-  } catch (error) {
-    console.error('Error archiving property:', error);
-    return res.status(500).json({ success: false, message: 'Error archiving property' });
-  }
-});
-
-app.post('/api/properties/:id/restore', async (req, res) => {
-  try {
-    const auth = getAuth(req);
-    if (!auth) return res.status(401).json({ success: false, message: 'Unauthorized' });
-
-    const existing = await prisma.property.findUnique({
-      where: { id: req.params.id },
-      select: { id: true, ownerId: true, agencyId: true, status: true }
-    });
-    if (!existing) return res.status(404).json({ success: false, message: 'Property not found' });
-    if (auth.agencyId && existing.agencyId !== auth.agencyId) return res.status(404).json({ success: false, message: 'Property not found' });
-    if (auth.role === 'AGENT' && existing.ownerId !== auth.id) return res.status(403).json({ success: false, message: 'Forbidden' });
-
-    const restoredProperty = await prisma.property.update({
-      where: { id: existing.id },
-      data: {
-        status: 'AVAILABLE',
-        isPublished: false,
-        publishedAt: null
-      }
-    });
-
-    return res.json({
-      success: true,
-      data: restoredProperty,
-      message: 'Property restored successfully'
-    });
-  } catch (error) {
-    console.error('Error restoring property:', error);
-    return res.status(500).json({ success: false, message: 'Error restoring property' });
   }
 });
 
@@ -18999,9 +18364,9 @@ const normalizeRequestFlatResponse = (contact: any) => {
     ...rest,
     requestTitle: request.title ?? undefined,
     requestStatus: request.status ?? undefined,
+    budget: request.maxPrice ?? undefined,
     budgetMin: request.minPrice ?? undefined,
     budgetMax: request.maxPrice ?? undefined,
-    budget: request.maxPrice ?? undefined,
     preferences: request.description ?? undefined,
     requestApartmentType: request.apartmentSubtype ?? undefined,
     requestBedrooms: request.minRooms ?? undefined,
@@ -19480,8 +18845,7 @@ const normalizeContractType = (value?: string): 'SALE' | 'RENT' => {
 
 const pickCsvValue = (row: CsvRow, keys: string[]): string => {
   for (const key of keys) {
-    const normalizedKey = normalizeCsvHeader(key);
-    const value = row[key] ?? row[normalizedKey];
+    const value = row[key];
     if (typeof value === 'string' && value.trim()) return value.trim();
   }
   return '';
@@ -19492,49 +18856,28 @@ const isLegacyContactsCsvRow = (row: CsvRow): boolean => {
     row &&
     (
       'CUSTOMER_TYPE' in row ||
-      'customertype' in row ||
       'NOME' in row ||
-      'firstName' in row ||
       'COGNOME' in row ||
-      'lastName' in row ||
       'CELL1' in row ||
-      'cell1' in row ||
       'TEL1' in row
-    )
-  );
-};
-
-const isLegacyRequestsCsvRow = (row: CsvRow): boolean => {
-  return Boolean(
-    row &&
-    (
-      'IDCUSTOMER' in row ||
-      'idcustomer' in row ||
-      'PREZZO1' in row ||
-      'prezzo1' in row ||
-      'PREZZO2' in row ||
-      'prezzo2' in row ||
-      'CAMERA1' in row ||
-      'camera1' in row ||
-      'BAGNO1' in row
     )
   );
 };
 
 const buildLegacyPhone = (row: CsvRow): string | undefined => {
   const candidates = [
-    [pickCsvValue(row, ['PREFCELL1', 'prefcell1']), pickCsvValue(row, ['CELL1', 'cell1', 'phone'])].filter(Boolean).join(' '),
-    [pickCsvValue(row, ['PREFTEL1', 'preftel1']), pickCsvValue(row, ['TEL1', 'tel1', 'phone'])].filter(Boolean).join(' '),
-    [pickCsvValue(row, ['PREFCELL2', 'prefcell2']), pickCsvValue(row, ['CELL2', 'cell2'])].filter(Boolean).join(' '),
-    [pickCsvValue(row, ['PREFTEL2', 'preftel2']), pickCsvValue(row, ['TEL2', 'tel2'])].filter(Boolean).join(' ')
+    [pickCsvValue(row, ['PREFCELL1']), pickCsvValue(row, ['CELL1'])].filter(Boolean).join(' '),
+    [pickCsvValue(row, ['PREFTEL1']), pickCsvValue(row, ['TEL1'])].filter(Boolean).join(' '),
+    [pickCsvValue(row, ['PREFCELL2']), pickCsvValue(row, ['CELL2'])].filter(Boolean).join(' '),
+    [pickCsvValue(row, ['PREFTEL2']), pickCsvValue(row, ['TEL2'])].filter(Boolean).join(' ')
   ].map((value) => value.trim()).filter(Boolean);
   return candidates[0] || undefined;
 };
 
 const normalizeLegacyNotes = (row: CsvRow): string | undefined => {
   const noteParts = [
-    pickCsvValue(row, ['NOTE', 'notes']),
-    pickCsvValue(row, ['RECAPITI_NOTE', 'recapiti_note'])
+    pickCsvValue(row, ['NOTE']),
+    pickCsvValue(row, ['RECAPITI_NOTE'])
       .replace(/\|+/g, ' ')
       .replace(/\s{2,}/g, ' ')
       .trim()
@@ -19588,39 +18931,6 @@ const inferLegacyContactType = (row: CsvRow, noteText: string): 'BUYER' | 'SELLE
   if (customerType === '1') return contractType === 'RENT' ? 'TENANT' : 'BUYER';
   if (customerType === '0') return contractType === 'RENT' ? 'LANDLORD' : 'SELLER';
   return 'LEAD';
-};
-
-const inferLegacyRequestContractType = (row: CsvRow, noteText: string): 'SALE' | 'RENT' => {
-  const inAffitto = pickCsvValue(row, ['INAFFITTO']);
-  if (inAffitto === '1') return 'RENT';
-  const contractId = pickCsvValue(row, ['IDTIPOCONTRATTO']);
-  if (['2', '3', 'AFFITTO', 'RENT'].includes(contractId.toUpperCase())) return 'RENT';
-  return inferLegacyContractType(noteText);
-};
-
-const inferLegacyRequestPropertyType = (row: CsvRow, noteText: string): Prisma.PropertyType => {
-  const tipoId = pickCsvValue(row, ['IDTIPO']).replace(/,/g, '').trim();
-  const categoria = pickCsvValue(row, ['CATEGORIA']).replace(/,/g, '').trim();
-  const mappedById: Record<string, Prisma.PropertyType> = {
-    '1': 'APARTMENT',
-    '2': 'HOUSE',
-    '3': 'HOUSE',
-    '4': 'APARTMENT',
-    '5': 'APARTMENT',
-    '11': 'VILLA',
-    '16': 'VILLA'
-  };
-  if (mappedById[tipoId]) return mappedById[tipoId];
-  if (mappedById[categoria]) return mappedById[categoria];
-  return inferLegacyPropertyType(noteText);
-};
-
-const inferLegacyRequestContactType = (
-  existingType: string | undefined,
-  contractType: 'SALE' | 'RENT'
-): 'BUYER' | 'TENANT' => {
-  if (existingType === 'BUYER' || existingType === 'TENANT') return existingType;
-  return contractType === 'RENT' ? 'TENANT' : 'BUYER';
 };
 
 const exportContactsCsvHandler = async (req: express.Request, res: express.Response) => {
@@ -19886,96 +19196,9 @@ const importContactsCsvHandler = async (req: express.Request, res: express.Respo
       const row = rows[i];
       try {
         const isLegacyRow = isLegacyContactsCsvRow(row);
-        const isLegacyRequestRow = !isLegacyRow && isLegacyRequestsCsvRow(row);
         const legacyNotes = normalizeLegacyNotes(row) || '';
-        const legacyRequestNotes = pickCsvValue(row, ['NOTE']) || '';
-
-        if (isLegacyRequestRow) {
-          const legacyCustomerId = pickCsvValue(row, ['IDCUSTOMER', 'idcustomer', 'legacyCustomerId']);
-          const legacyRequestId = pickCsvValue(row, ['ID', 'id']) || undefined;
-          if (!legacyCustomerId) {
-            skipped += 1;
-            errors.push(`Riga ${i + 2}: IDCUSTOMER mancante nel CSV richieste`);
-            continue;
-          }
-
-          const contact = await prisma.contact.findFirst({
-            where: { agencyId, legacyCustomerId }
-          });
-
-          if (!contact) {
-            skipped += 1;
-            errors.push(`Riga ${i + 2}: cliente legacy ${legacyCustomerId} non trovato per la richiesta`);
-            continue;
-          }
-
-          const contractType = inferLegacyRequestContractType(row, legacyRequestNotes);
-          const requestType = inferLegacyRequestPropertyType(row, legacyRequestNotes);
-          const inferredContactType = inferLegacyRequestContactType(contact.type as string | undefined, contractType);
-          const minPrice = parseNumberLike(pickCsvValue(row, ['PREZZO1', 'prezzo1', 'requestMinPrice']));
-          const maxPrice = parseNumberLike(pickCsvValue(row, ['PREZZO2', 'prezzo2', 'requestMaxPrice']));
-          const minSurface = parseNumberLike(pickCsvValue(row, ['MQ', 'mq', 'requestMinSurface']));
-          const maxSurface = parseNumberLike(pickCsvValue(row, ['MQ2', 'mq2', 'requestMaxSurface']));
-          const minBathrooms = parseIntLike(pickCsvValue(row, ['BAGNO1', 'bagno1', 'requestMinBathrooms']));
-          const maxBathrooms = parseIntLike(pickCsvValue(row, ['BAGNO2', 'bagno2', 'requestMaxBathrooms']));
-          const minRooms = parseIntLike(pickCsvValue(row, ['CAMERA1', 'camera1', 'requestMinRooms']));
-          const maxRooms = parseIntLike(pickCsvValue(row, ['CAMERA2', 'camera2', 'requestMaxRooms']));
-          const minFloor = parseIntLike(pickCsvValue(row, ['PIANO', 'piano', 'requestMinFloor']));
-
-          if (contact.type !== inferredContactType) {
-            await prisma.contact.update({
-              where: { id: contact.id },
-              data: { type: inferredContactType }
-            });
-            updated += 1;
-          }
-
-          const requestPayload: any = {
-            legacyRequestId,
-            title: `Richiesta per ${contact.firstName} ${contact.lastName}`.trim(),
-            description: legacyRequestNotes || null,
-            contractType,
-            status: 'ACTIVE',
-            type: requestType,
-            apartmentSubtype: requestType === 'APARTMENT' ? 'APPARTAMENTO' : null,
-            minPrice: minPrice ?? null,
-            maxPrice: maxPrice ?? null,
-            minSurface: minSurface ?? null,
-            maxSurface: maxSurface ?? null,
-            minRooms: minRooms ?? null,
-            maxRooms: maxRooms ?? null,
-            minBathrooms: minBathrooms ?? null,
-            maxBathrooms: maxBathrooms ?? null,
-            minFloor: minFloor ?? null,
-            maxFloor: null,
-            cities: [],
-            provinces: [],
-            notes: legacyRequestNotes || null,
-            agencyId,
-            contactId: contact.id
-          };
-
-          const existingReq = legacyRequestId
-            ? await prisma.request.findFirst({
-                where: { agencyId, legacyRequestId }
-              })
-            : await prisma.request.findFirst({
-                where: { agencyId, contactId: contact.id },
-                orderBy: { createdAt: 'desc' }
-              });
-
-          if (existingReq) {
-            await prisma.request.update({ where: { id: existingReq.id }, data: requestPayload });
-          } else {
-            await prisma.request.create({ data: requestPayload });
-          }
-
-          requestsUpserted += 1;
-          continue;
-        }
-
-        const firstName = isLegacyRow ? pickCsvValue(row, ['NOME', 'firstName']) : (row.firstName || '').trim();
-        const lastName = isLegacyRow ? pickCsvValue(row, ['COGNOME', 'lastName']) : (row.lastName || '').trim();
+        const firstName = isLegacyRow ? pickCsvValue(row, ['NOME']) : (row.firstName || '').trim();
+        const lastName = isLegacyRow ? pickCsvValue(row, ['COGNOME']) : (row.lastName || '').trim();
         if (!firstName && !lastName) {
           skipped += 1;
           continue;
@@ -19983,7 +19206,7 @@ const importContactsCsvHandler = async (req: express.Request, res: express.Respo
 
         const lookupId = isLegacyRow ? '' : (row.id || '').trim();
         const legacyCustomerId = isLegacyRow
-          ? pickCsvValue(row, ['ID', 'id']) || undefined
+          ? pickCsvValue(row, ['ID']) || undefined
           : (row.legacyCustomerId || '').trim() || undefined;
         const normalizedType = isLegacyRow
           ? inferLegacyContactType(row, legacyNotes)
@@ -19991,11 +19214,11 @@ const importContactsCsvHandler = async (req: express.Request, res: express.Respo
         const assignedToIdRaw = isLegacyRow ? '' : (row.assignedToId || '').trim();
         const assignedToId = assignedToIdRaw ? assignedToIdRaw : null;
         const legacyPhone = buildLegacyPhone(row);
-        const legacyEmail = pickCsvValue(row, ['EMAIL', 'EMAIL2', 'PEC', 'email']) || null;
-        const legacyAddress = pickCsvValue(row, ['INDIRIZZO', 'address']) || null;
-        const legacyZipCode = pickCsvValue(row, ['CAP', 'zipCode']) || null;
-        const legacyBirthDate = parseDateLike(pickCsvValue(row, ['DATANASCITA', 'birthDate'])) || null;
-        const legacyFiscalCode = pickCsvValue(row, ['CF', 'fiscalCode']) || null;
+        const legacyEmail = pickCsvValue(row, ['EMAIL', 'EMAIL2', 'PEC']) || null;
+        const legacyAddress = pickCsvValue(row, ['INDIRIZZO']) || null;
+        const legacyZipCode = pickCsvValue(row, ['CAP']) || null;
+        const legacyBirthDate = parseDateLike(pickCsvValue(row, ['DATANASCITA'])) || null;
+        const legacyFiscalCode = pickCsvValue(row, ['CF']) || null;
 
         const contactPayload: any = {
           firstName: firstName || 'Cliente',
@@ -20126,50 +19349,6 @@ const importContactsCsvHandler = async (req: express.Request, res: express.Respo
 app.post('/api/contacts/import.csv', upload.single('file'), importContactsCsvHandler);
 app.post('/api/contacts/import', upload.single('file'), importContactsCsvHandler);
 
-app.post('/api/properties/import-immobiliare-csv', upload.single('file'), async (req, res) => {
-  try {
-    const auth = getAuth(req);
-    if (!auth) return res.status(401).json({ success: false, message: 'Unauthorized' });
-    if (!isAdminRole(auth.role)) return res.status(403).json({ success: false, message: 'Forbidden' });
-    if (!req.file) return res.status(400).json({ success: false, message: 'Missing CSV file' });
-
-    let agencyId = auth.agencyId;
-    let ownerId = auth.id;
-
-    if (!agencyId) {
-      const owner = await prisma.user.findUnique({
-        where: { id: auth.id },
-        select: { agencyId: true }
-      });
-      agencyId = owner?.agencyId || null;
-    }
-
-    if (!agencyId) {
-      return res.status(400).json({ success: false, message: 'Missing agencyId for admin importer' });
-    }
-
-    const report = await importImmobiliareCsvBuffer({
-      prisma,
-      csvBuffer: req.file.buffer,
-      agencyId,
-      ownerId
-    });
-
-    res.json({
-      success: true,
-      data: report,
-      message: 'Import immobili da CSV immobiliare.it completato'
-    });
-  } catch (error) {
-    console.error('Error importing immobiliare.it property CSV:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Error importing immobiliare.it property CSV',
-      error: String(error)
-    });
-  }
-});
-
 app.delete('/api/contacts/bulk-delete', async (req, res) => {
   try {
     const auth = getAuth(req);
@@ -20183,7 +19362,7 @@ app.delete('/api/contacts/bulk-delete', async (req, res) => {
     const targetTypes = category === 'PROPRIETOR' ? proprietorTypes : clientTypes;
 
     const targetContacts = await prisma.contact.findMany({
-      where: { agencyId: auth.agencyId, type: { in: targetTypes as any } },
+      where: { agencyId: auth.agencyId, type: { in: targetTypes } },
       select: { id: true }
     });
 
@@ -20355,33 +19534,16 @@ app.get('/api/properties/:id/history-events', async (req, res) => {
       return res.status(404).json({ success: false, message: 'Property not found' });
     }
 
-    const [rows, publicLeadNotifications] = await Promise.all([
-      prisma.auditLog.findMany({
-        where: {
-          entity: 'Property',
-          entityId: property.id,
-          action: {
-            in: ['PROPERTY_APPROVED_AND_PUBLISHED', 'PROPERTY_APPROVED', 'PROPERTY_PUBLISHED']
-          }
-        },
-        orderBy: { createdAt: 'asc' }
-      }),
-      prisma.notification.findMany({
-        where: {
-          agencyId: property.agencyId,
-          type: { in: ['PUBLIC_CONTACT_REQUEST', 'VISIT_REQUEST'] }
-        },
-        orderBy: { createdAt: 'asc' },
-        select: {
-          id: true,
-          type: true,
-          title: true,
-          message: true,
-          data: true,
-          createdAt: true
+    const rows = await prisma.auditLog.findMany({
+      where: {
+        entity: 'Property',
+        entityId: property.id,
+        action: {
+          in: ['PROPERTY_APPROVED_AND_PUBLISHED', 'PROPERTY_APPROVED', 'PROPERTY_PUBLISHED']
         }
-      })
-    ]);
+      },
+      orderBy: { createdAt: 'asc' }
+    });
 
     const userIds = Array.from(
       new Set(
@@ -20400,7 +19562,7 @@ app.get('/api/properties/:id/history-events', async (req, res) => {
 
     const usersById = new Map(users.map((u) => [u.id, u]));
 
-    const approvalEvents = rows.map((row) => {
+    const events = rows.map((row) => {
       const user = row.userId ? usersById.get(String(row.userId)) : null;
       const fullName = [user?.firstName, user?.lastName].filter(Boolean).join(' ').trim();
       const byName = fullName || user?.email || row.userEmail || (row.userId ? `Utente ${String(row.userId).slice(0, 6)}` : 'Utente sconosciuto');
@@ -20423,56 +19585,6 @@ app.get('/api/properties/:id/history-events', async (req, res) => {
         }
       };
     });
-
-    const publicLeadEventsByKey = new Map<string, any>();
-    for (const row of publicLeadNotifications) {
-      const data = row.data && typeof row.data === 'object' ? (row.data as any) : {};
-      const propertyIdFromData = String(data?.propertyId || '').trim();
-      if (propertyIdFromData !== property.id) continue;
-
-      const contactName = String(data?.contactName || '').trim();
-      const contactEmail = String(data?.contactEmail || '').trim();
-      const contactPhone = String(data?.contactPhone || '').trim();
-      const availability = String(data?.availability || '').trim();
-      const timeSlot = String(data?.timeSlot || '').trim();
-      const note = String(data?.message || '').trim();
-      const dedupeKey = [
-        String(row.type || '').trim().toUpperCase(),
-        propertyIdFromData,
-        contactName,
-        contactEmail,
-        contactPhone,
-        availability,
-        timeSlot,
-        note,
-        new Date(row.createdAt).toISOString().slice(0, 19)
-      ].join('|');
-      if (publicLeadEventsByKey.has(dedupeKey)) continue;
-
-      publicLeadEventsByKey.set(dedupeKey, {
-        id: row.id,
-        type: String(row.type || '').trim().toUpperCase() === 'VISIT_REQUEST' ? 'PUBLIC_VISIT' : 'PUBLIC_CONTACT',
-        action: row.type,
-        at: row.createdAt,
-        by: null,
-        lead: {
-          title: String(row.title || '').trim(),
-          message: String(row.message || '').trim(),
-          propertyTitle: String(data?.propertyTitle || '').trim(),
-          propertyReference: String(data?.propertyReference || '').trim(),
-          contactName,
-          contactEmail,
-          contactPhone,
-          availability,
-          timeSlot,
-          note
-        }
-      });
-    }
-
-    const events = [...approvalEvents, ...Array.from(publicLeadEventsByKey.values())].sort(
-      (a, b) => new Date(a.at).getTime() - new Date(b.at).getTime()
-    );
 
     return res.json({ success: true, data: events });
   } catch (error) {
@@ -21155,6 +20267,8 @@ app.post('/api/contacts', async (req, res) => {
       const city = parseOptionalString(data.city);
       const province = parseOptionalString(data.province);
       const address = parseOptionalString(data.address);
+      const birthDate = parseOptionalString(data.birthDate);
+      const birthPlace = parseOptionalString(data.birthPlace);
       const requestGoal = parseOptionalString(data.requestGoal)?.toUpperCase();
       const requestPropertyTypeRaw = parseOptionalString(data.requestPropertyType);
       const requestPropertyType = mapRequestPropertyType(requestPropertyTypeRaw);
@@ -21163,8 +20277,6 @@ app.post('/api/contacts', async (req, res) => {
       const requestSurfaceSqm = parseOptionalNumber(data.requestSurfaceSqm);
       const rentContractSubtype = parseOptionalString(data.rentContractSubtype);
       const budget = parseOptionalNumber(data.budget);
-      const budgetMin = parseOptionalNumber(data.budgetMin);
-      const budgetMax = parseOptionalNumber(data.budgetMax);
       const requestCondition = parseOptionalString(data.requestCondition);
       const requestBathrooms = parseOptionalNumber(data.requestBathrooms);
       const requestBedrooms = parseOptionalNumber(data.requestBedrooms);
@@ -21181,14 +20293,61 @@ app.post('/api/contacts', async (req, res) => {
 
       if (!firstName || !lastName) validationErrors.push('Nome e cognome sono obbligatori');
       if (!email || !phone) validationErrors.push('Per il cliente email e telefono sono obbligatori');
-      if (!province) validationErrors.push('Per il cliente la provincia è obbligatoria');
+      if (!city || !province) validationErrors.push('Per il cliente città e provincia sono obbligatorie');
+      if (!address) validationErrors.push('Per il cliente indirizzo obbligatorio');
+      if (!birthDate) validationErrors.push('Per il cliente data di nascita obbligatoria');
+      if (!birthPlace) validationErrors.push('Per il cliente luogo di nascita obbligatorio');
       if (!requestGoal) validationErrors.push('Seleziona la finalità della richiesta');
       if (!requestPropertyTypeRaw || !requestPropertyType) {
         validationErrors.push('Seleziona la tipologia immobile richiesta');
       }
       if (!requestZone) validationErrors.push('Inserisci la zona richiesta');
-      if (budgetMin == null || budgetMin <= 0 || budgetMax == null || budgetMax <= 0) {
-        validationErrors.push('Inserisci budget minimo e massimo richiesti');
+      if (budget == null || budget <= 0) validationErrors.push('Inserisci il budget richiesto');
+      if (!notes) validationErrors.push('Inserisci le note richiesta');
+
+      const isApartmentRequest = requestPropertyType === 'APARTMENT';
+      const isCommercialRequest = requestPropertyType === 'SHOP' || requestPropertyType === 'OFFICE';
+      const isWarehouseRequest = requestPropertyType === 'WAREHOUSE';
+      const isLandRequest = requestPropertyType === 'LAND';
+      const isGarageRequest = requestPropertyType === 'GARAGE';
+      const isResidentialRequest =
+        requestPropertyType === 'APARTMENT' ||
+        requestPropertyType === 'HOUSE' ||
+        requestPropertyType === 'VILLA';
+      const isShopLikeRequest = requestPropertyType === 'SHOP';
+      if (isApartmentRequest && !requestApartmentType) {
+        validationErrors.push('Seleziona la tipologia appartamento');
+      }
+      if (!isApartmentRequest && requestSurfaceSqm == null) {
+        validationErrors.push('Inserisci i mq richiesti');
+      }
+      if (isResidentialRequest && (requestBedrooms == null || requestBedrooms <= 0)) {
+        validationErrors.push('Inserisci almeno il numero camere richieste');
+      }
+      if (isResidentialRequest && (requestBathrooms == null || requestBathrooms <= 0)) {
+        validationErrors.push('Inserisci il numero bagni richiesti');
+      }
+      if (isResidentialRequest && (requestFloor == null || requestFloor <= 0)) {
+        validationErrors.push('Inserisci il piano richiesto');
+      }
+      if (isResidentialRequest && !requestCondition) {
+        validationErrors.push('Seleziona lo stato immobile richiesto');
+      }
+      if (isCommercialRequest) {
+        if (requestBathrooms == null || requestBathrooms <= 0) validationErrors.push('Inserisci il numero bagni richiesti');
+        if (requestCommercialRooms == null || requestCommercialRooms <= 0) validationErrors.push('Inserisci il numero locali richiesti');
+        if (requestParkingSpots == null || requestParkingSpots <= 0) validationErrors.push('Inserisci i posti auto richiesti');
+        if (isShopLikeRequest && (requestShopWindows == null || requestShopWindows <= 0)) validationErrors.push('Inserisci il numero vetrine richieste');
+        if (!requestCondition) validationErrors.push('Seleziona lo stato immobile richiesto');
+      }
+      if (isWarehouseRequest && (requestParkingSpots == null || requestParkingSpots <= 0)) {
+        validationErrors.push('Inserisci i posti auto richiesti');
+      }
+      if (isLandRequest && !requestLandUse) validationErrors.push('Inserisci uso terreno');
+      if (isLandRequest && !requestBuildable) validationErrors.push('Indica se il terreno è edificabile');
+      if (isGarageRequest && !requestGarageType) validationErrors.push('Seleziona il tipo box richiesto');
+      if (requestGoal === 'RENT' && !rentContractSubtype) {
+        validationErrors.push("Seleziona il tipo contratto per l'affitto");
       }
 
       if (validationErrors.length > 0) {
@@ -21264,16 +20423,7 @@ app.post('/api/contacts', async (req, res) => {
       const minRooms = parseOptionalNumber(data.requestBedrooms);
       const minBathrooms = parseOptionalNumber(data.requestBathrooms);
       const minFloor = parseOptionalNumber(data.requestFloor);
-      const fallbackBudget = parseOptionalNumber(data.budget);
-      const rawMinPrice = parseOptionalNumber(data.budgetMin) ?? fallbackBudget;
-      const rawMaxPrice = parseOptionalNumber(data.budgetMax) ?? fallbackBudget;
-      const minMaxReady =
-        rawMinPrice != null &&
-        rawMaxPrice != null &&
-        Number.isFinite(rawMinPrice) &&
-        Number.isFinite(rawMaxPrice);
-      const minPrice = minMaxReady ? Math.min(rawMinPrice as number, rawMaxPrice as number) : rawMinPrice;
-      const maxPrice = minMaxReady ? Math.max(rawMinPrice as number, rawMaxPrice as number) : rawMaxPrice;
+      const maxPrice = parseOptionalNumber(data.budget);
       const requestMetaNotes = encodeRequestNotesWithMeta(data.notes, {
         [REQUEST_META_KEYS.goal]: requestGoal,
         [REQUEST_META_KEYS.zone]: parseOptionalString(data.requestZone),
@@ -21297,7 +20447,7 @@ app.post('/api/contacts', async (req, res) => {
         maxFloor: minFloor,
         minSurface: requestSurfaceSqm,
         maxSurface: requestSurfaceSqm,
-        minPrice: minPrice ?? undefined,
+        minPrice: maxPrice,
         maxPrice,
         apartmentSubtype,
         cities,
@@ -21403,8 +20553,6 @@ app.put('/api/contacts/:id', async (req, res) => {
       data.requestBathrooms !== undefined ||
       data.requestFloor !== undefined ||
       data.budget !== undefined ||
-      data.budgetMin !== undefined ||
-      data.budgetMax !== undefined ||
       data.preferences !== undefined ||
       data.requestGoal !== undefined ||
       data.requestPropertyType !== undefined ||
@@ -21434,16 +20582,7 @@ app.put('/api/contacts/:id', async (req, res) => {
       const minRooms = parseOptionalNumber(data.requestBedrooms);
       const minBathrooms = parseOptionalNumber(data.requestBathrooms);
       const minFloor = parseOptionalNumber(data.requestFloor);
-      const fallbackBudget = parseOptionalNumber(data.budget);
-      const rawMinPrice = parseOptionalNumber(data.budgetMin) ?? fallbackBudget;
-      const rawMaxPrice = parseOptionalNumber(data.budgetMax) ?? fallbackBudget;
-      const minMaxReady =
-        rawMinPrice != null &&
-        rawMaxPrice != null &&
-        Number.isFinite(rawMinPrice) &&
-        Number.isFinite(rawMaxPrice);
-      const budgetMin = minMaxReady ? Math.min(rawMinPrice as number, rawMaxPrice as number) : rawMinPrice;
-      const budgetMax = minMaxReady ? Math.max(rawMinPrice as number, rawMaxPrice as number) : rawMaxPrice;
+      const budget = parseOptionalNumber(data.budget);
       const mergedNotes = encodeRequestNotesWithMeta(
         parseOptionalString(data.notes) ?? currentMeta.cleanedNotes,
         {
@@ -21473,8 +20612,8 @@ app.put('/api/contacts/:id', async (req, res) => {
         maxFloor: minFloor ?? currentRequest?.maxFloor ?? undefined,
         minSurface: requestSurfaceSqm ?? currentRequest?.minSurface ?? undefined,
         maxSurface: requestSurfaceSqm ?? currentRequest?.maxSurface ?? undefined,
-        minPrice: budgetMin ?? currentRequest?.minPrice ?? undefined,
-        maxPrice: budgetMax ?? currentRequest?.maxPrice ?? undefined,
+        minPrice: budget ?? currentRequest?.minPrice ?? undefined,
+        maxPrice: budget ?? currentRequest?.maxPrice ?? undefined,
         apartmentSubtype:
           requestPropertyType === 'APARTMENT'
             ? parseOptionalString(data.requestApartmentType) ?? currentRequest?.apartmentSubtype ?? undefined
@@ -23025,29 +22164,22 @@ const runRequestActivityReminderSweep = async () => {
     return { processed: 0 };
   }
 
-  let processed = 0;
-  for (const activity of dueActivities) {
-    if (!activity.dueDate || activity.dueDate.getTime() <= now.getTime()) continue;
+  const eligibleActivities = dueActivities.filter(a => a.dueDate && a.dueDate.getTime() > now.getTime());
+  const existingActivityReminders = await Promise.all(
+    eligibleActivities.map(activity => {
+      const reminderType = Array.isArray(activity.tags) && activity.tags.includes('ZONE_NEXT_ACTION') ? 'ZONE_TASK_REMINDER' : 'REQUEST_ACTIVITY_REMINDER';
+      return prisma.notification.findFirst({
+        where: { agencyId: activity.agencyId, recipientId: activity.assignedToId, type: reminderType, data: { path: ['activityId'], equals: activity.id } as any },
+        select: { id: true }
+      });
+    })
+  );
 
+  const toNotify = eligibleActivities.filter((_, i) => !existingActivityReminders[i]);
+  await Promise.all(toNotify.map(activity => {
     const isZoneTaskReminder = Array.isArray(activity.tags) && activity.tags.includes('ZONE_NEXT_ACTION');
     const reminderType = isZoneTaskReminder ? 'ZONE_TASK_REMINDER' : 'REQUEST_ACTIVITY_REMINDER';
-
-    const existingReminder = await prisma.notification.findFirst({
-      where: {
-        agencyId: activity.agencyId,
-        recipientId: activity.assignedToId,
-        type: reminderType,
-        data: {
-          path: ['activityId'],
-          equals: activity.id
-        } as any
-      },
-      select: { id: true }
-    });
-
-    if (existingReminder) continue;
-
-    await createNotificationRecord({
+    return createNotificationRecord({
       agencyId: activity.agencyId,
       recipientId: activity.assignedToId,
       type: reminderType,
@@ -23058,16 +22190,14 @@ const runRequestActivityReminderSweep = async () => {
       data: {
         activityId: activity.id,
         requestId: activity.requestId || null,
-        dueDate: activity.dueDate.toISOString(),
+        dueDate: activity.dueDate!.toISOString(),
         leadHours: REQUEST_ACTIVITY_REMINDER_LEAD_HOURS,
         source: isZoneTaskReminder ? 'ZONE_NEXT_ACTION' : 'REQUEST'
       }
     });
+  }));
 
-    processed += 1;
-  }
-
-  return { processed };
+  return { processed: toNotify.length };
 };
 
 const runAppointmentReminderSweep = async () => {
@@ -23103,8 +22233,8 @@ const runAppointmentReminderSweep = async () => {
     let appointmentProcessed = 0;
 
     if (dueAppointments.length) {
-      for (const appointment of dueAppointments) {
-        await createNotificationRecord({
+      await Promise.all(dueAppointments.map(appointment =>
+        createNotificationRecord({
           agencyId: appointment.agencyId,
           recipientId: appointment.assignedToId,
           type: 'APPOINTMENT_REMINDER',
@@ -23115,13 +22245,12 @@ const runAppointmentReminderSweep = async () => {
             appointmentTitle: appointment.title,
             startTime: appointment.startTime.toISOString()
           }
-        });
-
-        await prisma.appointment.update({
-          where: { id: appointment.id },
-          data: { reminderSent: true }
-        });
-      }
+        })
+      ));
+      await prisma.appointment.updateMany({
+        where: { id: { in: dueAppointments.map(a => a.id) } },
+        data: { reminderSent: true }
+      });
       appointmentProcessed = dueAppointments.length;
     }
 
@@ -23150,21 +22279,15 @@ const runAppointmentReminderSweep = async () => {
     });
 
     if (recentlyEndedAppointments.length) {
-      for (const appointment of recentlyEndedAppointments) {
-        const existingReminder = await prisma.notification.findFirst({
-          where: {
-            agencyId: appointment.agencyId,
-            recipientId: appointment.assignedToId,
-            type: 'APPOINTMENT_REPORT_REMINDER',
-            data: {
-              path: ['appointmentId'],
-              equals: appointment.id
-            } as any
-          },
+      const existingReportReminders = await Promise.all(
+        recentlyEndedAppointments.map(a => prisma.notification.findFirst({
+          where: { agencyId: a.agencyId, recipientId: a.assignedToId, type: 'APPOINTMENT_REPORT_REMINDER', data: { path: ['appointmentId'], equals: a.id } as any },
           select: { id: true }
-        });
-        if (existingReminder) continue;
+        }))
+      );
+      const toNotify = recentlyEndedAppointments.filter((_, i) => !existingReportReminders[i]);
 
+      await Promise.all(toNotify.map(async (appointment) => {
         let relatedActivityTitle: string | null = null;
         let relatedActivityId: string | null = null;
         try {
@@ -23195,7 +22318,7 @@ const runAppointmentReminderSweep = async () => {
             relatedActivityTitle: relatedActivityTitle || null
           }
         });
-      }
+      }));
     }
 
     const [requestActivityReminderResult, morningDailyReminderResult] = await Promise.all([
